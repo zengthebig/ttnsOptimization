@@ -365,6 +365,9 @@ class TTOperator:
         return TTOperator(
             [jnp.moveaxis(core, (0, 1, 2, 3), (3, 1, 2, 0)) for core in self.cores[::-1]]
         )
+    
+    def astype(self, dtype: jnp.dtype) -> TTOperator:
+        return TTOperator([core.astype(dtype) for core in self.cores])
 
 
 def transpose_core(core: jnp.ndarray) -> jnp.ndarray:
