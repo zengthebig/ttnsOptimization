@@ -8,7 +8,7 @@ from ttde.score.experiment_setups.data_setups import NAME_TO_DATASET
 jnp.set_printoptions(precision=4, linewidth=float('inf'))
 np.set_printoptions(precision=4, linewidth=float('inf'))
 
-from jax.config import config
+from jax import config
 config.update("jax_enable_x64", True)
 
 
