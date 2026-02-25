@@ -1,0 +1,789 @@
+"""
+这个文件定义了两个“张量列车/张量链”相关的数据结构：
+
+1) TT: Tensor Train（张量列车）——用一串三维 core 来表示一个高维张量
+   - 每个 core 的形状是 (r_left, dim, r_right)
+   - r_left, r_right 是“TT rank”（内部连接的秩）
+   - dim 是这个维度的物理维度（例如每个变量离散取值个数）
+
+2) TTOperator: TT 格式的线性算子（矩阵/算子）——用一串四维 core 来表示一个高维线性变换
+   - 每个 core 的形状是 (r_left, dim_from, dim_to, r_right)
+   - dim_from 是输入维度，dim_to 是输出维度
+
+此外提供一些常用操作：
+- 生成全 0 的 TT
+- 随机生成 TT / TTOperator
+- 把 TT / Operator “还原成完整张量/完整算子”（full_tensor / full_operator）
+- TT 的 reverse / astype / 减法
+- TT core 的转置（用于 reverse）
+- 两个 TT 的减法（返回一个新的 TT，秩会增大）
+
+注意：代码用 flax.struct.dataclass 让这个类是“不可变 pytree”，方便 JAX 的 jit/vmap/grad。
+"""
+
+from __future__ import annotations
+
+from typing import Tuple, Dict, Union, Sequence, List, Optional
+
+
+import jax
+from jax import numpy as jnp
+from flax import struct
+
+
+@struct.dataclass
+class TTNS:
+    """Tensor Train Network State (tree-structured).
+
+    Dimension convention for each core ``G_k``:
+        G_k[alpha_parent, i_k, alpha_child1, alpha_child2, ...]
+
+    ``alpha_parent`` is the virtual dimension to the parent (size 1 for root),
+    ``i_k`` is the physical dimension, and the remaining axes correspond to the
+    children in the order given by ``neighbors[k]`` with the parent filtered out.
+    """
+
+    cores: List[jnp.ndarray]
+    neighbors: List[List[int]]
+    root: Optional[int] = None
+    parent: Optional[List[int]] = None
+
+    @classmethod
+    def zeros(cls, 
+              parent: Sequence[int], 
+              dims: Sequence[int], 
+              rank_spec: Union[int, Dict[Tuple[int, int], int], Dict[int, int]] = 1, 
+              root: Optional[int] = None) -> TTNS: 
+        """
+        构造一个全 0 的 TTNS。
+
+        参数
+        ----
+        parent:
+            parent[v] = v 或 -1 表示 root；其余 parent[v] 为父节点编号
+        dims:
+            每个节点的物理维度 dim_u，长度必须等于节点数
+        rank_spec:
+            边 rank 规格，支持：
+              - int：所有边同 rank
+              - dict[v] = r：节点 v 到其父边的 rank（v != root）
+              - dict[(u,v)] = r：按边指定 rank
+        root:
+            可选。若给出，会覆盖/规范 parent[root] = root
+        dtype:
+            core 的数据类型
+
+        返回
+        ----
+        TTNS:
+            所有 core 都是 0 的 TTNS，shape 约定为
+            (r_parent(u), dim_u, r_child1, r_child2, ...)
+        """
+        perent = list(parent)
+        n = len(parent)
+        assert(len(dims)==n)
+
+        inferred_root = cls._infer_root_from_parent(parent)
+        if root is None: 
+            root = inferred_root
+        else: 
+            if not (0 <= root < n):
+                raise ValueError(f"root={root} 越界, 节点数n={n}.")
+        
+        neighbors = cls._build_neighbors_from_parent(parent)
+        children = cls._children_lists(parent, neighbors)
+        edge_ranks = cls._edge_ranks_from_spec(parent, rank_spec)
+
+        def key_uv(u: int, v: int) -> Tuple[int, int]: 
+            return (u, v) if u < v else (v, u)
+        
+        # 构造cores
+        cores: List[jnp.ndarray] = []
+        for u in range(n): 
+            if u == root: 
+                r_par = 1 # root 的r_parent = 1
+            else:
+                p = parent[u]
+                r_par = edge_ranks[key_uv(u,p)]
+
+            r_ch = [edge_ranks[key_uv(u,v)] for v in children[u]]
+            shape = (int(r_par), int(dims[u]), *map(int, r_ch)) # *map就是一个解包.
+            cores.append(jnp.zeros(shape))
+
+        return cls(
+            cores=cores,
+            neighbors=neighbors,
+            root=root,
+            parent=parent)
+    
+    @classmethod
+    def generate_random(
+        cls,
+        key: jnp.ndarray,
+        parent: Sequence[int],
+        dims: Sequence[int],
+        rank_spec: Union[int, Dict[Tuple[int, int], int], Dict[int, int]] = 1,
+        root: Optional[int] = None,
+        dtype=jnp.float32,
+        scale: float = 1.0,
+    ) -> "TTNS":
+        """
+        构造一个随机初始化的 TTNS（高斯 N(0, scale^2)）。
+
+        参数
+        ----
+        key:
+            JAX PRNG key
+        parent:
+            parent[v] = v 或 -1 表示 root；其余 parent[v] 为父节点编号
+        dims:
+            每个节点物理维度 dim_u
+        rank_spec:
+            边 rank 规格，支持：
+            - int：所有边同 rank
+            - dict[v] = r：节点 v 到其父边的 rank（v != root）
+            - dict[(u,v)] = r：按边指定 rank
+        root:
+            可选。若给出，会覆盖/规范 parent[root] = root
+        dtype:
+            core 数据类型
+        scale:
+            随机初始化标准差缩放，最终 core = scale * normal(...)
+
+        返回
+        ----
+        TTNS
+            core shape 约定为 (r_parent(u), dim_u, r_child1, r_child2, ...)
+        """
+        parent = list(parent)
+        n = len(parent)
+
+        if len(dims) != n:
+            raise ValueError(f"dims 长度({len(dims)})必须等于节点数({n})")
+
+        inferred_root = cls._infer_root_from_parent(parent)
+        if root is None:
+            root = inferred_root
+        else:
+            if not (0 <= root < n):
+                raise ValueError(f"root={root} 越界，节点数 n={n}")
+            parent[root] = root  # 规范化 root
+
+        neighbors = cls._build_neighbors_from_parent(parent)
+        children = cls._children_lists(parent, neighbors)
+        edge_ranks = cls._edge_ranks_from_spec(parent, rank_spec)
+
+        def key_uv(u: int, v: int) -> Tuple[int, int]:
+            return (u, v) if u < v else (v, u)
+
+        keys = jax.random.split(key, n)
+        cores: List[jnp.ndarray] = []
+
+        for u in range(n):
+            # 父边 rank
+            if u == root:
+                r_par = 1
+            else:
+                p = parent[u]
+                r_par = edge_ranks[key_uv(u, p)]
+
+            # 子边 rank（顺序必须和 children[u] 一致）
+            r_ch = [edge_ranks[key_uv(u, v)] for v in children[u]]
+
+            shape = (int(r_par), int(dims[u]), *map(int, r_ch))
+            G = jax.random.normal(keys[u], shape, dtype=dtype)
+
+            if scale != 1.0:
+                G = G * jnp.asarray(scale, dtype=dtype)
+
+            cores.append(G)
+
+        return cls(
+            cores=cores,
+            neighbors=neighbors,
+            root=root,
+            parent=parent,
+        )
+
+    @property
+    def full_tensor(self) -> jnp.ndarray:
+        """
+        将 TTNS 收缩为完整高维张量，并保证输出轴顺序按节点编号 0..n-1。
+        """
+        parent = self._resolve_parent()
+        root = self._resolve_root(parent)
+
+        # children 顺序必须和 core 的 child bond 轴顺序一致
+        children_by_node = []
+        for u in range(self.n_nodes):
+            pu = parent[u]
+            if u == root:
+                pu = u
+            children_by_node.append([v for v in self.neighbors[u] if v != pu])
+
+        def contract_subtree(u: int):
+            """
+            返回:
+            T_u: shape = (r_parent(u), physical axes of subtree(u)...)
+            order_u: T_u 中（除第0维 bond 外）每个物理轴对应的节点编号
+            """
+            # core shape: (r_par, dim_u, r_ch1, r_ch2, ...)
+            T = self.cores[u]
+            order = [u]
+
+            # 依次收缩孩子
+            # 注意：每次收缩后，下一个“尚未收缩的孩子 bond”仍在 axis=2
+            for v in children_by_node[u]:
+                Tv, order_v = contract_subtree(v)   # Tv: (r_uv, ...)
+                T = jnp.tensordot(T, Tv, axes=([2], [0]))
+                order.extend(order_v)
+
+            return T, order
+
+        Troot, order = contract_subtree(root)
+
+        if Troot.shape[0] != 1:
+            raise ValueError(f"root 的 parent 维应为 1，但得到 {Troot.shape[0]}")
+
+        # 去掉 root 的 parent 维
+        T = jnp.squeeze(Troot, axis=0)
+
+        # 当前 T 的轴顺序由 order 给出；重排成节点编号顺序 0..n-1
+        if sorted(order) != list(range(self.n_nodes)):
+            raise ValueError(f"物理轴标签异常: order={order}")
+
+        perm = [order.index(i) for i in range(self.n_nodes)]
+        T = jnp.transpose(T, axes=perm)
+        return T
+
+    @property
+    def n_nodes(self) -> int:
+        return len(self.cores)
+
+    @property
+    def n_dims(self) -> int:
+        return self.n_nodes
+
+    def _build_parent(self, root: int) -> List[int]:
+        parent = [-1] * self.n_nodes
+        parent[root] = root
+        stack = [root]
+        while stack:
+            node = stack.pop()
+            for nbr in self.neighbors[node]:
+                if parent[nbr] != -1:
+                    continue
+                parent[nbr] = node
+                stack.append(nbr)
+        return parent
+
+    def _resolve_parent(self) -> List[int]:
+        if self.parent is not None:
+            assert len(self.parent) == self.n_nodes
+            return list(self.parent)
+        root = 0 if self.root is None else self.root
+        return self._build_parent(root)
+
+    def _resolve_root(self, parent: List[int]) -> int:
+        if self.root is not None:
+            return self.root
+        if -1 in parent:
+            return parent.index(-1)
+        for idx, value in enumerate(parent):
+            if idx == value:
+                return idx
+        return 0
+
+    def validate_tree(self) -> None:
+        n_nodes = self.n_nodes
+        assert len(self.neighbors) == n_nodes
+
+        for node, nbrs in enumerate(self.neighbors):
+            assert node not in nbrs
+            assert len(set(nbrs)) == len(nbrs)
+            for nbr in nbrs:
+                assert 0 <= nbr < n_nodes
+                assert node in self.neighbors[nbr]
+
+        parent = self._resolve_parent()
+        root = self._resolve_root(parent)
+        assert 0 <= root < n_nodes
+
+        visited = set()
+        stack = [(root, -1)]
+        while stack:
+            node, prev = stack.pop()
+            if node in visited:
+                raise AssertionError("Graph contains a cycle")
+            visited.add(node)
+            for nbr in self.neighbors[node]:
+                if nbr == prev:
+                    continue
+                stack.append((nbr, node))
+        assert len(visited) == n_nodes
+
+        children_by_node = []
+        for node in range(n_nodes):
+            node_parent = parent[node]
+            children = [nbr for nbr in self.neighbors[node] if nbr != node_parent]
+            children_by_node.append(children)
+
+        for node, core in enumerate(self.cores):
+            if node == root:
+                assert core.shape[0] == 1
+                continue
+            parent_node = parent[node]
+            parent_children = children_by_node[parent_node]
+            child_index = parent_children.index(node)
+            parent_axis = 2 + child_index
+            assert core.shape[0] == self.cores[parent_node].shape[parent_axis]
+
+    def postorder(self) -> List[int]:
+        parent = self._resolve_parent()
+        root = self._resolve_root(parent)
+        children_by_node = []
+        for node in range(self.n_nodes):
+            node_parent = parent[node]
+            children = [nbr for nbr in self.neighbors[node] if nbr != node_parent]
+            children_by_node.append(children)
+
+        order = []
+        stack = [(root, 0)]
+        while stack:
+            node, idx = stack.pop()
+            children = children_by_node[node]
+            if idx < len(children):
+                stack.append((node, idx + 1))
+                stack.append((children[idx], 0))
+            else:
+                order.append(node)
+        return order
+
+    @staticmethod
+    def _infer_root_from_parent(parent: Sequence[int]) -> int:
+        roots = [i for i, p in enumerate(parent) if p == i or p == -1]
+        if len(roots) != 1:
+            raise ValueError(f"parent 必须且只能有一个 root（p[root]=root 或 -1），检测到 roots={roots}")
+        return roots[0]
+
+    @staticmethod
+    def _build_neighbors_from_parent(parent: Sequence[int]) -> List[List[int]]:
+        n = len(parent)
+        root = TTNS._infer_root_from_parent(parent)
+        nbrs = [[] for _ in range(n)]
+        for v in range(n):
+            if v == root:
+                continue
+            p = parent[v]
+            if p < 0 or p >= n:
+                raise ValueError(f"parent[{v}]={p} 越界")
+            if p == v:
+                raise ValueError(f"非 root 节点不允许 parent[v]=v：v={v}")
+            nbrs[v].append(p)
+            nbrs[p].append(v)
+        return nbrs
+
+    @staticmethod
+    def _children_lists(parent: Sequence[int], neighbors: List[List[int]]) -> List[List[int]]:
+        n = len(parent)
+        root = TTNS._infer_root_from_parent(parent)
+        ch = []
+        for u in range(n):
+            pu = parent[u]
+            if u == root:
+                pu = u  # root 用自己当 parent，方便过滤
+            ch.append([v for v in neighbors[u] if v != pu])
+        return ch
+
+    @staticmethod
+    def _edge_ranks_from_spec(
+        parent: Sequence[int],
+        rank_spec: Union[int, Dict[Tuple[int, int], int], Dict[int, int]],
+    ) -> Dict[Tuple[int, int], int]:
+        """
+        返回每条无向边的 rank，key 为 (min(u,v), max(u,v))。
+        rank_spec 支持：
+          - int：所有边同一个 rank
+          - dict[v]=r：给 v-父边（v!=root）
+          - dict[(u,v)]=r：按边指定
+        """
+        n = len(parent)
+        root = TTNS._infer_root_from_parent(parent)
+
+        def key_uv(u: int, v: int) -> Tuple[int, int]:
+            return (u, v) if u < v else (v, u)
+
+        er: Dict[Tuple[int, int], int] = {}
+
+        if isinstance(rank_spec, int):
+            r0 = int(rank_spec)
+            for v in range(n):
+                if v == root:
+                    continue
+                u = parent[v]
+                er[key_uv(u, v)] = r0
+            return er
+
+        # dict[v]=r（节点->父边rank）
+        if all(isinstance(k, int) for k in rank_spec.keys()):
+            for v in range(n):
+                if v == root:
+                    continue
+                if v not in rank_spec:
+                    raise ValueError(f"rank_spec 缺少节点 {v} 的父边 rank（dict[v]=r）")
+                u = parent[v]
+                er[key_uv(u, v)] = int(rank_spec[v])
+            return er
+
+        # dict[(u,v)]=r（边->rank）
+        for v in range(n):
+            if v == root:
+                continue
+            u = parent[v]
+            if (u, v) in rank_spec:
+                er[key_uv(u, v)] = int(rank_spec[(u, v)])
+            elif (v, u) in rank_spec:
+                er[key_uv(u, v)] = int(rank_spec[(v, u)])
+            else:
+                raise ValueError(f"rank_spec 缺少边 ({u},{v}) 的 rank")
+        return er
+
+    @classmethod
+    def generate_random_from_parent(
+        cls,
+        key: jnp.ndarray,
+        parent: Sequence[int],
+        dims: Sequence[int],
+        rank_spec: Union[int, Dict[Tuple[int, int], int], Dict[int, int]],
+        root: Optional[int] = None,
+        dtype=jnp.float32,
+    ) -> "TTNS":
+        """
+        从 parent 序列生成随机 TTNS（类似 TT 两端 rank=1 的风格）：
+
+            core_u shape = (r_parent(u), dim_u, r_child1, r_child2, ...)
+
+        - root 的 r_parent(root) 固定为 1（因为没有 parent edge，等价于 TT 的 r0=1）
+        - children 的顺序：neighbors[u] 去掉 parent 后的顺序（与 validate/contraction 一致）
+        """
+        parent = list(parent)
+        n = len(parent)
+        if len(dims) != n:
+            raise ValueError("dims 长度必须等于节点数")
+
+        # root 处理：允许用户传 root 覆盖 parent 里的 root 编码
+        inferred_root = cls._infer_root_from_parent(parent)
+        if root is None:
+            root = inferred_root
+        else:
+            # 若显式 root 给了，就把 parent[root] 规范化为 root，方便后续逻辑
+            if not (0 <= root < n):
+                raise ValueError("root 越界")
+            parent[root] = root
+
+        neighbors = cls._build_neighbors_from_parent(parent)
+        children = cls._children_lists(parent, neighbors)
+        edge_ranks = cls._edge_ranks_from_spec(parent, rank_spec)
+
+        def key_uv(u: int, v: int) -> Tuple[int, int]:
+            return (u, v) if u < v else (v, u)
+
+        keys = jax.random.split(key, n)
+        cores: List[jnp.ndarray] = []
+
+        for u in range(n):
+            # parent bond
+            if u == root:
+                r_par = 1
+            else:
+                p = parent[u]
+                r_par = edge_ranks[key_uv(u, p)]
+
+            # children bonds
+            r_ch = [edge_ranks[key_uv(u, v)] for v in children[u]]
+
+            shape = (int(r_par), int(dims[u]), *map(int, r_ch))
+            cores.append(jax.random.normal(keys[u], shape, dtype=dtype))
+
+        return cls(cores=cores, neighbors=neighbors, root=root, parent=parent)
+
+
+@struct.dataclass
+class TT:
+    """
+    Tensor Train (TT) 表示法。
+
+    一个 n 维张量 A[i1, i2, ..., in] 被表示成 n 个 core 的连乘：
+      core_k 的形状是 (r_{k}, dim_k, r_{k+1})
+    其中：
+      - dim_k 是第 k 维的大小（物理维度）
+      - r_k 是 TT rank（内部连接维度）
+      - 约定 r_0 = r_{n} = 1，这样整条链最终收缩成标量/张量元素
+
+    这里 cores 存放的是一个 list，每个元素是 jnp.ndarray（三维）
+    """
+
+    @classmethod
+    def zeros(cls, dims: Sequence[int], rs: Sequence[int]) -> TT:
+        """
+        构造一个全 0 的 TT。
+
+        参数：
+          dims: 每个维度的大小 [dim1, dim2, ..., dim_n]
+          rs:   TT ranks（不包含两端的 1）[r1, r2, ..., r_{n-1}]
+                注意长度必须是 n-1
+
+        返回：
+          TT 对象，其中每个 core 都是全 0 数组。
+        """
+        # TT 的标准约束：n 个 dims 对应 n-1 个内部 rank
+        assert len(dims) == len(rs) + 1
+
+        # 两端 rank 固定为 1：r0=1, rn=1
+        rs = [1] + list(rs) + [1]
+
+        # 逐个维度创建 core：形状 (r_left, dim, r_right)
+        cores = [jnp.zeros((rs[i], dim, rs[i + 1])) for i, dim in enumerate(dims)]
+
+        return cls(cores)
+
+    @classmethod
+    def generate_random(cls, key: jnp.ndarray, dims: Sequence[int], rs: Sequence[int]) -> TT:
+        """
+        随机生成一个 TT（每个 core 元素 ~ N(0,1)）。
+
+        参数：
+          key:  JAX 随机数 key
+          dims: 每个维度大小 (本地)
+          rs:   内部 ranks（长度 n-1） (求和维度)
+
+        返回：
+          TT 对象，cores 为随机正态。
+        """
+        assert len(dims) == len(rs) + 1
+
+        rs = [1] + list(rs) + [1]
+
+        # 为每个 core 分配一个子 key，避免随机数重复
+        keys = jax.random.split(key, len(dims))
+
+        # 对每个维度 dim 生成 (r_left, dim, r_right) 的随机 core
+        cores = [
+            jax.random.normal(key, (rs[i], dim, rs[i + 1]))
+            for i, (dim, key) in enumerate(zip(dims, keys))
+        ]
+
+        return cls(cores)
+
+    # TT 的核心数据：n 个 core，每个 core 是 (r_left, dim, r_right)
+    cores: List[jnp.ndarray]
+
+    @property
+    def n_dims(self):
+        """返回张量的维数 n（也就是 core 的个数）。"""
+        return len(self.cores)
+
+    @property
+    def full_tensor(self) -> jnp.ndarray:
+        """
+        把 TT 还原成“完整的高维张量”。
+
+        实现方式：
+          从第一个 core 开始，依次与后续 core 做 einsum 收缩 TT rank 维度。
+          每次收缩掉上一个结果的右 rank，与下一个 core 的左 rank 对齐。
+
+        结果形状：
+          (dim1, dim2, ..., dim_n)
+        """
+        res = self.cores[0]  # (1, dim1, r2)
+        for core in self.cores[1:]:
+            # res:  (..., r)   core: (r, i, R)
+            # -> (..., i, R)  把 r 收缩掉，拼接出新的物理维度 i
+            res = jnp.einsum('...r,riR->...iR', res, core)
+
+        # TT 两端 rank 都是 1，所以第一维和最后一维可以 squeeze 掉
+        return jnp.squeeze(res, (0, -1))
+
+    def reverse(self) -> TT:
+        """
+        把 TT 的维度顺序反过来（核心顺序翻转）。
+
+        注意：
+          翻转 core 的顺序后，每个 core 的左右 rank 方向也反了，
+          所以需要对 core 做 transpose_core 来交换左右 rank 轴。
+        """
+        return TT([transpose_core(core) for core in self.cores[::-1]])
+
+    def astype(self, dtype: jnp.dtype) -> TT:
+        """把 TT 的所有 core 转成指定 dtype（例如 float32 / float64）。"""
+        return TT([core.astype(dtype) for core in self.cores])
+
+    def __sub__(self, other: TT):
+        """定义 TT 的减法：self - other。"""
+        return subtract(self, other)
+
+    def as_ttns(self) -> TTNS:
+        n_dims = self.n_dims
+        neighbors = [[] for _ in range(n_dims)]
+        for idx in range(n_dims):
+            if idx > 0:
+                neighbors[idx].append(idx - 1)
+            if idx < n_dims - 1:
+                neighbors[idx].append(idx + 1)
+        return TTNS(self.cores, neighbors, root=0)
+
+
+@struct.dataclass
+class TTOperator:
+    """
+    TT 格式的线性算子（你可以理解成高维矩阵/算子）。
+
+    如果普通矩阵是 2D：A[out, in]
+    那高维算子可以看成：A[i1..in, j1..jn]（输入 n 维 -> 输出 n 维）
+
+    TT Operator 用 n 个 4D core 表示，每个 core 形状：
+      (r_left, dim_from, dim_to, r_right)
+    """
+
+    @classmethod
+    def generate_random(
+        cls, key: jnp.ndarray, dims_from: Sequence[int], dims_to: Sequence[int], rs: Sequence[int]
+    ) -> TTOperator:
+        """
+        随机生成一个 TT Operator（每个 core 元素 ~ N(0,1)）。
+
+        参数：
+          key:       JAX random key
+          dims_from: 输入每维大小 [din1, din2, ..., din_n]
+          dims_to:   输出每维大小 [dout1, dout2, ..., dout_n]
+          rs:        内部 ranks（长度 n-1）
+
+        返回：
+          TTOperator 对象
+        """
+        n_dims = len(dims_from)
+
+        # 基本一致性检查
+        assert len(dims_from) == n_dims
+        assert len(dims_to) == n_dims
+        assert len(rs) + 1 == n_dims
+
+        rs = [1] + list(rs) + [1]
+        keys = jax.random.split(key, n_dims)
+
+        # 每个 core 是 4D：(r_left, dim_from, dim_to, r_right)
+        cores = [
+            jax.random.normal(key, (rs[i], dim_from, dim_to, rs[i + 1]))
+            for i, (dim_from, dim_to, key) in enumerate(zip(dims_from, dims_to, keys))
+        ]
+
+        return cls(cores)
+
+    cores: List[jnp.ndarray]
+
+    @property
+    def full_operator(self) -> jnp.ndarray:
+        """
+        把 TT Operator 还原成完整算子（一个巨大的高维张量/矩阵）。
+
+        逐 core einsum：
+          res:  (..., r)
+          core: (r, i, j, R)
+          -> (..., i, j, R)
+
+        最终 squeeze 掉两端 rank=1。
+        结果形状：
+          (din1, dout1, din2, dout2, ..., din_n, dout_n)
+        （具体排列取决于 einsum 的写法，这里是按每个维度生成一对 (i,j)）
+        """
+        res = self.cores[0]
+        for core in self.cores[1:]:
+            res = jnp.einsum('...r,rijR->...ijR', res, core) # Einstein求和约定
+        return jnp.squeeze(res, (0, -1)) 
+
+    def reverse(self):
+        """
+        反转 operator 的 core 顺序。
+
+        这里作者留了句注释：
+          "idk, what should I do with axes 1 and 2."
+        意思是：输入/输出物理轴 (dim_from, dim_to) 是否要交换、怎么交换，
+        其实取决于你希望 reverse 后代表什么数学对象（是反转维度顺序？还是转置算子？）。
+
+        当前实现：
+          - core 顺序翻转
+          - 把 rank 轴对调：把 axis 0 和 axis 3 互换
+          - axis 1/2（输入/输出物理轴）保持不变
+        """
+        return TTOperator(
+            [jnp.moveaxis(core, (0, 1, 2, 3), (3, 1, 2, 0)) for core in self.cores[::-1]]
+        )
+    
+    def astype(self, dtype: jnp.dtype) -> TTOperator:
+        return TTOperator([core.astype(dtype) for core in self.cores])
+
+
+def transpose_core(core: jnp.ndarray) -> jnp.ndarray:
+    """
+    对 TT core 做“左右 rank 交换”。
+
+    输入 core 形状：(r_left, dim, r_right)
+    输出形状：(r_right, dim, r_left)
+
+    用途：
+      TT.reverse() 翻转 core 顺序时，需要把连接方向也翻过来。
+    """
+    return jnp.moveaxis(core, (0, 1, 2), (2, 1, 0))
+
+
+def subtract(lhs: TT, rhs: TT) -> TT:
+    """
+    计算两个 TT 的差：lhs - rhs，并返回一个新的 TT。
+
+    关键点（非常重要）：
+    - 一般 TT 直接相减后，结果的 TT rank 会变大
+    - 这里用的是经典的“block-diagonal 拼接”构造法：
+        - 第一个 core：在右 rank 方向拼接 [lhs, -rhs]
+        - 中间 core：做 2x2 的块对角拼接（lhs 在左上，rhs 在右下）
+        - 最后一个 core：在左 rank 方向拼接 [lhs; rhs]
+
+    这样保证：
+      TT(full) = TT(lhs) - TT(rhs)
+
+    代价：
+      ranks 会变成原来的大约“相加”（更准确：中间 rank 变成 r1+r2）。
+    """
+    assert lhs.n_dims == rhs.n_dims
+
+    # 只有 1 个维度时，TT 就是一个 (1, dim, 1) 的 core，直接相减即可
+    if lhs.n_dims == 1:
+        return TT([lhs.cores[0] - rhs.cores[0]])
+
+    # 第一个 core：沿着右 rank 维（axis=-1）拼接
+    # lhs: (1, d1, r1)  rhs: (1, d1, r1')
+    # -> (1, d1, r1+r1')
+    first = jnp.concatenate([lhs.cores[0], -rhs.cores[0]], axis=-1)
+
+    # 最后一个 core：沿着左 rank 维（axis=0）拼接
+    # lhs: (r_{n-1}, dn, 1)  rhs: (r'_{n-1}, dn, 1)
+    # -> (r_{n-1}+r'_{n-1}, dn, 1)
+    last = jnp.concatenate([lhs.cores[-1], rhs.cores[-1]], axis=0)
+
+    # 中间 core：做块对角拼接（2x2 block）
+    # 对每个位置 k：
+    #   [ c1   0 ]
+    #   [ 0   c2 ]
+    inner = [
+        jnp.concatenate(
+            [
+                # 上半块： [c1, 0]
+                jnp.concatenate([c1, jnp.zeros((c1.shape[0], c1.shape[1], c2.shape[2]))], axis=-1),
+                # 下半块： [0, c2]
+                jnp.concatenate([jnp.zeros((c2.shape[0], c2.shape[1], c1.shape[2])), c2], axis=-1),
+            ],
+            axis=0,  # 沿左 rank 方向拼接成上下两块
+        )
+        for c1, c2 in zip(lhs.cores[1:-1], rhs.cores[1:-1])
+    ]
+
+    return TT([first] + inner + [last])
