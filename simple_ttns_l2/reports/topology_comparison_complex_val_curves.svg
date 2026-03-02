@@ -1,0 +1,63 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='560'>
+<style>text{font-family:Arial,Helvetica,sans-serif;font-size:14px}</style>
+<rect x='0' y='0' width='1000' height='560' fill='white'/>
+<line x1='90' y1='60.00' x2='970' y2='60.00' stroke='#ddd' stroke-width='1'/>
+<text x='10' y='65.00' fill='#444'>-0.000000</text>
+<line x1='90' y1='144.00' x2='970' y2='144.00' stroke='#ddd' stroke-width='1'/>
+<text x='10' y='149.00' fill='#444'>-0.003385</text>
+<line x1='90' y1='228.00' x2='970' y2='228.00' stroke='#ddd' stroke-width='1'/>
+<text x='10' y='233.00' fill='#444'>-0.006770</text>
+<line x1='90' y1='312.00' x2='970' y2='312.00' stroke='#ddd' stroke-width='1'/>
+<text x='10' y='317.00' fill='#444'>-0.010155</text>
+<line x1='90' y1='396.00' x2='970' y2='396.00' stroke='#ddd' stroke-width='1'/>
+<text x='10' y='401.00' fill='#444'>-0.013540</text>
+<line x1='90' y1='480.00' x2='970' y2='480.00' stroke='#ddd' stroke-width='1'/>
+<text x='10' y='485.00' fill='#444'>-0.016925</text>
+<line x1='90.00' y1='60' x2='90.00' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='136.32' y1='60' x2='136.32' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='182.63' y1='60' x2='182.63' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='228.95' y1='60' x2='228.95' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='275.26' y1='60' x2='275.26' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='321.58' y1='60' x2='321.58' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='367.89' y1='60' x2='367.89' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='414.21' y1='60' x2='414.21' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='460.53' y1='60' x2='460.53' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='506.84' y1='60' x2='506.84' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='553.16' y1='60' x2='553.16' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='599.47' y1='60' x2='599.47' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='645.79' y1='60' x2='645.79' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='692.11' y1='60' x2='692.11' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='738.42' y1='60' x2='738.42' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='784.74' y1='60' x2='784.74' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='831.05' y1='60' x2='831.05' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='877.37' y1='60' x2='877.37' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='923.68' y1='60' x2='923.68' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<line x1='970.00' y1='60' x2='970.00' y2='480' stroke='#f3f3f3' stroke-width='1'/>
+<text x='82.00' y='520' fill='#444'>5</text>
+<text x='174.63' y='520' fill='#444'>15</text>
+<text x='267.26' y='520' fill='#444'>25</text>
+<text x='359.89' y='520' fill='#444'>35</text>
+<text x='452.53' y='520' fill='#444'>45</text>
+<text x='545.16' y='520' fill='#444'>55</text>
+<text x='637.79' y='520' fill='#444'>65</text>
+<text x='730.42' y='520' fill='#444'>75</text>
+<text x='823.05' y='520' fill='#444'>85</text>
+<text x='915.68' y='520' fill='#444'>95</text>
+<line x1='90' y1='480' x2='970' y2='480' stroke='#222' stroke-width='1.5'/>
+<line x1='90' y1='60' x2='90' y2='480' stroke='#222' stroke-width='1.5'/>
+<polyline fill='none' stroke='#1f77b4' stroke-width='2.5' points='90.00,120.85 136.32,127.08 182.63,133.71 228.95,140.85 275.26,148.71 321.58,157.79 367.89,168.14 414.21,180.04 460.53,194.08 506.84,210.55 553.16,229.23 599.47,250.49 645.79,274.31 692.11,300.42 738.42,329.63 784.74,360.73 831.05,392.01 877.37,422.99 923.68,452.47 970.00,480.00'/>
+<line x1='110' y1='20' x2='134' y2='20' stroke='#1f77b4' stroke-width='3'/>
+<text x='140' y='25' fill='#222'>target=balanced, model=balanced</text>
+<polyline fill='none' stroke='#ff7f0e' stroke-width='2.5' points='90.00,124.38 136.32,129.92 182.63,136.38 228.95,143.41 275.26,151.11 321.58,159.51 367.89,169.16 414.21,180.47 460.53,193.47 506.84,208.45 553.16,225.34 599.47,244.27 645.79,265.39 692.11,288.54 738.42,313.96 784.74,341.92 831.05,371.02 877.37,400.25 923.68,428.46 970.00,456.13'/>
+<line x1='110' y1='42' x2='134' y2='42' stroke='#ff7f0e' stroke-width='3'/>
+<text x='140' y='47' fill='#222'>target=balanced, model=chain</text>
+<polyline fill='none' stroke='#2ca02c' stroke-width='2.5' points='90.00,60.00 136.32,60.10 182.63,60.19 228.95,60.25 275.26,60.29 321.58,60.32 367.89,60.37 414.21,60.42 460.53,60.48 506.84,60.54 553.16,60.60 599.47,60.64 645.79,60.67 692.11,60.69 738.42,60.71 784.74,60.72 831.05,60.72 877.37,60.73 923.68,60.74 970.00,60.75'/>
+<line x1='110' y1='64' x2='134' y2='64' stroke='#2ca02c' stroke-width='3'/>
+<text x='140' y='69' fill='#222'>target=chain, model=balanced</text>
+<polyline fill='none' stroke='#d62728' stroke-width='2.5' points='90.00,60.03 136.32,60.14 182.63,60.22 228.95,60.28 275.26,60.31 321.58,60.33 367.89,60.36 414.21,60.38 460.53,60.41 506.84,60.44 553.16,60.46 599.47,60.49 645.79,60.51 692.11,60.54 738.42,60.57 784.74,60.60 831.05,60.62 877.37,60.62 923.68,60.64 970.00,60.64'/>
+<line x1='110' y1='86' x2='134' y2='86' stroke='#d62728' stroke-width='3'/>
+<text x='140' y='91' fill='#222'>target=chain, model=chain</text>
+<text x='360.00' y='30' font-size='20' fill='#111'>topology_comparison_complex: val_l2 curves</text>
+<text x='480.00' y='548' fill='#333'>step</text>
+<text x='10' y='20' fill='#333'>val_l2</text>
+</svg>

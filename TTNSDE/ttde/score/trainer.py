@@ -1,6 +1,8 @@
 from functools import partial
 from pathlib import Path
 from typing import Optional, Any
+from contextlib import nullcontext
+import os
 
 import jax
 import wandb
@@ -87,6 +89,8 @@ class Trainer(TrainerBase):
         return optim_state, stats
 
     def log_statistics(self, stats: Stats, tag: str, step: int):
+        if not self.wandb_enabled:
+            return
         wandb.log(
             {
                 f'{tag}/custom_loss': stats.loss.item(),
@@ -106,10 +110,16 @@ class Trainer(TrainerBase):
         return load_checkpoint(path, self.optim_state, step=step)
 
     def fit(self, key: jnp.ndarray, n_steps: int):
-        with wandb.init(
-            project='ttde',
-            dir=self.work_dir,
-        ):
+        disable_wandb = os.environ.get('TTDE_DISABLE_WANDB', '').strip() in {'1', 'true', 'TRUE', 'yes', 'YES'}
+        disable_checkpoint = os.environ.get('TTDE_DISABLE_CHECKPOINT', '').strip() in {'1', 'true', 'TRUE', 'yes', 'YES'}
+        self.wandb_enabled = not disable_wandb
+        wandb_context = (
+            wandb.init(project='ttde', dir=self.work_dir)
+            if self.wandb_enabled
+            else nullcontext()
+        )
+
+        with wandb_context:
             data_iterator = self.data_train.train_iterator(key, self.batch_sz)
             save_stopwatch = Stopwatch()
             val_stopwatch = Stopwatch()
@@ -117,7 +127,13 @@ class Trainer(TrainerBase):
             key = KEY(19)
 
             with trange(n_steps) as progress:
+                print_every = max(1, n_steps // 20)  # 5% interval
                 for step in progress:
+                    if step == 0:
+                        print(
+                            '[  0.00%] starting first train_step (JIT compile may take time)...',
+                            flush=True,
+                        )
                     key, key_curr = jax.random.split(key, 2)
                     self.optim_state, stats = self.train_step(self.optim_state, next(data_iterator), key_curr)
                     if self.work_dir is not None:
@@ -130,12 +146,19 @@ class Trainer(TrainerBase):
                         val_stopwatch.restart()
 
                     progress.set_description(f'{stats.loss:.4f}')
+                    if (step + 1) % print_every == 0 or (step + 1) == n_steps:
+                        percent = 100.0 * (step + 1) / n_steps
+                        print(
+                            f'[{percent:6.2f}%] step={step + 1}/{n_steps} loss={stats.loss.item():.6f}',
+                            flush=True,
+                        )
 
-                    if save_stopwatch.passed(15 * 60):
+                    if (not disable_checkpoint) and save_stopwatch.passed(15 * 60):
                         self.save_checkpoint(step)
                         save_stopwatch.restart()
 
-            self.save_checkpoint(step + 1)
+            if not disable_checkpoint:
+                self.save_checkpoint(step + 1)
 
 
 def save_checkpoint(cpt_dir: Path, state: Any, step: int):

@@ -4,6 +4,7 @@ from typing import Type
 from jax import numpy as jnp, vmap
 
 from ttde.score.models import opt_for_table_data
+from ttde.score.models import opt_for_tree_data
 from ttde.score.experiment_setups import base
 from ttde.tt.basis import SplineOnKnots, create_space_uniform_knots
 
@@ -22,11 +23,17 @@ class PAsTTOptBase(base.Base):
     def bases(self, samples: jnp.ndarray):
         return vmap(self.one_basis, in_axes=(None, None, 1))(self.m, self.q, samples)
 
-    def _create(self, key: jnp.ndarray, samples: jnp.ndarray, model_cls: Type[opt_for_table_data.PAsTTOptBase]):
+    def _create(
+        self,
+        key: jnp.ndarray,
+        samples: jnp.ndarray,
+        model_cls: Type[opt_for_table_data.PAsTTOptBase],
+        **model_kwargs,
+    ):
         print('initializing bases...')
         bases = self.bases(samples)
         print('initializing model...')
-        model = model_cls.create(key, bases, self.n_comps, self.rank)
+        model = model_cls.create(key, bases, self.n_comps, self.rank, **model_kwargs)
         return model
 
 
@@ -34,5 +41,20 @@ class PAsTTOptBase(base.Base):
 class PAsTTSqrOpt(PAsTTOptBase):
     def create(self, key: jnp.ndarray, samples: jnp.ndarray):
         return self._create(key, samples, opt_for_table_data.PAsTTSqrOpt)
+
+    postprocessing = None
+
+
+@dataclass
+class PAsTTNSSqrOpt(PAsTTOptBase):
+    tree_topology: str = "chain"
+
+    def create(self, key: jnp.ndarray, samples: jnp.ndarray):
+        return self._create(
+            key,
+            samples,
+            opt_for_tree_data.PAsTTNSSqrOpt,
+            tree_topology=self.tree_topology,
+        )
 
     postprocessing = None

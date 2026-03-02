@@ -23,6 +23,20 @@ config.update("jax_enable_x64", True)
 @click.option('--m', type=int, required=True, help='number of basis functions')
 @click.option('--rank', type=int, required=True, help='rank of tensor-train decomposition')
 @click.option('--n-comps', type=int, required=True, help='number of components in the mixture')
+@click.option(
+    '--model-type',
+    type=click.Choice(['tt', 'ttns'], case_sensitive=False),
+    default='tt',
+    show_default=True,
+    help='choose tensor topology for density model',
+)
+@click.option(
+    '--ttns-topology',
+    type=click.Choice(['balanced', 'chain'], case_sensitive=False),
+    default='chain',
+    show_default=True,
+    help='tree topology for TTNS model (used only when --model-type ttns)',
+)
 @click.option('--em-steps', type=int, required=True, help='number of EM steps for model initializaion')
 @click.option('--noise', type=float, required=True, help='magnitude of Gaussian noise for model initializatoin')
 @click.option('--batch-sz', type=int, required=True, help='batch size')
@@ -37,6 +51,8 @@ def main(
     m: int,
     rank: int,
     n_comps: int,
+    model_type: str,
+    ttns_topology: str,
     em_steps: int,
     noise: float,
     batch_sz: int,
@@ -51,7 +67,16 @@ def main(
     data_train, data_val = data_setups.load_dataset(DATASET)
     print(data_train.X.shape, data_val.X.shape)
 
-    MODEL = model_setups.PAsTTSqrOpt(q=q, m=m, rank=rank, n_comps=n_comps)
+    if model_type.lower() == 'ttns':
+        MODEL = model_setups.PAsTTNSSqrOpt(
+            q=q,
+            m=m,
+            rank=rank,
+            n_comps=n_comps,
+            tree_topology=ttns_topology.lower(),
+        )
+    else:
+        MODEL = model_setups.PAsTTSqrOpt(q=q, m=m, rank=rank, n_comps=n_comps)
     INIT = init_setups.CanonicalRankK(em_steps=em_steps, noise=noise)
     TRAINER = trainer_setups.Trainer(batch_sz=batch_sz, lr=lr, noise=train_noise)
 
