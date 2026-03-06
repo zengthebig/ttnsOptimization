@@ -48,6 +48,7 @@ class PAsTTSqrOpt(PAsTTOptBase):
 @dataclass
 class PAsTTNSSqrOpt(PAsTTOptBase):
     tree_topology: str = "chain"
+    tree_parent: tuple[int, ...] | None = None
 
     def create(self, key: jnp.ndarray, samples: jnp.ndarray):
         return self._create(
@@ -55,6 +56,7 @@ class PAsTTNSSqrOpt(PAsTTOptBase):
             samples,
             opt_for_tree_data.PAsTTNSSqrOpt,
             tree_topology=self.tree_topology,
+            tree_parent=self.tree_parent,
         )
 
     postprocessing = None

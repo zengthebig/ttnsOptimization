@@ -32,6 +32,43 @@ def chain_parent(n_dims: int) -> jnp.ndarray:
     return jnp.array(parent)
 
 
+def normalize_tree_parent(parent, n_dims: int) -> jnp.ndarray:
+    parent_list = [int(p) for p in parent]
+    if len(parent_list) != n_dims:
+        raise ValueError(f"tree_parent length mismatch: expected {n_dims}, got {len(parent_list)}")
+
+    roots = [node for node, p in enumerate(parent_list) if p == node or p == -1]
+    if len(roots) != 1:
+        raise ValueError(f"tree_parent must contain exactly one root, got {roots}")
+
+    root = roots[0]
+    parent_list[root] = root
+    children = [[] for _ in range(n_dims)]
+
+    for node, p in enumerate(parent_list):
+        if node == root:
+            continue
+        if p < 0 or p >= n_dims:
+            raise ValueError(f"invalid parent index parent[{node}]={p} for n_dims={n_dims}")
+        if p == node:
+            raise ValueError(f"only the root may satisfy parent[node] == node; got node={node}")
+        children[p].append(node)
+
+    visited = set()
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if node in visited:
+            continue
+        visited.add(node)
+        stack.extend(children[node])
+
+    if len(visited) != n_dims:
+        raise ValueError("tree_parent must define a connected acyclic tree")
+
+    return jnp.asarray(parent_list, dtype=jnp.int32)
+
+
 def canonical_to_chain_ttns(tt_opt: TTOpt) -> TTNSOpt:
     # Chain-TTNS convention: leaf core has no child axis.
     last = jnp.squeeze(tt_opt.last, axis=-1)
@@ -43,6 +80,8 @@ class PAsTTNSOptBase(MutableModule):
     permutations: jnp.ndarray = None
     tree_parent: jnp.ndarray = None
     rank: int = None
+    l2_matrices: jnp.ndarray = None
+    l2_matrices_permuted: jnp.ndarray = None
 
     @classmethod
     def create(
@@ -52,6 +91,7 @@ class PAsTTNSOptBase(MutableModule):
         n_components: int,
         rank: int,
         tree_topology: str = "chain",
+        tree_parent=None,
     ):
         assert n_components >= 1
         n_dims = len(bases.knots)
@@ -61,18 +101,28 @@ class PAsTTNSOptBase(MutableModule):
         for curr_key in perm_keys:
             permutations.append(jax.random.permutation(curr_key, n_dims))
 
-        if tree_topology == "balanced":
+        if tree_parent is not None:
+            tree_parent = normalize_tree_parent(tree_parent, n_dims)
+        elif tree_topology == "balanced":
             tree_parent = balanced_parent(n_dims)
         elif tree_topology == "chain":
             tree_parent = chain_parent(n_dims)
         else:
             raise ValueError(f"unsupported tree_topology={tree_topology}")
 
+        permutations = jnp.array(permutations)
+
+        # Cache basis L2 matrices once. They are constant during training.
+        l2_matrices = vmap(type(bases).l2_integral)(bases)
+        l2_matrices_permuted = l2_matrices[permutations]
+
         return cls(
             bases=bases,
-            permutations=jnp.array(permutations),
+            permutations=permutations,
             tree_parent=tree_parent,
             rank=rank,
+            l2_matrices=l2_matrices,
+            l2_matrices_permuted=l2_matrices_permuted,
         )
 
     @property
@@ -188,6 +238,10 @@ class PAsTTNSOptBase(MutableModule):
 
 
 class PAsTTNSSqrOpt(PAsTTNSOptBase):
+    def _single_component_ttns(self, component: int = 0) -> TTNSOpt:
+        ttns = self.ttns.value
+        return TTNSOpt(tuple(core[component] for core in ttns.cores))
+
     def fix_nonsqrt_init(self):
         ttns = self.ttns.value
         self.change_ttns(TTNSOpt(tuple(jnp.sqrt(core) for core in ttns.cores)))
@@ -204,6 +258,11 @@ class PAsTTNSSqrOpt(PAsTTNSOptBase):
         parent = self.tree_parent.tolist()
         bs = vmap(type(self.bases).__call__)(self.bases, x)
 
+        if self.n_components == 1:
+            vectors = bs[self.permutations[0]]
+            normalized = normalized_eval_rank1_ttns(self._single_component_ttns(0), vectors, parent)
+            return jnp.where(normalized.log_norm == -jnp.inf, eps, 2 * normalized.log_norm)
+
         def one_log_p(curr_bs, perm, ttns):
             vectors = curr_bs[perm]
             normalized = normalized_eval_rank1_ttns(ttns, vectors, parent)
@@ -214,12 +273,18 @@ class PAsTTNSSqrOpt(PAsTTNSOptBase):
 
     def log_int_p(self):
         parent = self.tree_parent.tolist()
-        Ds = vmap(type(self.bases).l2_integral)(self.bases)
 
-        def one_log_int_p(curr_Ds, perm, ttns):
-            matrices = curr_Ds[perm]
+        if self.n_components == 1:
+            normalized = normalized_quadratic_form_ttns(
+                self._single_component_ttns(0),
+                self.l2_matrices_permuted[0],
+                parent,
+            )
+            return normalized.log_norm
+
+        def one_log_int_p(matrices, ttns):
             normalized = normalized_quadratic_form_ttns(ttns, matrices, parent)
             return normalized.log_norm
 
-        log_int_ps = vmap(one_log_int_p, in_axes=(None, 0, 0))(Ds, self.permutations, self.ttns.value)
+        log_int_ps = vmap(one_log_int_p, in_axes=(0, 0))(self.l2_matrices_permuted, self.ttns.value)
         return logsumexp(log_int_ps)
