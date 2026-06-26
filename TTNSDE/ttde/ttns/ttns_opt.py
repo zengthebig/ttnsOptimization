@@ -86,6 +86,74 @@ def _sum_logs(a: jnp.ndarray, b: jnp.ndarray) -> jnp.ndarray:
     return jnp.where((a == -jnp.inf) | (b == -jnp.inf), -jnp.inf, a + b)
 
 
+def _postorder_nodes(children: Sequence[Sequence[int]], root: int) -> List[int]:
+    order: List[int] = []
+    stack: List[Tuple[int, int]] = [(root, 0)]
+    while stack:
+        node, idx = stack.pop()
+        node_children = children[node]
+        if idx < len(node_children):
+            stack.append((node, idx + 1))
+            stack.append((node_children[idx], 0))
+        else:
+            order.append(node)
+    return order
+
+
+def _run_postorder(
+    children: Sequence[Sequence[int]],
+    root: int,
+    compute,
+) -> jnp.ndarray:
+    messages: Dict[int, jnp.ndarray] = {}
+    for node in _postorder_nodes(children, root):
+        child_msgs = [messages[child] for child in children[node]]
+        messages[node] = compute(node, child_msgs)
+    return messages[root]
+
+
+def _run_normalized_postorder(
+    children: Sequence[Sequence[int]],
+    root: int,
+    compute,
+) -> NormalizedValue:
+    messages: Dict[int, jnp.ndarray] = {}
+    subtree_log: Dict[int, jnp.ndarray] = {}
+    for node in _postorder_nodes(children, root):
+        acc_log = jnp.array(0.0)
+        for child in children[node]:
+            acc_log = _sum_logs(acc_log, subtree_log[child])
+        msg = compute(node, [messages[child] for child in children[node]])
+        log_norm, normalized = _lognorm_and_normalized(msg)
+        subtree_log[node] = _sum_logs(acc_log, log_norm)
+        messages[node] = normalized
+    root_msg = messages[root]
+    total_log = subtree_log[root]
+    scalar_log, scalar_norm = _lognorm_and_normalized(root_msg.squeeze())
+    total_log = _sum_logs(total_log, scalar_log)
+    return NormalizedValue(value=scalar_norm, log_norm=total_log)
+
+
+def _inner_product_local(
+    core1: jnp.ndarray,
+    core2: jnp.ndarray,
+    child_mats: Sequence[jnp.ndarray],
+) -> jnp.ndarray:
+    n_children = len(child_mats)
+    if n_children == 0:
+        return cached_einsum("pi,qi->pq", core1, core2)
+    if n_children == 1:
+        return cached_einsum("pia,ab,qib->pq", core1, child_mats[0], core2)
+    if n_children == 2:
+        return cached_einsum("piab,ac,bd,qicd->pq", core1, child_mats[0], child_mats[1], core2)
+
+    weighted = core1
+    for child_mat in child_mats:
+        weighted = jnp.tensordot(weighted, child_mat, axes=([2], [0]))
+    child_axes = tuple(range(1, 2 + n_children))
+    return jnp.tensordot(weighted, core2, axes=(child_axes, child_axes))
+
+
 def _eval_rank1_local(core: jnp.ndarray, vec: jnp.ndarray, child_vecs: Sequence[jnp.ndarray]) -> jnp.ndarray:
     n_children = len(child_vecs)
     if n_children == 0:
@@ -265,35 +333,12 @@ def normalized_inner_product_ttns(
     parent: Sequence[int],
 ) -> NormalizedValue:
     children = _children_from_parent(parent)
-    root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+    root = _root_from_parent(parent)
 
-    def node_message(node: int):
-        child_messages = [node_message(child) for child in children[node]]
-        child_mats = [msg for msg, _ in child_messages]
-        total_log = jnp.array(0.0)
-        for _, child_log in child_messages:
-            total_log = _sum_logs(total_log, child_log)
+    def compute(node: int, child_mats: Sequence[jnp.ndarray]) -> jnp.ndarray:
+        return _inner_product_local(ttns1.cores[node], ttns2.cores[node], child_mats)
 
-        g1 = ttns1.cores[node]
-        g2 = ttns2.cores[node]
-
-        weighted_g1 = g1
-        for child_mat in child_mats:
-            weighted_g1 = jnp.tensordot(weighted_g1, child_mat, axes=([2], [0]))
-
-        if child_mats:
-            axes = tuple(range(1, 2 + len(child_mats)))
-        else:
-            axes = (1,)
-        msg = jnp.tensordot(weighted_g1, g2, axes=(axes, axes))
-        log_norm, normalized = _lognorm_and_normalized(msg)
-        total_log = _sum_logs(total_log, log_norm)
-        return normalized, total_log
-
-    root_msg, total_log = node_message(root)
-    scalar_log, scalar_norm = _lognorm_and_normalized(root_msg.squeeze())
-    total_log = _sum_logs(total_log, scalar_log)
-    return NormalizedValue(value=scalar_norm, log_norm=total_log)
+    return _run_normalized_postorder(children, root, compute)
 
 
 def normalized_eval_rank1_ttns(
@@ -305,29 +350,12 @@ def normalized_eval_rank1_ttns(
     Evaluate <ttns, rank1(vectors)> where vectors shape is [n_dims, basis_dim].
     """
     children = _children_from_parent(parent)
-    root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+    root = _root_from_parent(parent)
 
-    def node_message(node: int):
-        child_messages = [node_message(child) for child in children[node]]
-        child_vecs = [msg for msg, _ in child_messages]
-        total_log = jnp.array(0.0)
-        for _, child_log in child_messages:
-            total_log = _sum_logs(total_log, child_log)
+    def compute(node: int, child_vecs: Sequence[jnp.ndarray]) -> jnp.ndarray:
+        return _eval_rank1_local(ttns.cores[node], vectors[node], child_vecs)
 
-        core = ttns.cores[node]
-        vec = vectors[node]
-        weighted = jnp.tensordot(core, vec, axes=([1], [0]))
-        # weighted shape: [r_parent, r_c1, ..., r_ck]
-        for child_vec in child_vecs:
-            weighted = jnp.tensordot(weighted, child_vec, axes=([1], [0]))
-        log_norm, normalized = _lognorm_and_normalized(weighted)
-        total_log = _sum_logs(total_log, log_norm)
-        return normalized, total_log
-
-    root_msg, total_log = node_message(root)
-    scalar_log, scalar_norm = _lognorm_and_normalized(root_msg.squeeze())
-    total_log = _sum_logs(total_log, scalar_log)
-    return NormalizedValue(value=scalar_norm, log_norm=total_log)
+    return _run_normalized_postorder(children, root, compute)
 
 
 def eval_rank1_ttns(
@@ -340,15 +368,12 @@ def eval_rank1_ttns(
     vectors shape: [n_dims, basis_dim].
     """
     children = _children_from_parent(parent)
-    root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+    root = _root_from_parent(parent)
 
-    def node_message(node: int):
-        core = ttns.cores[node]
-        vec = vectors[node]
-        child_vecs = [node_message(child) for child in children[node]]
-        return _eval_rank1_local(core, vec, child_vecs)
+    def compute(node: int, child_vecs: Sequence[jnp.ndarray]) -> jnp.ndarray:
+        return _eval_rank1_local(ttns.cores[node], vectors[node], child_vecs)
 
-    return jnp.asarray(node_message(root).squeeze())
+    return jnp.asarray(_run_postorder(children, root, compute).squeeze())
 
 
 def batch_eval_rank1_ttns(
@@ -362,15 +387,16 @@ def batch_eval_rank1_ttns(
     Returns shape: [batch].
     """
     children = _children_from_parent(parent)
-    root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+    root = _root_from_parent(parent)
 
-    def node_message(node: int):
-        core = ttns.cores[node]
-        vec_batch = vectors_batch[:, node, :]
-        child_vecs_batch = [node_message(child) for child in children[node]]
-        return _batch_eval_rank1_local(core, vec_batch, child_vecs_batch)
+    def compute(node: int, child_vecs_batch: Sequence[jnp.ndarray]) -> jnp.ndarray:
+        return _batch_eval_rank1_local(
+            ttns.cores[node],
+            vectors_batch[:, node, :],
+            child_vecs_batch,
+        )
 
-    return jnp.asarray(node_message(root).squeeze(-1))
+    return jnp.asarray(_run_postorder(children, root, compute).squeeze(-1))
 
 
 def normalized_quadratic_form_ttns(
@@ -383,44 +409,12 @@ def normalized_quadratic_form_ttns(
     matrices shape: [n_dims, basis_dim, basis_dim].
     """
     children = _children_from_parent(parent)
-    root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+    root = _root_from_parent(parent)
 
-    def node_message(node: int):
-        child_messages = [node_message(child) for child in children[node]]
-        child_mats = [msg for msg, _ in child_messages]
-        total_log = jnp.array(0.0)
-        for _, child_log in child_messages:
-            total_log = _sum_logs(total_log, child_log)
+    def compute(node: int, child_mats: Sequence[jnp.ndarray]) -> jnp.ndarray:
+        return _quadratic_local(ttns.cores[node], matrices[node], child_mats)
 
-        core = ttns.cores[node]
-        metric = matrices[node]
-        # Step 1) absorb child messages:
-        # core shape: [r_parent, basis_dim, r_c1, ..., r_ck]
-        # after absorbing child matrices:
-        # weighted shape: [r_parent, basis_dim, r_c1', ..., r_ck']
-        weighted = core
-        for child_mat in child_mats:
-            weighted = jnp.tensordot(weighted, child_mat, axes=([2], [0]))
-
-        # Step 2) build local Gram-like tensor over parent ranks:
-        # tmp shape: [r_parent_left, basis_i, r_parent_right, basis_j]
-        k = len(child_mats)
-        if k:
-            child_axes = tuple(range(2, 2 + k))
-            tmp = jnp.tensordot(weighted, core, axes=(child_axes, child_axes))
-        else:
-            tmp = jnp.tensordot(weighted, core, axes=0)
-
-        # Step 3) contract basis_i, basis_j with metric[i, j]
-        msg = jnp.tensordot(tmp, metric, axes=([1, 3], [0, 1]))
-        log_norm, normalized = _lognorm_and_normalized(msg)
-        total_log = _sum_logs(total_log, log_norm)
-        return normalized, total_log
-
-    root_msg, total_log = node_message(root)
-    scalar_log, scalar_norm = _lognorm_and_normalized(root_msg.squeeze())
-    total_log = _sum_logs(total_log, scalar_log)
-    return NormalizedValue(value=scalar_norm, log_norm=total_log)
+    return _run_normalized_postorder(children, root, compute)
 
 
 def quadratic_form_ttns(
@@ -433,13 +427,9 @@ def quadratic_form_ttns(
     matrices shape: [n_dims, basis_dim, basis_dim].
     """
     children = _children_from_parent(parent)
-    root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+    root = _root_from_parent(parent)
 
-    def node_message(node: int):
-        child_mats = [node_message(child) for child in children[node]]
+    def compute(node: int, child_mats: Sequence[jnp.ndarray]) -> jnp.ndarray:
+        return _quadratic_local(ttns.cores[node], matrices[node], child_mats)
 
-        core = ttns.cores[node]
-        metric = matrices[node]
-        return _quadratic_local(core, metric, child_mats)
-
-    return jnp.asarray(node_message(root).squeeze())
+    return jnp.asarray(_run_postorder(children, root, compute).squeeze())
