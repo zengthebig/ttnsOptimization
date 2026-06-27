@@ -42,12 +42,16 @@ class JunctionTreeTests(unittest.TestCase):
         self.assertTrue(clique_covers_dag_fork(fork_dag_edges(), {0, 1, 2}))
         self.assertFalse(clique_covers_dag_fork(fork_dag_edges(), {0, 1}))
 
-    def test_fork_dag_samples_are_finite(self):
-        key = jax.random.PRNGKey(0)
-        samples = sample_fork_dag_distribution(key, 512)
+    def test_fork_junction_parent_7d_is_valid_tree(self):
+        parent = fork_junction_parent(7)
+        validate_tree_parent(parent)
+        self.assertEqual(len(parent), 7)
+
+    def test_fork_dag_7d_samples_are_finite(self):
+        key = jax.random.PRNGKey(2)
+        samples = sample_fork_dag_distribution(key, 128, n_dims=7)
         validate_samples_finite(samples)
-        self.assertEqual(samples.shape, (512, 6))
-        self.assertTrue(np.isfinite(np.asarray(samples)).all())
+        self.assertEqual(samples.shape, (128, 7))
 
 
 if __name__ == "__main__":

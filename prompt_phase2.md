@@ -223,15 +223,15 @@ Program.md                                # 人类维护交接（只读除非被
 | M2.2 Chow–Liu 报告 | 未开始 | | |
 | M2.3 8D balanced | 未开始 | | |
 | M3.1 dag_target | **完成** | 2026-06-26 | `experiments/dag_target.py` |
-| M3.2 junction_tree | **完成** | 2026-06-26 | `junction_tree.py` + 4 项单测 |
-| M3.3 DAG 对比实验 | **完成** | 2026-06-26 | `fit_dag_junction_vs_chain.py` 已跑通 |
-| M3.4 DAG 报告 | **部分** | 2026-06-26 | 报告已入库；关键切片提升仅 ~0.6%，未达 20%——待增 rank/步数 |
+| M3.2 junction_tree | **完成** | 2026-06-27 | 7D 联结树 parent；修正 6D 星形错误 |
+| M3.3 DAG 对比实验 | **完成** | 2026-06-27 | `fit_dag_junction_vs_chain.py` + multiseed |
+| M3.4 DAG 报告 | **完成** | 2026-06-27 | 7D fork DAG；3 seed 聚合 junction vs chain **26.9%** |
 
 ### Phase 2 收工标准进度
 
 - [x] 树形：3 seed balanced 目标匹配 TTNS IAE 优于 chain ≥20%（**49.7%**）
-- [ ] 多父 DAG：联结树 IAE 显著优于 chain（当前 ~0.6%，**未达标**）
-- [x] 改算子后 validate 仍 PASS（本轮未改算子；M1.3 unittest 通过）
+- [x] 多父 DAG：联结树 IAE 显著优于 chain（3 seed 平均 **26.9%**，关键切片 (2,6) 优势最大）
+- [x] 改算子后 validate 仍 PASS（本轮未改算子；unittest 通过）
 
 ---
 

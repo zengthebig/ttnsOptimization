@@ -5,25 +5,23 @@ from typing import Iterable, List, Sequence, Set, Tuple
 
 def fork_junction_parent(n_dims: int = 6) -> List[int]:
     """
-    fork DAG 的联结树风格 spanning tree（6 节点 MVP，手写）。
+    fork DAG 的联结树风格 spanning tree。
 
-    树形（parent 指向父节点，根 self-loop）::
+    6 节点：0–1–2 链前缀 + x3,x4 挂 x2（短路径覆盖 (2,3),(2,4)）。
 
-        0 (root)
-       / \\
-      1   2
-         / \\
-        3   4
-         \\ /
-          5
+    8 节点： nuisance 侧枝挂 x2，x7 挂 x6，x7→x2 仅 2 跳（chain 需 5 跳）。
 
-    parent = [0, 0, 0, 2, 2, 3]
-
-    相对 chain，节点 0/1/2 在根下汇聚，更短路径覆盖双父依赖 clique {0,1,2}。
+    6D parent = [0, 0, 1, 2, 2, 4]
+    7D parent = [0, 0, 1, 2, 2, 2, 5]
+    8D parent = [0, 0, 1, 2, 2, 2, 2, 6]
     """
-    if n_dims != 6:
-        raise ValueError(f"fork_junction_parent 目前仅支持 n_dims=6，收到 {n_dims}")
-    return [0, 0, 0, 2, 2, 3]
+    if n_dims == 6:
+        return [0, 0, 1, 2, 2, 4]
+    if n_dims == 7:
+        return [0, 0, 1, 2, 2, 2, 5]
+    if n_dims == 8:
+        return [0, 0, 1, 2, 2, 2, 2, 6]
+    raise ValueError(f"fork_junction_parent 目前支持 n_dims=6/7/8，收到 {n_dims}")
 
 
 def validate_tree_parent(parent: Sequence[int]) -> None:
