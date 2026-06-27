@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -212,8 +212,10 @@ def _write_report(path: Path, cfg: ExperimentConfig, train_rows: List[Dict], sli
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def run_fit_ceiling():
+def run_fit_ceiling(seed: int | None = None, write_outputs: bool = True) -> Dict:
     cfg = _config()
+    if seed is not None:
+        cfg = replace(cfg, seed=seed)
     lr_policy = _lr_policy(cfg)
     pairs: List[Tuple[int, int]] = [(0, 1), (0, 3), (2, 5)]
     grid_bins = 48
@@ -329,15 +331,6 @@ def run_fit_ceiling():
                 flush=True,
             )
 
-    report_dir = REPO_ROOT / "simple_ttns_l2" / "reports"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    out_svg = report_dir / "fit_ceiling_two_models_complex.svg"
-    out_md = report_dir / "fit_ceiling_two_models_complex_report.md"
-    out_json = report_dir / "fit_ceiling_two_models_complex_metrics.json"
-
-    _write_svg(slice_rows, out_svg)
-    _write_report(out_md, cfg, train_rows, slice_rows, out_svg.name)
-
     compact_rows = []
     for row in slice_rows:
         compact_rows.append(
@@ -354,24 +347,34 @@ def run_fit_ceiling():
                 "l2_chain": row["l2_chain"],
             }
         )
-    out_json.write_text(
-        json.dumps(
-            {
-                "config": asdict(cfg),
-                "lr_policy": lr_policy,
-                "training": train_rows,
-                "slice_metrics": compact_rows,
-                "generated_epoch_sec": time.time(),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+
+    report_dir = REPO_ROOT / "simple_ttns_l2" / "reports"
+    result = {
+        "config": asdict(cfg),
+        "lr_policy": lr_policy,
+        "training": train_rows,
+        "slice_metrics": compact_rows,
+        "generated_epoch_sec": time.time(),
+    }
+
+    if not write_outputs:
+        return result
+
+    report_dir.mkdir(parents=True, exist_ok=True)
+    out_svg = report_dir / "fit_ceiling_two_models_complex.svg"
+    out_md = report_dir / "fit_ceiling_two_models_complex_report.md"
+    out_json = report_dir / "fit_ceiling_two_models_complex_metrics.json"
+
+    _write_svg(slice_rows, out_svg)
+    _write_report(out_md, cfg, train_rows, slice_rows, out_svg.name)
+
+    out_json.write_text(json.dumps(result, indent=2), encoding="utf-8")
 
     print("\n=== fit ceiling two-model done ===", flush=True)
     print("saved svg   :", out_svg, flush=True)
     print("saved report:", out_md, flush=True)
     print("saved metric:", out_json, flush=True)
+    return result
 
 
 if __name__ == "__main__":

@@ -180,11 +180,11 @@ env -u PYTHONPATH python3 simple_ttns_l2/experiments/fit_three_models_init0.py
 
 ## 建议执行顺序（Agent 下一批工作）
 
-1. [x] 跑通 P0：`fit_ceiling_two_models` + `fit_three_models_init0`，结果写入 `simple_ttns_l2/reports/`（2026-06-26）
-2. [ ] 跑通 P2：Chow–Liu 四模型脚本，补第一份 Chow–Liu 对比报告
-3. [ ] 设计并实现 `dag_target.py` + 联结树 `parent`（B1 MVP）
-4. [ ] 多父 DAG 对比实验（联结树 TTNS vs chain）+ 中文报告
-5. [ ] 每步修改 TTNS 相关代码后重跑 `validate_ttns_opt.py`
+1. [x] 跑通 P0：`fit_ceiling_two_models` + `fit_three_models_init0`（2026-06-26）
+2. [ ] **M1.2.1** 多 seed P0（见「下一阶段计划」）
+3. [ ] **M3.3.1–3.3.3** 多父 DAG MVP（终局主线，可与 M2 并行）
+4. [ ] **M2.2.4** Chow–Liu 四模型报告
+5. [ ] 每步改 TTNS 代码后重跑 `validate_ttns_opt.py`
 
 ---
 
@@ -222,4 +222,103 @@ env -u PYTHONPATH python3 simple_ttns_l2/experiments/fit_three_models_init0.py
 |------|------|
 | balanced 目标：匹配 TTNS IAE 优于 chain ≥20% | **通过**（~50%，单 seed） |
 | chain 目标：chain ≈ TT；balanced 失败 | **通过** |
-| 多 seed 均值±方差 | **未做**（下一步可补） |
+| 多 seed 均值±方差 | **未做**（见下一阶段 2.1） |
+
+---
+
+## 下一阶段计划（Phase 2，2026-06 起）
+
+**总目标：** 从「单层树 + 单 seed 证据」推进到「可发表的多层 DAG 收益叙事」——先巩固树形结论，再落地多父 DAG MVP。
+
+**当前卡点（Phase 1 已解决 vs 未解决）：**
+
+| 已解决 | 未解决 |
+|--------|--------|
+| 算子正确性（dense 对照） | 多父 DAG 表达能力 |
+| 树形目标上 balanced > chain（单 seed） | 多 seed 统计显著性 |
+| init_noise=0 sanity check | Chow–Liu / 随机树 / 8D 系统对比 |
+| 传播迭代调度小优化 | 端到端训练加速、非链初始化 |
+
+---
+
+### 里程碑 M1：巩固树形收益（约 1 轮 Agent）
+
+**目的：** 让「TTNS 在多层树上优于 TT」可重复、可辩护。
+
+| 任务 | 交付物 | 完成标准 |
+|------|--------|----------|
+| 2.1 多 seed P0 | `fit_ceiling_two_models` × seeds `{313,2602,20260227}` | balanced 目标：匹配 TTNS mean IAE 比 chain **≥20%**（3 seed 均值） |
+| 2.2 随机树目标 P1 | 扩展脚本或新建 `fit_matched_vs_chain_random_tree.py` | 匹配 parent TTNS > chain（同 rank） |
+| 2.3 修复测试环境 | `model_setups.py` 加 `from __future__ import annotations` 或 Python 3.10+ | `test_ttns_opt_unittest.py` 全绿 |
+
+**每轮 commit 需附：** 配置 JSON、中文报告 markdown、关键 IAE 表。
+
+---
+
+### 里程碑 M2：数据驱动拓扑与深树（约 1–2 轮 Agent）
+
+**目的：** 回答「固定 balanced 是否足够，Chow–Liu 是否更好」；放大树深效应。
+
+| 任务 | 交付物 | 完成标准 |
+|------|--------|----------|
+| 2.4 Chow–Liu 四模型 | 跑 `fit_limit_extreme_tt_vs_ttns_three_topologies_mle_8d.py` | 首份 `*_chow_liu_*_report_zh.md` 入库 |
+| 2.5 8D balanced 目标 | 同上脚本，`TARGET_TOPOLOGY=balanced` | TTNS(balanced) vs TTNS(chain) vs TT(MLE) 切片 IAE 表 |
+| 2.6 可选：Power 数据 | UCI 短训 smoke | Chow–Liu parent 可视化 + val 指标 |
+
+**注意：** 脚本内 `PYTHON` 路径需改成本机 `python3`（原硬编码 conda 路径）。
+
+---
+
+### 里程碑 M3：多父 DAG MVP（核心，约 2–3 轮 Agent）
+
+**目的：** 直接对齐终局目标——在**多父节点**结构上看到 TTNS（联结树）相对 chain 的收益。
+
+| 步骤 | 文件 / 动作 | 完成标准 |
+|------|-------------|----------|
+| 3.1 合成 DAG 目标 | `simple_ttns_l2/experiments/dag_target.py` | 6D，含 $x_3 \sim f(x_1,x_2)$；可采样、可画切片 |
+| 3.2 联结树 parent | `simple_ttns_l2/junction_tree.py` + 单元测试 | 手工 DAG → 联结树 `parent`；测试覆盖 clique |
+| 3.3 对比实验 | `fit_dag_junction_vs_chain.py`（新建） | 联结树 TTNS vs chain TTNS vs pure TT |
+| 3.4 报告 | `reports/dag_junction_vs_chain_report_zh.md` | chain 在涉及 $(x_1,x_2,x_3)$ 切片上 IAE 显著差于联结树 |
+
+**B1 联结树优先；B2 多父 core 仅在联结树秩膨胀不可接受时启动。**
+
+---
+
+### 里程碑 M4：工程债（穿插进行，非阻塞）
+
+| 任务 | 优先级 |
+|------|--------|
+| 实验脚本统一 `env -u PYTHONPATH` + 本机 python 路径 | 高（M2 前） |
+| balanced canonical/EM 初始化调研或 rank-1 增强 | 低 |
+| MLE 训练 JIT / 减少 stable 调用 | 低 |
+
+---
+
+### 推荐执行顺序（Agent checklist）
+
+```
+Phase 2 执行序：
+  [ ] M1.2.1  多 seed fit_ceiling_two_models
+  [ ] M1.2.2  随机树 matched vs chain 实验
+  [ ] M1.2.3  修复 Py3.9 unittest
+  [ ] M2.2.4  Chow–Liu 四模型 + 8D 报告
+  [ ] M3.3.1  dag_target.py
+  [ ] M3.3.2  junction_tree.py + test
+  [ ] M3.3.3  fit_dag_junction_vs_chain 实验 + 报告
+```
+
+**Phase 2 整体成功标准：**
+
+1. 树形：3 seed 下 balanced 目标 **匹配 TTNS IAE 稳定优于 chain ≥20%**。
+2. DAG：多父合成目标上 **联结树 TTNS 优于 chain**（至少 1 个三变量切片对）。
+3. 每次改 `ttns_opt.py` 后 **`validate_ttns_opt.py` 3/3 PASS**。
+
+---
+
+### 与 Program.md 的对应
+
+| Program.md §7 | 本计划 |
+|---------------|--------|
+| §7.1 传播缓慢 | M4 穿插；非 Phase 2 主线 |
+| §7.2 深树拟合差 | M1 + M2 |
+| §7.4 多层 DAG | **M3（主线）** |

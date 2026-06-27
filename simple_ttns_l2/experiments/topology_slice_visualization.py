@@ -322,8 +322,9 @@ def _train_one_model(
     basis_integrals: jnp.ndarray,
     seed_offset: int,
     lr_policy_template: Dict,
+    model_parent: Sequence[int] | None = None,
 ):
-    parent_model = make_parent(cfg.n_dims, model_topology)
+    parent_model = list(model_parent) if model_parent is not None else make_parent(cfg.n_dims, model_topology)
     key = jax.random.PRNGKey(cfg.seed + seed_offset)
     key, k_init, k_iter = jax.random.split(key, 3)
 
