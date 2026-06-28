@@ -217,7 +217,7 @@ Program.md                                # 人类维护交接（只读除非被
 | 里程碑 | 状态 | 日期 | 备注 |
 |--------|------|------|------|
 | M1.1 多 seed P0 | **完成** | 2026-06-26 | 3 seed 聚合提升 49.7%，见 `fit_ceiling_two_models_complex_multiseed_report_zh.md` |
-| M1.2 随机树 | 未开始 | | |
+| M1.2 随机树 | **完成** | 2026-06-27 | 3 seed 聚合 matched vs chain **42.6%** |
 | M1.3 unittest 修复 | **完成** | 2026-06-26 | `model_setups.py` 加 future annotations；unittest 全绿 |
 | M2.1 脚本路径 | 未开始 | | |
 | M2.2 Chow–Liu 报告 | 未开始 | | |
