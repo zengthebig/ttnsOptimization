@@ -1,0 +1,85 @@
+"""多层 DAG 传播 pipeline：拓扑分层 + delay 核逐层采样 + 多父结构图构造。
+
+与用户定义对齐：
+- **层内无父子边，层间多父边**：节点按拓扑分层；每条边 $u\\to v$ 中 $u$ 在更上层。
+- **delay 核** $K_v(x_v\\mid \\mathrm{pa}(v))$：下层节点仅依赖其上层父；给定上层时同层节点条件独立
+  （即"每层由若干 TTNS / 森林表示"）。
+- **传播 = 逐层前向采样**（源层 → 过核 → 下层），产物为全联合样本；随后用多父
+  DAGTTNS 拟合（方案 2）。全联合图结构 = 所有层间边的无向并集（可含环，如 diamond）。
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Sequence, Tuple
+
+import numpy as np
+import jax
+from jax import numpy as jnp
+
+from simple_ttns_l2.dag_ttns import DAGGraph, make_dag_graph
+
+# 源采样器：(rng, n) -> [n] ；delay 核：(parent_vals[n, k], rng, n) -> [n]
+SourceSampler = Callable[[np.random.Generator, int], np.ndarray]
+DelayKernel = Callable[[np.ndarray, np.random.Generator, int], np.ndarray]
+
+
+@dataclass(frozen=True)
+class MultiLayerSpec:
+    """多层 DAG 规格。节点标号 0..n-1，须与 `layers` 展开一致。"""
+
+    layers: Tuple[Tuple[int, ...], ...]          # 拓扑分层
+    edges: Tuple[Tuple[int, int], ...]           # 有向边 (parent, child)，parent 在更上层
+
+    @property
+    def n(self) -> int:
+        return sum(len(layer) for layer in self.layers)
+
+    @property
+    def topo_order(self) -> List[int]:
+        return [node for layer in self.layers for node in layer]
+
+    def parents(self, node: int) -> List[int]:
+        return [u for (u, v) in self.edges if v == node]
+
+    def validate(self) -> None:
+        seen: List[int] = self.topo_order
+        if sorted(seen) != list(range(self.n)):
+            raise ValueError(f"层划分节点必须恰为 0..{self.n - 1}，实际 {sorted(seen)}")
+        layer_of = {node: li for li, layer in enumerate(self.layers) for node in layer}
+        for (u, v) in self.edges:
+            if layer_of[u] >= layer_of[v]:
+                raise ValueError(f"边 {(u, v)} 必须从上层指向下层（layer {layer_of[u]} -> {layer_of[v]}）")
+
+
+def build_graph_from_spec(spec: MultiLayerSpec, basis_dim: int) -> DAGGraph:
+    """全联合图 = 所有层间边的无向并集；每个物理维取 `basis_dim`。"""
+    spec.validate()
+    return make_dag_graph(spec.n, [basis_dim] * spec.n, [(u, v) for (u, v) in spec.edges])
+
+
+def sample_joint(
+    spec: MultiLayerSpec,
+    sources: Dict[int, SourceSampler],
+    kernels: Dict[int, DelayKernel],
+    key: jnp.ndarray,
+    n: int,
+    clip: Tuple[float, float] = (1e-4, 1.0 - 1e-4),
+) -> jnp.ndarray:
+    """按拓扑序逐层前向采样全联合，返回 `[n, n_nodes]`（jnp，已裁剪到定义域）。"""
+    spec.validate()
+    rng = np.random.default_rng(int(jax.random.randint(key, (), 0, 2**31 - 1)))
+    vals: Dict[int, np.ndarray] = {}
+    for node in spec.topo_order:
+        ps = spec.parents(node)
+        if not ps:
+            if node not in sources:
+                raise ValueError(f"源节点 {node} 缺少 source sampler")
+            vals[node] = np.asarray(sources[node](rng, n), dtype=float)
+        else:
+            if node not in kernels:
+                raise ValueError(f"下层节点 {node} 缺少 delay kernel")
+            parent_vals = np.stack([vals[p] for p in ps], axis=1)  # [n, k]
+            vals[node] = np.asarray(kernels[node](parent_vals, rng, n), dtype=float)
+    xs = np.stack([vals[i] for i in range(spec.n)], axis=1)
+    return jnp.asarray(np.clip(xs, clip[0], clip[1]))

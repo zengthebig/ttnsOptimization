@@ -244,10 +244,13 @@ Program.md                                # 人类维护交接（只读除非被
 - [x] **8D fork DAG**：Chow–Liu vs chain **64.4%**，碾压 balanced；维度↑优势↑（数据驱动价值随维度放大）
 - [x] **真多父 core 地基**：`simple_ttns_l2/dag_ttns.py` 支持节点关联任意多 bond（多父）；`full_tensor/eval_rank1/inner_product/quadratic_form/integral/normalize` einsum 算子（greedy 路径）；`validate_dag_ttns.py` 用独立 brute-force 对照，fork/chain/polytree/三父/**diamond 有环** 5 组 20 项全 PASS（~1e-14）
 - [x] **多父 L2 拟合 + DAG vs 树 demo**：`dag_train_l2.py` + `experiments/fit_diamond_dag_vs_tree.py`。diamond 真分布（$x_2,x_3$ 各依赖 $x_0,x_1$，moral graph 含 4-环，树不可表达）→ **DAG val_l2=-19.10 vs 最优树 star@2 -17.15，提升 11.4%**（`diamond_dag_vs_tree_report_zh.md`）
-- [ ] **层间传播 pipeline**（终局）：拓扑分层；上层 TTNS 采样 × 已知 delay 核 → 生成目标样本；下层多父 TTNS 拟合（方案 2）。地基已就位，待串成多层前向
+- [x] **层间传播 pipeline**（终局）：`dag_pipeline.py`（`MultiLayerSpec` + `build_graph_from_spec` + 逐层前向采样 `sample_joint`：源层 → delay 核 → 下层）。层内无边、层间多父，给定上层时同层条件独立（=每层若干 TTNS/森林）
+- [x] **3 层多父 DAG 端到端 vs 树**：`experiments/fit_multilayer_dag_vs_tree.py`。L1={0,1}→L2={2,3}（和/差）→L3={4}（和），6 边 > 树上限 4。**DAG val_l2=-97.14 vs 最优树 hub@2 -75.13，提升 29.3%**（`multilayer_dag_vs_tree_report_zh.md`）
+- [ ] 后续打磨：逐层条件拟合（冻结上层 core）、层内森林（按相关性加层内边）、多 seed 统计、LR 稳定化（chain 偶发 spike）
 
 ---
 
 *创建：2026-06-26 — Phase 2 启动。*
 *更新：2026-06-29 — M2.2 Chow–Liu、hub-rank 加速、按边 rank 支持完成；确立 Chow–Liu 主线。*
 *更新：2026-06-29 — 真多父 core 地基 + L2 拟合落地；diamond 有环结构 DAG vs 最优树 11.4%，证实多父超越树的表达力优势。*
+*更新：2026-06-29 — 层间传播 pipeline 打通（逐层采样 + 多父全联合拟合）；3 层多父 DAG 端到端 vs 最优树 29.3%，终局主线跑通。*
