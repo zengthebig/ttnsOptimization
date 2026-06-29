@@ -29,6 +29,7 @@ from simple_ttns_l2.dag_ttns import (  # noqa: E402
     dag_eval_rank1,
     dag_full_tensor,
     dag_inner_product,
+    dag_quadratic_form,
     make_dag_graph,
     random_dag_ttns,
 )
@@ -53,6 +54,21 @@ def _brute_full(cores, graph) -> np.ndarray:
             total += prod
         out[phys] = total
     return out
+
+
+def _brute_q2(dense: np.ndarray, grams) -> float:
+    """独立计算 ∫q² = Σ_p M[p] (Π_k G_k 作用于各轴后的 M)[p]。"""
+    M = np.asarray(dense)
+    M2 = M.copy()
+    for k, G in enumerate(grams):
+        M2 = np.tensordot(np.asarray(G), M2, axes=([1], [k]))
+        M2 = np.moveaxis(M2, 0, k)
+    return float(np.sum(M * M2))
+
+
+def _rand_gram(key, d) -> np.ndarray:
+    a = np.asarray(jax.random.normal(key, (d, d), dtype=jnp.float64))
+    return a @ a.T
 
 
 def _assert_close(name: str, got, expected, atol=1e-10, rtol=1e-10) -> bool:
@@ -93,12 +109,18 @@ def _check_case(name: str, dims, edges, edge_ranks, key) -> bool:
     got_ip = float(dag_inner_product(t1, t2, graph))
     expected_ip = float(np.sum(dense1 * dense2))
     ok &= _assert_close(f"{name} inner_product", got_ip, expected_ip)
+
+    gram_keys = jax.random.split(jax.random.fold_in(k_v, 7), len(dims))
+    grams = [_rand_gram(gk, d) for gk, d in zip(gram_keys, dims)]
+    got_q2 = float(dag_quadratic_form(t1, graph, [jnp.asarray(g) for g in grams]))
+    expected_q2 = _brute_q2(dense1, grams)
+    ok &= _assert_close(f"{name} quadratic_form", got_q2, expected_q2)
     return ok
 
 
 def main():
     key = jax.random.PRNGKey(0)
-    keys = jax.random.split(key, 4)
+    keys = jax.random.split(key, 5)
     results = []
     # A. fork v-structure：节点 2 双父（多父核心用例）
     results.append(_check_case("fork", [3, 3, 3], [(0, 2), (1, 2)], 2, keys[0]))
@@ -108,6 +130,8 @@ def main():
     results.append(_check_case("polytree", [2, 2, 3, 2], [(0, 2), (1, 2), (2, 3)], {0: 2, 1: 3, 2: 2}, keys[2]))
     # D. 三父节点：节点 3 连 0,1,2
     results.append(_check_case("three_parents", [2, 2, 2, 3], [(0, 3), (1, 3), (2, 3)], 2, keys[3]))
+    # E. diamond（有环）：x2,x3 同时依赖 x0,x1 —— 无向图含环，树无法表达，验证 einsum 通用收缩正确
+    results.append(_check_case("diamond_loopy", [2, 2, 2, 2], [(0, 2), (1, 2), (0, 3), (1, 3)], 2, keys[4]))
 
     n_pass = sum(results)
     print(f"\n全部验证：{n_pass}/{len(results)} 组通过。")

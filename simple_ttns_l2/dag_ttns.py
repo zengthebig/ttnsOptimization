@@ -121,7 +121,7 @@ def dag_full_tensor(ttns: DAGTTNS, graph: DAGGraph) -> jnp.ndarray:
         subs.append(phys_l[node] + "".join(edge_l[ei] for ei in graph.incident[node]))
         operands.append(ttns.cores[node])
     expr = ",".join(subs) + "->" + "".join(phys_l[i] for i in range(graph.n))
-    return jnp.einsum(expr, *operands)
+    return jnp.einsum(expr, *operands, optimize="greedy")
 
 
 def dag_eval_rank1(ttns: DAGTTNS, graph: DAGGraph, vectors: Sequence[jnp.ndarray]) -> jnp.ndarray:
@@ -136,7 +136,7 @@ def dag_eval_rank1(ttns: DAGTTNS, graph: DAGGraph, vectors: Sequence[jnp.ndarray
         subs.append(phys_l[node])
         operands.append(vectors[node])
     expr = ",".join(subs) + "->"
-    return jnp.einsum(expr, *operands)
+    return jnp.einsum(expr, *operands, optimize="greedy")
 
 
 def dag_inner_product(ttns1: DAGTTNS, ttns2: DAGTTNS, graph: DAGGraph) -> jnp.ndarray:
@@ -152,4 +152,48 @@ def dag_inner_product(ttns1: DAGTTNS, ttns2: DAGTTNS, graph: DAGGraph) -> jnp.nd
         subs.append(phys_l[node] + "".join(e2[ei] for ei in graph.incident[node]))
         operands.append(ttns2.cores[node])
     expr = ",".join(subs) + "->"
-    return jnp.einsum(expr, *operands)
+    return jnp.einsum(expr, *operands, optimize="greedy")
+
+
+def dag_quadratic_form(ttns: DAGTTNS, graph: DAGGraph, gram: Sequence[jnp.ndarray]) -> jnp.ndarray:
+    r"""$\int q^2 = \sum_{p,p'} T[p] T[p'] \prod_k G_k[p_k, p'_k]$，`gram[k]` 形状 `(d_k, d_k)`。"""
+    n_edges = len(graph.edges)
+    e1 = _edge_letters(0, n_edges)
+    e2 = _edge_letters(n_edges, n_edges)
+    phys_a = _phys_letters(2 * n_edges, graph.n)
+    phys_b = _phys_letters(2 * n_edges + graph.n, graph.n)
+    subs, operands = [], []
+    for node in range(graph.n):
+        subs.append(phys_a[node] + "".join(e1[ei] for ei in graph.incident[node]))
+        operands.append(ttns.cores[node])
+        subs.append(phys_a[node] + phys_b[node])
+        operands.append(gram[node])
+        subs.append(phys_b[node] + "".join(e2[ei] for ei in graph.incident[node]))
+        operands.append(ttns.cores[node])
+    expr = ",".join(subs) + "->"
+    return jnp.einsum(expr, *operands, optimize="greedy")
+
+
+def dag_integral(ttns: DAGTTNS, graph: DAGGraph, basis_integrals: Sequence[jnp.ndarray]) -> jnp.ndarray:
+    r"""$\int q = \langle T, \otimes_k I_k \rangle$，`basis_integrals[k]` 形状 `(d_k,)`。"""
+    return dag_eval_rank1(ttns, graph, basis_integrals)
+
+
+def dag_batch_eval_rank1(ttns: DAGTTNS, graph: DAGGraph, basis_vectors_batch: jnp.ndarray) -> jnp.ndarray:
+    """对一批 rank-1 基向量求值，`basis_vectors_batch` 形状 `[batch, n_nodes, basis_dim]`。"""
+    return jax.vmap(lambda vecs: dag_eval_rank1(ttns, graph, vecs))(basis_vectors_batch)
+
+
+def dag_normalize_by_integral(
+    ttns: DAGTTNS,
+    graph: DAGGraph,
+    basis_integrals: Sequence[jnp.ndarray],
+    root: int = 0,
+    eps: float = 1e-12,
+) -> Tuple[DAGTTNS, jnp.ndarray]:
+    r"""投影到单位积分 $q \leftarrow q / \int q$，通过缩放 `root` 节点的 core 实现。"""
+    z = dag_integral(ttns, graph, basis_integrals)
+    safe_z = jnp.where(jnp.abs(z) < eps, 1.0, z)
+    cores = list(ttns.cores)
+    cores[root] = cores[root] / safe_z
+    return DAGTTNS(tuple(cores)), z
