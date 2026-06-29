@@ -1,0 +1,229 @@
+{
+  "config": {
+    "q": 2,
+    "m": 10,
+    "rank": 6,
+    "n_train": 40000,
+    "n_val": 12000,
+    "init_noise": 0.01,
+    "batch_sz": 1024,
+    "train_noise": 0.05,
+    "log_every": 50,
+    "seed": 0,
+    "dag_lr": 0.0005,
+    "dag_steps": 600,
+    "dag_normalize_every": 1,
+    "dag_lr_decay": true,
+    "tree_lr": 0.0003,
+    "tree_steps": 400,
+    "tree_grad_clip": 1.0,
+    "tree_early_stop": 4,
+    "mix_n_comp": 8,
+    "mix_lr": 0.0003,
+    "mix_steps": 400
+  },
+  "spec": {
+    "layers": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      [
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      [
+        15,
+        16,
+        17,
+        18,
+        19
+      ]
+    ],
+    "edges": [
+      [
+        0,
+        5
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        1,
+        6
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        2,
+        7
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        5,
+        10
+      ],
+      [
+        6,
+        10
+      ],
+      [
+        6,
+        11
+      ],
+      [
+        7,
+        11
+      ],
+      [
+        7,
+        12
+      ],
+      [
+        8,
+        12
+      ],
+      [
+        8,
+        13
+      ],
+      [
+        9,
+        13
+      ],
+      [
+        9,
+        14
+      ],
+      [
+        10,
+        15
+      ],
+      [
+        11,
+        15
+      ],
+      [
+        11,
+        16
+      ],
+      [
+        12,
+        16
+      ],
+      [
+        12,
+        17
+      ],
+      [
+        13,
+        17
+      ],
+      [
+        13,
+        18
+      ],
+      [
+        14,
+        18
+      ],
+      [
+        14,
+        19
+      ]
+    ],
+    "n_edges": 27
+  },
+  "common_metric": "held_out_mean_ll (higher=better)",
+  "results": [
+    {
+      "model": "dag_linear_l2",
+      "method": "我们DAG传播(线性+L2)",
+      "rank": 6,
+      "n_params": 89400,
+      "native_metric": "val_l2",
+      "native_value": -461624.06971714756,
+      "val_ll": 10.112175358381984,
+      "nonpositive_rate": 0.040416666666666656,
+      "total_time_sec": 112.993480792
+    },
+    {
+      "model": "square_tree_chain",
+      "method": "TTDE(平方+MLE)",
+      "rank": 22,
+      "n_params": 87560,
+      "native_metric": "val_nll",
+      "native_value": -8.231138436103702,
+      "val_ll": 8.231138436066768,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 12.887240125000005
+    },
+    {
+      "model": "square_tree_balanced",
+      "method": "TTDE(平方+MLE)",
+      "rank": 10,
+      "n_params": 83000,
+      "native_metric": "val_nll",
+      "native_value": -9.201099479698977,
+      "val_ll": 9.201099479655902,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 11.20864929199999
+    },
+    {
+      "model": "ttde_mix_chain",
+      "method": "完整TTDE(平方+8排列混合)",
+      "rank": 7,
+      "n_params": 71680,
+      "native_metric": "val_nll",
+      "native_value": -7.808651577986797,
+      "val_ll": 7.808651577986799,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 45.75572354100001
+    },
+    {
+      "model": "ttde_mix_balanced",
+      "method": "完整TTDE(平方+8排列混合)",
+      "rank": 5,
+      "n_params": 88000,
+      "native_metric": "val_nll",
+      "native_value": -8.39643002830962,
+      "val_ll": 8.396430028309618,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 25.872752042000002
+    }
+  ],
+  "dag_val_ll": 10.112175358381984,
+  "best_square_tree_val_ll": 9.201099479655902,
+  "dag_minus_best_tree_ll": 0.9110758787260824
+}

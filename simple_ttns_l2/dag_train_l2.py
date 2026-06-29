@@ -85,13 +85,16 @@ def train_dag_l2(
     normalize_every: int = 1,
     log_every: int = 25,
     grad_clip: float = 1.0,
+    lr_decay_steps: int = 0,
     early_stop_patience: int = 4,
     label: str = "dag",
 ) -> Tuple[DAGTTNS, Dict]:
+    # 可选 cosine 衰减：后期 lr→0，抑制尖峰目标下 L2 的末期发散（默认关闭=常数 lr）。
+    lr_arg = optax.cosine_decay_schedule(lr, lr_decay_steps) if lr_decay_steps and lr_decay_steps > 0 else lr
     optimizer = (
-        optax.chain(optax.clip_by_global_norm(grad_clip), optax.adam(learning_rate=lr))
+        optax.chain(optax.clip_by_global_norm(grad_clip), optax.adam(learning_rate=lr_arg))
         if grad_clip and grad_clip > 0
-        else optax.adam(learning_rate=lr)
+        else optax.adam(learning_rate=lr_arg)
     )
     ttns, z0 = dag_normalize_by_integral(ttns, graph, basis_integrals)
     opt_state = optimizer.init(ttns)
