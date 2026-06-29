@@ -1,0 +1,46 @@
+{
+  "config": {
+    "q": 2,
+    "m": 10,
+    "rank": 6,
+    "n_train": 40000,
+    "n_val": 12000,
+    "init_noise": 0.01,
+    "batch_sz": 1024,
+    "train_noise": 0.05,
+    "log_every": 50,
+    "seed": 0,
+    "lr": 0.0005,
+    "steps": 600,
+    "grad_clip": 1.0,
+    "lr_decay": true,
+    "early_stop": 4
+  },
+  "common_metric": "held_out_mean_ll (higher=better)",
+  "results": [
+    {
+      "model": "dag_linear_l2",
+      "variant": "线性+L2",
+      "n_params": 89400,
+      "val_ll": 10.112175358381984,
+      "nonpositive_rate": 0.040416666666666656,
+      "total_time_sec": 104.579749417
+    },
+    {
+      "model": "dag_nonneg_l2",
+      "variant": "参数平方+L2",
+      "n_params": 89400,
+      "val_ll": 6.079122596253879,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 62.521989375000004
+    },
+    {
+      "model": "dag_nonneg_mle",
+      "variant": "参数平方+MLE",
+      "n_params": 89400,
+      "val_ll": 7.719543001213198,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 81.74593775
+    }
+  ]
+}
