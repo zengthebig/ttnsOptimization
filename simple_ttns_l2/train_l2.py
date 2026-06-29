@@ -58,9 +58,10 @@ def init_ttns_from_rank1(
     parent: Sequence[int],
     rank: int,
     noise: float,
+    edge_ranks=None,
 ) -> TTNSOpt:
     rank1 = continuous_rank_1(bases, samples, jnp.ones(len(samples)))
-    ttns = TTNSOpt.from_rank1_vectors(rank1, parent, rank)
+    ttns = TTNSOpt.from_rank1_vectors(rank1, parent, rank, edge_ranks=edge_ranks)
     if noise <= 0:
         return ttns
 

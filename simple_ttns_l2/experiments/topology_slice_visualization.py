@@ -323,6 +323,7 @@ def _train_one_model(
     seed_offset: int,
     lr_policy_template: Dict,
     model_parent: Sequence[int] | None = None,
+    model_edge_ranks: Dict[Tuple[int, int], int] | None = None,
 ):
     parent_model = list(model_parent) if model_parent is not None else make_parent(cfg.n_dims, model_topology)
     key = jax.random.PRNGKey(cfg.seed + seed_offset)
@@ -335,6 +336,7 @@ def _train_one_model(
         parent=parent_model,
         rank=cfg.rank,
         noise=cfg.init_noise,
+        edge_ranks=model_edge_ranks,
     )
     ttns, z0 = normalize_ttns_by_integral(ttns, basis_integrals, parent_model)
     lr_policy = dict(lr_policy_template)

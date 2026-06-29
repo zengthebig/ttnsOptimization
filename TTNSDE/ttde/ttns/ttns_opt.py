@@ -261,16 +261,26 @@ class TTNSOpt:
         vectors: jnp.ndarray,
         parent: Sequence[int],
         rank: int,
+        edge_ranks: Dict[Tuple[int, int], int] | None = None,
     ):
         """
         vectors shape: [n_dims, basis_dim]
+
+        edge_ranks: 可选的按无向边 rank 覆盖，key 为 (min(u,v), max(u,v))；
+        未指定的边回退到统一 `rank`。用于给高扇出枢纽边单独降秩。
         """
         children = _children_from_parent(parent)
         root = next(i for i, p in enumerate(parent) if p == i or p == -1)
+
+        def edge_rank(u: int, v: int) -> int:
+            if edge_ranks is None:
+                return rank
+            return int(edge_ranks.get(_edge_key(u, v), rank))
+
         cores = []
         for node in range(len(parent)):
-            r_parent = 1 if node == root else rank
-            r_children = [rank for _ in children[node]]
+            r_parent = 1 if node == root else edge_rank(node, parent[node])
+            r_children = [edge_rank(node, c) for c in children[node]]
             core = jnp.zeros((r_parent, vectors.shape[1], *r_children))
             index = (0, slice(None), *([0] * len(r_children)))
             core = core.at[index].set(vectors[node])
