@@ -246,7 +246,9 @@ Program.md                                # 人类维护交接（只读除非被
 - [x] **多父 L2 拟合 + DAG vs 树 demo**：`dag_train_l2.py` + `experiments/fit_diamond_dag_vs_tree.py`。diamond 真分布（$x_2,x_3$ 各依赖 $x_0,x_1$，moral graph 含 4-环，树不可表达）→ **DAG val_l2=-19.10 vs 最优树 star@2 -17.15，提升 11.4%**（`diamond_dag_vs_tree_report_zh.md`）
 - [x] **层间传播 pipeline**（终局）：`dag_pipeline.py`（`MultiLayerSpec` + `build_graph_from_spec` + 逐层前向采样 `sample_joint`：源层 → delay 核 → 下层）。层内无边、层间多父，给定上层时同层条件独立（=每层若干 TTNS/森林）
 - [x] **3 层多父 DAG 端到端 vs 树**：`experiments/fit_multilayer_dag_vs_tree.py`。L1={0,1}→L2={2,3}（和/差）→L3={4}（和），6 边 > 树上限 4。**DAG val_l2=-97.14 vs 最优树 hub@2 -75.13，提升 29.3%**（`multilayer_dag_vs_tree_report_zh.md`）
-- [ ] 后续打磨：逐层条件拟合（冻结上层 core）、层内森林（按相关性加层内边）、多 seed 统计、LR 稳定化（chain 偶发 spike）
+- [x] **复杂结构（4 层 / 20 节点）**：`experiments/fit_deep_dag_vs_tree.py` + `build_layered_spec`。banded 多父阶梯 `[5,5,5,5]`，27 边 > 树上限 19；**乘积/XOR 交互核**（子与单父近零相关，树成对路径不可表达）。**DAG val_l2=-703207 vs 最优树 balanced -222917，提升 215.5%**；DAG 单调收敛，树早早 plateau 后过拟合发散（`deep_dag_vs_tree_report_zh.md`）
+- [x] **工程加固**：einsum 改整数下标（解除 52 字母上限，支持大图）；训练加梯度裁剪 + train_noise + 早停（高维 L2 防过拟合/发散）；`dag_ttns` 20 项 dense 验证仍全 PASS
+- [ ] 后续打磨：逐层条件拟合（冻结上层 core）、层内森林（按相关性加层内边）、多 seed 统计
 
 ---
 
@@ -254,3 +256,4 @@ Program.md                                # 人类维护交接（只读除非被
 *更新：2026-06-29 — M2.2 Chow–Liu、hub-rank 加速、按边 rank 支持完成；确立 Chow–Liu 主线。*
 *更新：2026-06-29 — 真多父 core 地基 + L2 拟合落地；diamond 有环结构 DAG vs 最优树 11.4%，证实多父超越树的表达力优势。*
 *更新：2026-06-29 — 层间传播 pipeline 打通（逐层采样 + 多父全联合拟合）；3 层多父 DAG 端到端 vs 最优树 29.3%，终局主线跑通。*
+*更新：2026-06-29 — 复杂 4 层/20 节点 + 乘积交互核：DAG vs 最优树 215.5%；einsum 整数下标 + 梯度裁剪/train_noise/早停 加固，支持大图稳定训练。*

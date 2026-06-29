@@ -12,15 +12,12 @@
 
 from __future__ import annotations
 
-import string
 from dataclasses import dataclass
 from typing import Dict, List, Sequence, Tuple, Union
 
 import jax
 import jax.numpy as jnp
 from flax import struct
-
-_SYMBOLS = string.ascii_letters  # 52 个可用 einsum 字母
 
 EdgeRanks = Union[int, Dict[int, int]]
 
@@ -103,75 +100,61 @@ def dag_ttns_from_rank1(
     return DAGTTNS(tuple(cores))
 
 
-def _edge_letters(offset: int, n_edges: int) -> Dict[int, str]:
-    return {ei: _SYMBOLS[offset + ei] for ei in range(n_edges)}
-
-
-def _phys_letters(offset: int, n_nodes: int) -> Dict[int, str]:
-    return {i: _SYMBOLS[offset + i] for i in range(n_nodes)}
+def _contract(args_pairs: List, output: List[int], optimize: str = "greedy") -> jnp.ndarray:
+    """用整数下标（sublist）格式调用 einsum，避免字母数量上限（支持任意大图）。"""
+    flat: List = []
+    for operand, sub in args_pairs:
+        flat.append(operand)
+        flat.append(sub)
+    flat.append(output)
+    return jnp.einsum(*flat, optimize=optimize)
 
 
 def dag_full_tensor(ttns: DAGTTNS, graph: DAGGraph) -> jnp.ndarray:
     """收缩所有 bond，返回稠密张量，形状 = `tuple(dims)`。"""
     n_edges = len(graph.edges)
-    edge_l = _edge_letters(0, n_edges)
-    phys_l = _phys_letters(n_edges, graph.n)
-    subs, operands = [], []
-    for node in range(graph.n):
-        subs.append(phys_l[node] + "".join(edge_l[ei] for ei in graph.incident[node]))
-        operands.append(ttns.cores[node])
-    expr = ",".join(subs) + "->" + "".join(phys_l[i] for i in range(graph.n))
-    return jnp.einsum(expr, *operands, optimize="greedy")
+    phys = lambda node: n_edges + node  # noqa: E731
+    pairs = [(ttns.cores[node], [phys(node), *graph.incident[node]]) for node in range(graph.n)]
+    return _contract(pairs, [phys(node) for node in range(graph.n)])
 
 
 def dag_eval_rank1(ttns: DAGTTNS, graph: DAGGraph, vectors: Sequence[jnp.ndarray]) -> jnp.ndarray:
     r"""计算 $\langle T, \otimes_k v_k \rangle$：每个物理腿与 `vectors[k]` 收缩后再缩所有 bond。"""
     n_edges = len(graph.edges)
-    edge_l = _edge_letters(0, n_edges)
-    phys_l = _phys_letters(n_edges, graph.n)
-    subs, operands = [], []
+    phys = lambda node: n_edges + node  # noqa: E731
+    pairs = []
     for node in range(graph.n):
-        subs.append(phys_l[node] + "".join(edge_l[ei] for ei in graph.incident[node]))
-        operands.append(ttns.cores[node])
-        subs.append(phys_l[node])
-        operands.append(vectors[node])
-    expr = ",".join(subs) + "->"
-    return jnp.einsum(expr, *operands, optimize="greedy")
+        pairs.append((ttns.cores[node], [phys(node), *graph.incident[node]]))
+        pairs.append((vectors[node], [phys(node)]))
+    return _contract(pairs, [])
 
 
 def dag_inner_product(ttns1: DAGTTNS, ttns2: DAGTTNS, graph: DAGGraph) -> jnp.ndarray:
-    r"""$\langle T_1, T_2 \rangle$：两网络共享物理腿、各用一套 bond 字母。"""
+    r"""$\langle T_1, T_2 \rangle$：两网络共享物理腿、各用一套 bond 下标。"""
     n_edges = len(graph.edges)
-    e1 = _edge_letters(0, n_edges)
-    e2 = _edge_letters(n_edges, n_edges)
-    phys_l = _phys_letters(2 * n_edges, graph.n)
-    subs, operands = [], []
+    phys = lambda node: 2 * n_edges + node  # noqa: E731
+    pairs = []
     for node in range(graph.n):
-        subs.append(phys_l[node] + "".join(e1[ei] for ei in graph.incident[node]))
-        operands.append(ttns1.cores[node])
-        subs.append(phys_l[node] + "".join(e2[ei] for ei in graph.incident[node]))
-        operands.append(ttns2.cores[node])
-    expr = ",".join(subs) + "->"
-    return jnp.einsum(expr, *operands, optimize="greedy")
+        b1 = [phys(node), *graph.incident[node]]
+        b2 = [phys(node), *[n_edges + ei for ei in graph.incident[node]]]
+        pairs.append((ttns1.cores[node], b1))
+        pairs.append((ttns2.cores[node], b2))
+    return _contract(pairs, [])
 
 
 def dag_quadratic_form(ttns: DAGTTNS, graph: DAGGraph, gram: Sequence[jnp.ndarray]) -> jnp.ndarray:
     r"""$\int q^2 = \sum_{p,p'} T[p] T[p'] \prod_k G_k[p_k, p'_k]$，`gram[k]` 形状 `(d_k, d_k)`。"""
     n_edges = len(graph.edges)
-    e1 = _edge_letters(0, n_edges)
-    e2 = _edge_letters(n_edges, n_edges)
-    phys_a = _phys_letters(2 * n_edges, graph.n)
-    phys_b = _phys_letters(2 * n_edges + graph.n, graph.n)
-    subs, operands = [], []
+    phys_a = lambda node: 2 * n_edges + node  # noqa: E731
+    phys_b = lambda node: 2 * n_edges + graph.n + node  # noqa: E731
+    pairs = []
     for node in range(graph.n):
-        subs.append(phys_a[node] + "".join(e1[ei] for ei in graph.incident[node]))
-        operands.append(ttns.cores[node])
-        subs.append(phys_a[node] + phys_b[node])
-        operands.append(gram[node])
-        subs.append(phys_b[node] + "".join(e2[ei] for ei in graph.incident[node]))
-        operands.append(ttns.cores[node])
-    expr = ",".join(subs) + "->"
-    return jnp.einsum(expr, *operands, optimize="greedy")
+        ba = [phys_a(node), *graph.incident[node]]
+        bb = [phys_b(node), *[n_edges + ei for ei in graph.incident[node]]]
+        pairs.append((ttns.cores[node], ba))
+        pairs.append((gram[node], [phys_a(node), phys_b(node)]))
+        pairs.append((ttns.cores[node], bb))
+    return _contract(pairs, [])
 
 
 def dag_integral(ttns: DAGTTNS, graph: DAGGraph, basis_integrals: Sequence[jnp.ndarray]) -> jnp.ndarray:

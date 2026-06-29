@@ -70,8 +70,15 @@ def train_tree_l2(
     normalize_every: int,
     log_every: int,
     label: str,
+    grad_clip: float = 1.0,
+    train_noise: float = 0.0,
+    early_stop_patience: int = 4,
 ) -> Tuple[TTNSOpt, Dict]:
-    optimizer = optax.adam(lr)
+    optimizer = (
+        optax.chain(optax.clip_by_global_norm(grad_clip), optax.adam(lr))
+        if grad_clip and grad_clip > 0
+        else optax.adam(lr)
+    )
     ttns, z0 = normalize_ttns_by_integral(ttns, basis_integrals, parent)
     opt_state = optimizer.init(ttns)
     val_basis = batch_basis_vectors_from_samples(bases, val_x)
@@ -90,13 +97,17 @@ def train_tree_l2(
     history: List[Dict] = []
     best_val = float("inf")
     best = ttns
+    bad_logs = 0
     t0 = time.perf_counter()
     print(f"\n=== [{label}] init integral={float(z0):.6e} ===", flush=True)
     print("step,train_l2,val_l2,total_sec", flush=True)
     for s in range(1, train_steps + 1):
-        key, k_idx = jax.random.split(key)
+        key, k_idx, k_noise = jax.random.split(key, 3)
         idx = jax.random.randint(k_idx, (batch_sz,), 0, train_x.shape[0])
-        ttns, opt_state, loss = step(ttns, opt_state, train_x[idx])
+        batch = train_x[idx]
+        if train_noise > 0:
+            batch = batch + jax.random.normal(k_noise, batch.shape) * train_noise
+        ttns, opt_state, loss = step(ttns, opt_state, batch)
         if normalize_every > 0 and s % normalize_every == 0:
             ttns, _ = normalize_ttns_by_integral(ttns, basis_integrals, parent)
         if s % log_every == 0 or s == train_steps:
@@ -106,6 +117,12 @@ def train_tree_l2(
             print(f"{s},{float(loss):.6f},{vl:.6f},{time.perf_counter()-t0:.3f}", flush=True)
             if vl < best_val:
                 best_val, best = vl, ttns
+                bad_logs = 0
+            else:
+                bad_logs += 1
+                if early_stop_patience > 0 and bad_logs >= early_stop_patience:
+                    print(f"early_stop at step={s} (best_val_l2={best_val:.4f})", flush=True)
+                    break
     summary = {"label": label, "final_val_l2": float(eval_val(best)), "best_val_l2": best_val,
                "total_time_sec": time.perf_counter() - t0, "history": history}
     return best, summary

@@ -52,6 +52,27 @@ class MultiLayerSpec:
                 raise ValueError(f"边 {(u, v)} 必须从上层指向下层（layer {layer_of[u]} -> {layer_of[v]}）")
 
 
+def build_layered_spec(layer_sizes: Sequence[int], fanin: int = 2, wrap: bool = True) -> MultiLayerSpec:
+    """构造分层 banded 多父 DAG：下层每个节点连上层 `fanin` 个相邻父（可 wrap 成环）。
+
+    相邻下层节点共享父节点 → 产生大量短环（树不可表达），同时保持局部连接、treewidth 受控。
+    """
+    layers: List[Tuple[int, ...]] = []
+    idx = 0
+    for sz in layer_sizes:
+        layers.append(tuple(range(idx, idx + sz)))
+        idx += sz
+    edges = set()
+    for li in range(1, len(layers)):
+        prev, cur = layers[li - 1], layers[li]
+        psz = len(prev)
+        for j, node in enumerate(cur):
+            for f in range(fanin):
+                pos = (j + f) % psz if wrap else min(j + f, psz - 1)
+                edges.add((prev[pos], node))
+    return MultiLayerSpec(tuple(layers), tuple(sorted(edges)))
+
+
 def build_graph_from_spec(spec: MultiLayerSpec, basis_dim: int) -> DAGGraph:
     """全联合图 = 所有层间边的无向并集；每个物理维取 `basis_dim`。"""
     spec.validate()

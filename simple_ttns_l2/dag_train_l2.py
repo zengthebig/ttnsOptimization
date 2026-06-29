@@ -84,9 +84,15 @@ def train_dag_l2(
     train_noise: float = 0.0,
     normalize_every: int = 1,
     log_every: int = 25,
+    grad_clip: float = 1.0,
+    early_stop_patience: int = 4,
     label: str = "dag",
 ) -> Tuple[DAGTTNS, Dict]:
-    optimizer = optax.adam(learning_rate=lr)
+    optimizer = (
+        optax.chain(optax.clip_by_global_norm(grad_clip), optax.adam(learning_rate=lr))
+        if grad_clip and grad_clip > 0
+        else optax.adam(learning_rate=lr)
+    )
     ttns, z0 = dag_normalize_by_integral(ttns, graph, basis_integrals)
     opt_state = optimizer.init(ttns)
 
@@ -110,6 +116,7 @@ def train_dag_l2(
     history: List[Dict] = []
     best_val = float("inf")
     best_ttns = ttns
+    bad_logs = 0
     t_start = time.perf_counter()
     print(f"\n=== [{label}] init integral={float(z0):.6e} ===", flush=True)
     print("step,train_l2,val_l2,total_sec", flush=True)
@@ -132,6 +139,12 @@ def train_dag_l2(
             if vl < best_val:
                 best_val = vl
                 best_ttns = ttns
+                bad_logs = 0
+            else:
+                bad_logs += 1
+                if early_stop_patience > 0 and bad_logs >= early_stop_patience:
+                    print(f"early_stop at step={step} (best_val_l2={best_val:.4f})", flush=True)
+                    break
 
     summary = {
         "label": label,
