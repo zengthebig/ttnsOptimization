@@ -220,19 +220,31 @@ Program.md                                # 人类维护交接（只读除非被
 | M1.2 随机树 | **完成** | 2026-06-27 | 3 seed 聚合 matched vs chain **42.6%** |
 | M1.3 unittest 修复 | **完成** | 2026-06-26 | `model_setups.py` 加 future annotations；unittest 全绿 |
 | M2.1 脚本路径 | 未开始 | | |
-| M2.2 Chow–Liu 报告 | 未开始 | | |
-| M2.3 8D balanced | 未开始 | | |
-| M3.1 dag_target | **完成** | 2026-06-26 | `experiments/dag_target.py` |
+| M2.2 Chow–Liu（数据驱动拓扑） | **完成** | 2026-06-29 | L2 路径：7D Chow–Liu vs chain **56.9%**（>junction 26.9%）；每 seed 命中 6/7 DAG 真边；`dag_chow_liu_vs_chain_multiseed_report_zh.md`。原定 8D MLE 脚本未做 |
+| M2.3 8D fork DAG（Chow–Liu） | **完成** | 2026-06-29 | 3 seed Chow–Liu vs chain **64.4%**，**碾压 balanced**（IAE 0.25 vs 0.62）；命中 7/8 DAG 边；`dag_chow_liu_vs_chain_8d_multiseed_report_zh.md` |
+| M2.5 hub-rank 加速 | **完成** | 2026-06-29 | 只降 hub 边 rank：rank12→**3.5×** 几乎无损（IAE 0.274 vs 0.260）；rank8→**12×**；`chow_liu_hub_rank_sweep_report_zh.md` |
+| 按边 rank 支持 | **完成** | 2026-06-29 | `TTNSOpt.from_rank1_vectors(edge_ranks=)` → `init_ttns_from_rank1` → `_train_one_model(model_edge_ranks=)` |
+| M3.1 dag_target | **完成** | 2026-06-26 | `experiments/dag_target.py`（6/7/8D） |
 | M3.2 junction_tree | **完成** | 2026-06-27 | 7D 联结树 parent；修正 6D 星形错误 |
 | M3.3 DAG 对比实验 | **完成** | 2026-06-27 | `fit_dag_junction_vs_chain.py` + multiseed |
 | M3.4 DAG 报告 | **完成** | 2026-06-27 | 7D fork DAG；3 seed 聚合 junction vs chain **26.9%** |
+| 3-child einsum 加速 | **完成** | 2026-06-29 | `n_children==3` 融合 einsum（commit `019d3d8`）；junction 训练 **3.2×** |
 
 ### Phase 2 收工标准进度
 
 - [x] 树形：3 seed balanced 目标匹配 TTNS IAE 优于 chain ≥20%（**49.7%**）
 - [x] 多父 DAG：联结树 IAE 显著优于 chain（3 seed 平均 **26.9%**，关键切片 (2,6) 优势最大）
-- [x] 改算子后 validate 仍 PASS（本轮未改算子；unittest 通过）
+- [x] **数据驱动拓扑：Chow–Liu 自动估树 vs chain 3 seed 平均 56.9%，全面超越手工 junction**
+- [x] 改算子后 validate 仍 PASS（3-child einsum 后 6/6 PASS；unittest 通过）
+
+### Phase 2 后续主线（2026-06-29 起）
+
+> 结论：单层拓扑用 **Chow–Liu**（数据驱动最优），淘汰手工 junction；速度瓶颈在 hub 扇出，hub 边降 rank 可换 3.5–12× 提速。
+
+- [x] **8D fork DAG**：Chow–Liu vs chain **64.4%**，碾压 balanced；维度↑优势↑（数据驱动价值随维度放大）
+- [ ] **多层 DAG 架构**（终局）：拓扑分层、层内无父子、层间向下传播 + node/edge delay（设计见 `Program.md` §1.1，未实现）
 
 ---
 
 *创建：2026-06-26 — Phase 2 启动。*
+*更新：2026-06-29 — M2.2 Chow–Liu、hub-rank 加速、按边 rank 支持完成；确立 Chow–Liu 主线。*
