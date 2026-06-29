@@ -61,6 +61,23 @@ SOURCES = {v: _src for v in SPEC.layers[0]}
 KERNELS = {v: _kernel for layer in SPEC.layers[1:] for v in layer}
 
 
+def _count_params(cores) -> int:
+    return int(sum(int(np.prod(c.shape)) for c in cores))
+
+
+def _pick_tree_rank(bases, train_x, parent, budget: int, rmax: int = 60) -> int:
+    """取参数量 ≤ budget 的最大 rank（让树尽量占满 DAG 的参数预算）。"""
+    best = 1
+    for r in range(1, rmax + 1):
+        from simple_ttns_l2.train_l2 import init_ttns_from_rank1 as _init
+        params = _count_params(_init(jax.random.PRNGKey(0), bases, train_x, parent, r, 0.0).cores)
+        if params <= budget:
+            best = r
+        else:
+            break
+    return best
+
+
 def main():
     cfg = dict(q=2, m=10, rank=6, lr=5e-4, steps=600, batch_sz=1024, train_noise=0.05,
                n_train=40000, n_val=12000, init_noise=1e-2, normalize_every=1, log_every=50, seed=0)
@@ -77,32 +94,35 @@ def main():
     n = SPEC.n
     results: List[Dict] = []
 
-    # --- 多父 DAG（正确多层 banded 结构）---
+    # --- 多父 DAG（正确多层 banded 结构）；其参数量作为公平对齐的预算 ---
     graph = build_graph_from_spec(SPEC, cfg["m"])
     dag0 = init_dag_from_rank1(k_init, bases, train_x, graph, cfg["rank"], cfg["init_noise"])
+    budget = _count_params(dag0.cores)
     _, dag_sum = train_dag_l2(
         dag0, graph, bases, train_x, val_x, gram, basis_integrals,
         key=k_init, lr=cfg["lr"], train_steps=cfg["steps"], batch_sz=cfg["batch_sz"],
         normalize_every=cfg["normalize_every"], log_every=cfg["log_every"],
         train_noise=cfg["train_noise"], label="dag_deep",
     )
-    dag_sum["model"] = "dag_deep"
+    dag_sum.update({"model": "dag_deep", "rank": cfg["rank"], "n_params": budget})
     results.append(dag_sum)
 
-    # --- 树基线：chain / balanced（取最优）---
+    # --- 树基线：按参数预算对齐（给树尽可能高、但 ≤ DAG 预算 的 rank，让树占满便宜）---
     tree_parents = {
         "chain": [0] + list(range(0, n - 1)),
         "balanced": balanced_parent(n).tolist(),
     }
     for name, parent in tree_parents.items():
-        t0 = init_ttns_from_rank1(k_init, bases, train_x, parent, cfg["rank"], cfg["init_noise"])
+        r_tree = _pick_tree_rank(bases, train_x, parent, budget)
+        t0 = init_ttns_from_rank1(k_init, bases, train_x, parent, r_tree, cfg["init_noise"])
+        params = _count_params(t0.cores)
         _, summ = train_tree_l2(
             t0, parent, bases, train_x, val_x, gram, basis_integrals,
             key=k_init, lr=cfg["lr"], train_steps=cfg["steps"], batch_sz=cfg["batch_sz"],
             normalize_every=cfg["normalize_every"], log_every=cfg["log_every"],
             train_noise=cfg["train_noise"], label=f"tree_{name}",
         )
-        summ["model"] = f"tree_{name}"
+        summ.update({"model": f"tree_{name}", "rank": r_tree, "n_params": params})
         results.append(summ)
 
     best_tree = min(r["final_val_l2"] for r in results if r["model"].startswith("tree_"))
@@ -120,19 +140,24 @@ def main():
              f"→ {len(SPEC.edges)} 条层间边、大量 4-环。树上限 {SPEC.n - 1} 条边 → 任何树至少缺 "
              f"{len(SPEC.edges) - (SPEC.n - 1)} 条必需边。",
              "传播按拓扑序逐层采样（源 → delay 核 → 下层），全联合用多父 DAGTTNS 拟合。",
+             "**参数量对齐**：以 DAG 参数量为预算，给树取 ≤ 预算的最大 rank（树占满便宜），",
+             "故各模型参数量接近，提升来自结构而非参数规模。",
              "指标：验证集 L2 目标 $\\int q^2-2\\,\\mathbb{E}[q]$（越低越好）。", "",
              f"配置：`{cfg}`", "",
-             "| 模型 | final_val_l2 | best_val_l2 | 用时(s) |", "|---|---|---|---|"]
+             "| 模型 | rank | 参数量 | final_val_l2 | best_val_l2 | 用时(s) |",
+             "|---|---|---|---|---|---|"]
     for r in results:
-        lines.append(f"| {r['model']} | {r['final_val_l2']:.4f} | {r['best_val_l2']:.4f} | {r['total_time_sec']:.1f} |")
+        lines.append(f"| {r['model']} | {r['rank']} | {r['n_params']} | {r['final_val_l2']:.4f} | "
+                     f"{r['best_val_l2']:.4f} | {r['total_time_sec']:.1f} |")
     lines += ["",
               f"最优树 final_val_l2 = {best_tree:.4f}，DAG deep = {dag_l2:.4f}，",
-              f"**相对提升 = {improvement*100:.1f}%**（L2 越低越好）。"]
+              f"**相对提升 = {improvement*100:.1f}%**（L2 越低越好，参数量对齐后）。"]
     (REPORTS / "deep_dag_vs_tree_report_zh.md").write_text("\n".join(lines) + "\n")
 
-    print("\n==== 汇总 ====")
+    print("\n==== 汇总（参数量对齐）====")
     for r in results:
-        print(f"{r['model']:>14s}  final_val_l2={r['final_val_l2']:.4f}  用时={r['total_time_sec']:.1f}s")
+        print(f"{r['model']:>14s}  rank={r['rank']:>2d}  params={r['n_params']:>7d}  "
+              f"final_val_l2={r['final_val_l2']:.4f}")
     print(f"DAG vs 最优树 相对提升 = {improvement*100:.1f}%")
 
 

@@ -246,7 +246,7 @@ Program.md                                # 人类维护交接（只读除非被
 - [x] **多父 L2 拟合 + DAG vs 树 demo**：`dag_train_l2.py` + `experiments/fit_diamond_dag_vs_tree.py`。diamond 真分布（$x_2,x_3$ 各依赖 $x_0,x_1$，moral graph 含 4-环，树不可表达）→ **DAG val_l2=-19.10 vs 最优树 star@2 -17.15，提升 11.4%**（`diamond_dag_vs_tree_report_zh.md`）
 - [x] **层间传播 pipeline**（终局）：`dag_pipeline.py`（`MultiLayerSpec` + `build_graph_from_spec` + 逐层前向采样 `sample_joint`：源层 → delay 核 → 下层）。层内无边、层间多父，给定上层时同层条件独立（=每层若干 TTNS/森林）
 - [x] **3 层多父 DAG 端到端 vs 树**：`experiments/fit_multilayer_dag_vs_tree.py`。L1={0,1}→L2={2,3}（和/差）→L3={4}（和），6 边 > 树上限 4。**DAG val_l2=-97.14 vs 最优树 hub@2 -75.13，提升 29.3%**（`multilayer_dag_vs_tree_report_zh.md`）
-- [x] **复杂结构（4 层 / 20 节点）**：`experiments/fit_deep_dag_vs_tree.py` + `build_layered_spec`。banded 多父阶梯 `[5,5,5,5]`，27 边 > 树上限 19；**乘积/XOR 交互核**（子与单父近零相关，树成对路径不可表达）。**DAG val_l2=-703207 vs 最优树 balanced -222917，提升 215.5%**；DAG 单调收敛，树早早 plateau 后过拟合发散（`deep_dag_vs_tree_report_zh.md`）
+- [x] **复杂结构（4 层 / 20 节点）+ 参数量对齐**：`experiments/fit_deep_dag_vs_tree.py` + `build_layered_spec`。banded 多父阶梯 `[5,5,5,5]`，27 边 > 树上限 19；**乘积/XOR 交互核**（子与单父近零相关，树成对路径不可表达）。**参数量对齐到 ~83-89k**（DAG rank6=89400；给树 chain rank22=87560、balanced rank10=83000 占满预算）。**DAG val_l2=-703207 vs 最优树 balanced -207451，提升 239.0%**。关键：给树补 rank 到等参数量毫无用处，只是更快过拟合发散（chain 300 步、balanced 350 步早停）——瓶颈是结构性的，非容量（`deep_dag_vs_tree_report_zh.md`）
 - [x] **工程加固**：einsum 改整数下标（解除 52 字母上限，支持大图）；训练加梯度裁剪 + train_noise + 早停（高维 L2 防过拟合/发散）；`dag_ttns` 20 项 dense 验证仍全 PASS
 - [ ] 后续打磨：逐层条件拟合（冻结上层 core）、层内森林（按相关性加层内边）、多 seed 统计
 
