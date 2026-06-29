@@ -146,6 +146,15 @@ def _inner_product_local(
         return cached_einsum("pia,ab,qib->pq", core1, child_mats[0], core2)
     if n_children == 2:
         return cached_einsum("piab,ac,bd,qicd->pq", core1, child_mats[0], child_mats[1], core2)
+    if n_children == 3:
+        return cached_einsum(
+            "piabc,ad,be,cf,qidef->pq",
+            core1,
+            child_mats[0],
+            child_mats[1],
+            child_mats[2],
+            core2,
+        )
 
     weighted = core1
     for child_mat in child_mats:
@@ -162,6 +171,8 @@ def _eval_rank1_local(core: jnp.ndarray, vec: jnp.ndarray, child_vecs: Sequence[
         return cached_einsum("rda,d,a->r", core, vec, child_vecs[0])
     if n_children == 2:
         return cached_einsum("rdab,d,a,b->r", core, vec, child_vecs[0], child_vecs[1])
+    if n_children == 3:
+        return cached_einsum("rdabc,d,a,b,c->r", core, vec, child_vecs[0], child_vecs[1], child_vecs[2])
 
     weighted = jnp.tensordot(core, vec, axes=([1], [0]))
     for child_vec in child_vecs:
@@ -181,6 +192,15 @@ def _batch_eval_rank1_local(
         return cached_einsum("rda,nd,na->nr", core, vec_batch, child_vecs_batch[0])
     if n_children == 2:
         return cached_einsum("rdab,nd,na,nb->nr", core, vec_batch, child_vecs_batch[0], child_vecs_batch[1])
+    if n_children == 3:
+        return cached_einsum(
+            "rdabc,nd,na,nb,nc->nr",
+            core,
+            vec_batch,
+            child_vecs_batch[0],
+            child_vecs_batch[1],
+            child_vecs_batch[2],
+        )
 
     weighted = jax.vmap(lambda vec: jnp.tensordot(core, vec, axes=([1], [0])))(vec_batch)
     for child_vec in child_vecs_batch:
@@ -200,6 +220,16 @@ def _quadratic_local(
         return cached_einsum("pia,ab,qjb,ij->pq", core, child_mats[0], core, metric)
     if n_children == 2:
         return cached_einsum("piab,ac,bd,qjcd,ij->pq", core, child_mats[0], child_mats[1], core, metric)
+    if n_children == 3:
+        return cached_einsum(
+            "piabc,ad,be,cf,qjdef,ij->pq",
+            core,
+            child_mats[0],
+            child_mats[1],
+            child_mats[2],
+            core,
+            metric,
+        )
 
     weighted = core
     for child_mat in child_mats:

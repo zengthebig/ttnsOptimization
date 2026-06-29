@@ -205,7 +205,51 @@ def main():
     expected_quad = dense_quadratic_form(dense_t1, matrices)
     assert_close("quadratic_form", got_quad, expected_quad, atol=3e-5, rtol=3e-5)
 
-    print("\n全部验证通过（3/3）。")
+    validate_three_child_fanout(key)
+    print("\n全部验证通过（6/6）。")
+
+
+def validate_three_child_fanout(key: jnp.ndarray):
+    """根节点 3 个子节点：覆盖 n_children==3 的融合 einsum 快路径。"""
+    parent = [0, 0, 0, 0]
+    dims = [3, 3, 3, 3]
+    rank = 2
+
+    print("\n=== TTNS 3-child fanout validation ===")
+    print(f"parent = {parent}")
+    print(f"dims   = {dims}")
+    print(f"rank   = {rank}")
+
+    key_t1, key_t2, key_vec, key_mat = jax.random.split(key, 4)
+    t1 = build_random_ttns_opt(key_t1, parent, dims, rank)
+    t2 = build_random_ttns_opt(key_t2, parent, dims, rank)
+
+    dense_t1 = ttns_opt_to_dense(t1, parent)
+    dense_t2 = ttns_opt_to_dense(t2, parent)
+
+    normalized_ip = normalized_inner_product_ttns(t1, t2, parent)
+    got_ip = recover_scalar(normalized_ip)
+    expected_ip = jnp.sum(dense_t1 * dense_t2)
+    assert_close("inner_product_3child", got_ip, expected_ip)
+
+    vectors = jax.random.normal(key_vec, (len(dims), dims[0]), dtype=jnp.float64)
+    normalized_eval = normalized_eval_rank1_ttns(t1, vectors, parent)
+    got_eval = recover_scalar(normalized_eval)
+    expected_eval = dense_rank1_eval(dense_t1, vectors)
+    assert_close("rank1_eval_3child", got_eval, expected_eval)
+
+    mats = []
+    mat_keys = jax.random.split(key_mat, len(dims))
+    for i, mk in enumerate(mat_keys):
+        a = jax.random.normal(mk, (dims[i], dims[i]))
+        a = a.astype(jnp.float64)
+        mats.append(a.T @ a + 1e-2 * jnp.eye(dims[i]))
+    matrices = jnp.stack(mats, axis=0)
+
+    normalized_quad = normalized_quadratic_form_ttns(t1, matrices, parent)
+    got_quad = recover_scalar(normalized_quad)
+    expected_quad = dense_quadratic_form(dense_t1, matrices)
+    assert_close("quadratic_form_3child", got_quad, expected_quad, atol=3e-5, rtol=3e-5)
 
 
 if __name__ == "__main__":
