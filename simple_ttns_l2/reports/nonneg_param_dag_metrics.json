@@ -14,7 +14,11 @@
     "steps": 600,
     "grad_clip": 1.0,
     "lr_decay": true,
-    "early_stop": 4
+    "early_stop": 4,
+    "reparams": [
+      "square",
+      "exp"
+    ]
   },
   "common_metric": "held_out_mean_ll (higher=better)",
   "results": [
@@ -24,23 +28,39 @@
       "n_params": 89400,
       "val_ll": 10.112175358381984,
       "nonpositive_rate": 0.040416666666666656,
-      "total_time_sec": 104.579749417
+      "total_time_sec": 107.854464416
     },
     {
-      "model": "dag_nonneg_l2",
+      "model": "dag_square_l2",
       "variant": "参数平方+L2",
       "n_params": 89400,
-      "val_ll": 6.079122596253879,
+      "val_ll": 6.079112880561138,
       "nonpositive_rate": 0.0,
-      "total_time_sec": 62.521989375000004
+      "total_time_sec": 70.5426675
     },
     {
-      "model": "dag_nonneg_mle",
+      "model": "dag_square_mle",
       "variant": "参数平方+MLE",
       "n_params": 89400,
       "val_ll": 7.719543001213198,
       "nonpositive_rate": 0.0,
-      "total_time_sec": 81.74593775
+      "total_time_sec": 97.21546737499997
+    },
+    {
+      "model": "dag_exp_l2",
+      "variant": "参数exp+L2",
+      "n_params": 89400,
+      "val_ll": -3.9285409887201057,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 117.25675429200004
+    },
+    {
+      "model": "dag_exp_mle",
+      "variant": "参数exp+MLE",
+      "n_params": 89400,
+      "val_ll": -2.0657228659481857,
+      "nonpositive_rate": 0.0,
+      "total_time_sec": 85.715512708
     }
   ]
 }
