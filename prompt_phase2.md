@@ -242,9 +242,12 @@ Program.md                                # 人类维护交接（只读除非被
 > 结论：单层拓扑用 **Chow–Liu**（数据驱动最优），淘汰手工 junction；速度瓶颈在 hub 扇出，hub 边降 rank 可换 3.5–12× 提速。
 
 - [x] **8D fork DAG**：Chow–Liu vs chain **64.4%**，碾压 balanced；维度↑优势↑（数据驱动价值随维度放大）
-- [ ] **多层 DAG 架构**（终局）：拓扑分层、层内无父子、层间向下传播 + node/edge delay（设计见 `Program.md` §1.1，未实现）
+- [x] **真多父 core 地基**：`simple_ttns_l2/dag_ttns.py` 支持节点关联任意多 bond（多父）；`full_tensor/eval_rank1/inner_product/quadratic_form/integral/normalize` einsum 算子（greedy 路径）；`validate_dag_ttns.py` 用独立 brute-force 对照，fork/chain/polytree/三父/**diamond 有环** 5 组 20 项全 PASS（~1e-14）
+- [x] **多父 L2 拟合 + DAG vs 树 demo**：`dag_train_l2.py` + `experiments/fit_diamond_dag_vs_tree.py`。diamond 真分布（$x_2,x_3$ 各依赖 $x_0,x_1$，moral graph 含 4-环，树不可表达）→ **DAG val_l2=-19.10 vs 最优树 star@2 -17.15，提升 11.4%**（`diamond_dag_vs_tree_report_zh.md`）
+- [ ] **层间传播 pipeline**（终局）：拓扑分层；上层 TTNS 采样 × 已知 delay 核 → 生成目标样本；下层多父 TTNS 拟合（方案 2）。地基已就位，待串成多层前向
 
 ---
 
 *创建：2026-06-26 — Phase 2 启动。*
 *更新：2026-06-29 — M2.2 Chow–Liu、hub-rank 加速、按边 rank 支持完成；确立 Chow–Liu 主线。*
+*更新：2026-06-29 — 真多父 core 地基 + L2 拟合落地；diamond 有环结构 DAG vs 最优树 11.4%，证实多父超越树的表达力优势。*
