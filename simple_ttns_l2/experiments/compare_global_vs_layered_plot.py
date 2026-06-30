@@ -50,6 +50,20 @@ from simple_ttns_l2.experiments.fit_layered_vs_flat_tt import fit_flat, flat_joi
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
 
 
+def bimodal_sources(spec, cfg: dict) -> Dict:
+    """双峰(bimodal)源分布：每个源节点 ~ 0.5 N(0.25,σ) + 0.5 N(0.85,σ)，比均匀复杂得多。"""
+    sig = cfg.get("src_sigma", 0.06)
+
+    def make():
+        def src(rng, n):
+            comp = rng.integers(0, 2, size=n)
+            mu = np.where(comp == 0, 0.25, 0.85)
+            return mu + rng.normal(0.0, sig, size=n)
+        return src
+
+    return {node: make() for layer in [spec.layers[0]] for node in layer if not spec.parents(node)}
+
+
 def sample_layered(forest0, spec, params, key, n: int, seed: int) -> np.ndarray:
     """分层模型联合采样：源层森林采样 + 逐层已知 max-plus 核推进。返回 [n, n_dims]。"""
     n_dims = sum(len(l) for l in spec.layers)
@@ -78,6 +92,8 @@ def run(cfg: dict):
     spec = build_layered_spec(cfg["layer_sizes"], fanin=cfg["fanin"], wrap=True)
     params = DelayParams(**cfg["delay"])
     sources, kernels = ground_truth_samplers(spec, params)
+    if cfg.get("source_mode") == "bimodal":
+        sources = {**sources, **bimodal_sources(spec, cfg)}
     k_data, key = jax.random.split(key)
     xs = np.asarray(sample_joint(spec, sources, kernels, k_data, cfg["n_total"], clip=(-1e9, 1e9)))
     n = xs.shape[0]

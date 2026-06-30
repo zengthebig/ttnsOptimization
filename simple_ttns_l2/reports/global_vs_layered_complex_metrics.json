@@ -1,0 +1,85 @@
+{
+  "config": {
+    "layer_sizes": [
+      6,
+      6,
+      6,
+      6
+    ],
+    "fanin": 2,
+    "delay": {
+      "src_lo": 0.0,
+      "src_hi": 1.0,
+      "edge_lo": 0.0,
+      "edge_hi": 0.25,
+      "node_lo": 0.0,
+      "node_hi": 0.25
+    },
+    "source_mode": "bimodal",
+    "src_sigma": 0.06,
+    "n_total": 50000,
+    "n_sample": 8000,
+    "q": 2,
+    "m": 24,
+    "rank": 8,
+    "budget": 200000,
+    "rmax": 48,
+    "lr": 0.002,
+    "steps": 1000,
+    "batch_sz": 512,
+    "init_noise": 0.01,
+    "train_noise": 0.001,
+    "log_every": 250,
+    "early_stop_patience": 8,
+    "mi_threshold": 0.02,
+    "seed": 0
+  },
+  "results": [
+    {
+      "model": "layered_TTNS",
+      "learned_params": 144,
+      "blocks_L0": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ]
+      ],
+      "joint_loglik": 20.68872900707839,
+      "nonpos_rate": 0.0008,
+      "w1_marg": 0.005191594999868337,
+      "corr_fro": 0.36891617188891784
+    },
+    {
+      "model": "global_TT",
+      "rank": 19,
+      "learned_params": 191520,
+      "joint_loglik": 1.8075565952453505,
+      "nonpos_rate": 0.1362,
+      "w1_marg": 0.041475354358135305,
+      "corr_fro": 7.439294004225767
+    },
+    {
+      "model": "global_TTNS",
+      "rank": 10,
+      "learned_params": 169920,
+      "joint_loglik": 2.8822664451296975,
+      "nonpos_rate": 0.137,
+      "w1_marg": 0.037724389001580934,
+      "corr_fro": 7.39392838080977
+    }
+  ]
+}
