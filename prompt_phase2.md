@@ -253,7 +253,8 @@ Program.md                                # 人类维护交接（只读除非被
 - [x] **max-plus 方案 A（采样+逐层重拟合）**：`maxplus_pipeline.py` + `experiments/fit_maxplus_propagation.py`。采样误差跨层累积。
 - [x] **max-plus 方案 B（CDF 域解析收缩）**：`maxplus_cdf.py` + `experiments/fit_maxplus_cdf_vs_sampling.py`。利用"多源 max 在 CDF 域 = 乘积"，可分离收缩、无截断；在带相关性的密度上比 A 更准地保相关。
 - [x] **逐层森林（层内分块）+ 传播 → 全联合密度 vs 扁平 TT/TTNS**：`layered_forest.py`（层内 MI 阈值连通分量分块 + 块内单父 chow-liu TTNS + max-plus 条件核闭式对数密度）+ `experiments/fit_layered_vs_flat_tt.py`。联合 $p(x)=p_{\text{forest}}(L_0)\prod_{l\ge1}\prod_v K_v(x_v\mid\mathrm{pa}(v))$。源层 4 个独立 $U(0,1)$ 被正确分成 4 块 `[[0],[1],[2],[3]]`。**留出集联合对数密度：分层 7.231（仅 64 学习参数）vs 扁平 TTNS_chowliu 3.805（79k 参数）vs TT_chain −9.652（117k，高秩发散）→ 优势 +3.426 nats/样本**（`layered_vs_flat_tt_report_zh.md`）。
-- [ ] 后续打磨：层内多块（构造块结构的合成层）、块内不同算法、方案 B 接入逐层全联合、多 seed 统计
+- [x] **架构修正：每层 = 完整 TTNS 森林 + max-plus 逐层传播链**（用户定型）：`experiments/fit_layered_forest_propagation.py`。每层层内按 MI 分块 → 每块单父 TTNS（块间独立）；层间 = 上层森林采样（`ttns_sampler.sample_ttns` 逐块 `layered_forest.sample_forest`）→ 已知 edge/node delay 做 max-plus（`propagate_layer`）→ 目标样本 → 重拟合下层森林。逐层向下，**每层都是 TTNS 森林**（不再用解析核拼联合，纠正此前 `fit_layered_vs_flat_tt.py` 只有源层是 TTNS 的偏差）。评估逐层边缘（mae/W1）+ 相关性（corr_fro）vs 真值，对照扁平 TT（chain 全联合采样后切片）。**[4,4,4] 结果：逐层平均 W1 分层 0.010 vs 扁平 0.085（8.5×）；corr_fro 分层 0.216 vs 扁平 0.990（4.6×）；源层正确分成 4 个独立块**（`layered_forest_propagation_report_zh.md`）。分层 corr_fro 随深度增长（0.083→0.184→0.381）= 方案 A 采样 clamp 误差累积，后续可换方案 B（CDF 解析）抑制。
+- [ ] 后续打磨：方案 B（CDF 解析）接入逐层森林传播以抑制深层累积误差、层内多块合成层演示、块内不同算法、多 seed 统计
 
 ---
 
@@ -263,3 +264,4 @@ Program.md                                # 人类维护交接（只读除非被
 *更新：2026-06-29 — 层间传播 pipeline 打通（逐层采样 + 多父全联合拟合）；3 层多父 DAG 端到端 vs 最优树 29.3%，终局主线跑通。*
 *更新：2026-06-29 — 复杂 4 层/20 节点 + 乘积交互核：DAG vs 最优树 215.5%；einsum 整数下标 + 梯度裁剪/train_noise/早停 加固，支持大图稳定训练。*
 *更新：2026-06-30 — 架构定型为单父 TTNS + max-plus 逐层传播；方案 A（采样重拟合）/ B（CDF 域解析）落地；逐层森林（层内 MI 分块）+ 已知条件核组装全联合，留出集联合对数密度优于扁平 TT/TTNS +3.426 nats。*
+*更新：2026-06-30 — 架构修正：**每层 = 完整 TTNS 森林 + max-plus 逐层传播链**（`fit_layered_forest_propagation.py`）；逐层边缘/相关性还原全面优于扁平 TT（W1 8.5×、corr_fro 4.6×）。*

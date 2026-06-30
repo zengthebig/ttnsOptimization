@@ -41,6 +41,7 @@ from simple_ttns_l2.objective import (
 )
 from simple_ttns_l2.experiments.fit_diamond_dag_vs_tree import train_tree_l2
 from simple_ttns_l2.maxplus_pipeline import DelayParams
+from simple_ttns_l2.ttns_sampler import sample_ttns
 
 
 def layer_blocks(samples: np.ndarray, mi_threshold: float = 0.02, n_bins: int = 16) -> List[List[int]]:
@@ -133,6 +134,17 @@ def forest_log_density(forest: List[BlockModel], x_layer: np.ndarray, eps: float
         nonpos |= q <= 0
         total += np.log(np.clip(q, eps, None))
     return total, float(nonpos.mean())
+
+
+def sample_forest(forest: List[BlockModel], key, n: int, grid_size: int = 400) -> np.ndarray:
+    """从一层 TTNS 森林采样：各块独立采样后按层内局部列拼回。返回 [n, layer_size]。"""
+    layer_size = sum(len(bm.local_vars) for bm in forest)
+    out = np.zeros((n, layer_size), dtype=float)
+    for bm in forest:
+        key, k_b = jax.random.split(key)
+        xb = np.asarray(sample_ttns(bm.ttns, bm.bases, list(bm.parent), k_b, n, grid_size=grid_size))
+        out[:, list(bm.local_vars)] = xb
+    return out
 
 
 def maxplus_cond_logdensity(
