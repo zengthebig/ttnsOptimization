@@ -105,6 +105,117 @@ def _pair_delay_convolve(F_m: np.ndarray, s_grid: np.ndarray, t_grid: np.ndarray
     return F / n_d
 
 
+def _inv_cdf(F: np.ndarray, grid: np.ndarray, u: np.ndarray) -> np.ndarray:
+    """一维逆 CDF 采样：F[S] 单调∈[0,1]，u[n] → 样本[n]（桶内线性插值）。"""
+    S = len(grid)
+    Fc = np.maximum.accumulate(np.clip(F, 0.0, 1.0))
+    Fc = Fc / (Fc[-1] if Fc[-1] > 0 else 1.0)
+    idx = np.clip(np.searchsorted(Fc, u), 1, S - 1)
+    f0, f1 = Fc[idx - 1], Fc[idx]
+    fr = np.where(f1 > f0, (u - f0) / (f1 - f0), 0.0)
+    return grid[idx - 1] + fr * (grid[idx] - grid[idx - 1])
+
+
+def _cond_sample(G: np.ndarray, grid: np.ndarray, tw: np.ndarray, u: np.ndarray) -> np.ndarray:
+    """条件逆 CDF：G[S,T]=P(V<=s|W=t)，给定父值 tw[n]、均匀 u[n] → 子样本[n]。"""
+    S, T = G.shape
+    pos = np.interp(tw, grid, np.arange(T))
+    lo = np.floor(pos).astype(int)
+    hi = np.minimum(lo + 1, T - 1)
+    fr = pos - lo
+    g = (1 - fr)[None, :] * G[:, lo] + fr[None, :] * G[:, hi]  # [S, n]
+    g = np.maximum.accumulate(np.clip(g, 0.0, 1.0), axis=0)
+    last = g[-1:, :]
+    g = g / np.where(last <= 0, 1.0, last)
+    out = np.empty(len(u))
+    for i in range(len(u)):
+        col = g[:, i]
+        j = int(np.clip(np.searchsorted(col, u[i]), 1, S - 1))
+        f0, f1 = col[j - 1], col[j]
+        frac = (u[i] - f0) / (f1 - f0) if f1 > f0 else 0.0
+        out[i] = grid[j - 1] + frac * (grid[j] - grid[j - 1])
+    return out
+
+
+def _max_spanning_tree(weight: np.ndarray) -> List[int]:
+    """对称权重矩阵的最大生成树（Prim），返回 parent[]（根 parent=-1，根=0）。"""
+    K = weight.shape[0]
+    in_tree = [False] * K
+    parent = [-1] * K
+    best = [-np.inf] * K
+    best[0] = np.inf
+    for _ in range(K):
+        u = max((k for k in range(K) if not in_tree[k]), key=lambda k: best[k])
+        in_tree[u] = True
+        for v in range(K):
+            if not in_tree[v] and weight[u, v] > best[v]:
+                best[v] = weight[u, v]
+                parent[v] = u
+    parent[0] = -1
+    return parent
+
+
+def _preorder_tree(parent: List[int]) -> List[int]:
+    K = len(parent)
+    children = [[] for _ in range(K)]
+    root = 0
+    for v, p in enumerate(parent):
+        if p == -1:
+            root = v
+        else:
+            children[p].append(v)
+    order, stack = [], [root]
+    while stack:
+        u = stack.pop()
+        order.append(u)
+        stack.extend(reversed(children[u]))
+    return order
+
+
+def sample_layer_from_cdf(
+    upper: UpperForest, spec, li: int, params: DelayParams, key,
+    n: int, s_max: float, n_s: int = 140,
+) -> np.ndarray:
+    """从方案 B 的解析 CDF 表示中采样第 li 层（合法 CDF → 无 clamp 截断）。
+
+    层内按 B 的相关性建最大生成树（chow-liu），根用 marginal 逆 CDF、子节点用
+    配对 CDF 的条件逆 CDF 采样。返回 [n, layer_size]（列序 = spec.layers[li]）。
+    """
+    import jax as _jax
+
+    cur = list(spec.layers[li])
+    parents = {v: list(spec.parents(v)) for v in cur}
+    K = len(cur)
+    s_grid = np.linspace(0.0, s_max, n_s)
+
+    F = {v: upper.marginal_cdf(parents[v], s_grid, params) for v in cur}
+
+    # 相关矩阵（Hoeffding）→ 最大生成树
+    var = {v: max(moments_from_marginal(F[v], s_grid)[1], 1e-12) for v in cur}
+    W = np.zeros((K, K))
+    for a in range(K):
+        for b in range(a + 1, K):
+            Fvw = upper.pair_cdf(parents[cur[a]], parents[cur[b]], s_grid, s_grid, params)
+            cov = cov_hoeffding(Fvw, F[cur[a]], F[cur[b]], s_grid, s_grid)
+            W[a, b] = W[b, a] = abs(cov) / np.sqrt(var[cur[a]] * var[cur[b]])
+    tree_parent = _max_spanning_tree(W) if K > 1 else [-1]
+
+    out = np.zeros((n, K))
+    for v in _preorder_tree(tree_parent):
+        key, k_u = _jax.random.split(key)
+        u = np.asarray(_jax.random.uniform(k_u, (n,)))
+        pa = tree_parent[v]
+        if pa == -1:
+            out[:, v] = _inv_cdf(F[cur[v]], s_grid, u)
+        else:
+            Fvw = upper.pair_cdf(parents[cur[v]], parents[cur[pa]], s_grid, s_grid, params)  # [S(v),T(pa)]
+            fw = np.gradient(F[cur[pa]], s_grid)
+            dFdt = np.gradient(Fvw, s_grid, axis=1)
+            G = dFdt / np.clip(fw[None, :], 1e-9, None)
+            out[:, v] = _cond_sample(G, s_grid, out[:, pa], u)
+    return out
+
+
 def propagate_layer_cdf_forest(
     upper: UpperForest, spec, li: int, params: DelayParams,
     s_max: float, n_s: int = 120, n_s_pair: int = 60,
