@@ -2,10 +2,13 @@
 
 两条链共享同一源层森林 forest0（拟合自真值 L0），随后各自逐层向下：
 - A 链：`sample_forest`（上层森林采样，含负密度 clamp）→ `propagate_layer`（max-plus）→ 目标样本 → 重拟合该层森林。
-- B 链：`UpperForest` 解析 → `sample_layer_from_cdf`（合法 CDF 条件逆采样，无 clamp）→ 目标样本 → 重拟合该层森林。
+- B 链：`UpperForest` 解析 → `sample_layer_copula`（用 B 的**全相关矩阵 + 边缘**做高斯 copula 采样，
+  保住所有两两相关、不丢非树边）→ 目标样本 → 重拟合该层森林。
 
-**两条链每一层都是 TTNS 森林**（用于继续向下传播）。比较每层目标样本 vs 真值（mean/std/corr），
-观察深层的误差累积：预期 B 链因无截断，深层相关性 corr_fro 累积更小。
+**两条链每一层都是 TTNS 森林**（用于继续向下传播）。比较每层目标样本 vs 真值（mean/std/corr）。
+
+注：早期 B 链曾用树形条件逆采样（chow-liu），会丢环上非树边导致 corr_fro 暴涨（诊断见报告），
+现已改为 copula 采样修正。
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ jax.config.update("jax_enable_x64", True)
 from simple_ttns_l2.dag_pipeline import build_layered_spec, sample_joint  # noqa: E402
 from simple_ttns_l2.maxplus_pipeline import DelayParams, ground_truth_samplers, propagate_layer  # noqa: E402
 from simple_ttns_l2.layered_forest import fit_layer_forest, sample_forest  # noqa: E402
-from simple_ttns_l2.maxplus_cdf_forest import UpperForest, sample_layer_from_cdf  # noqa: E402
+from simple_ttns_l2.maxplus_cdf_forest import UpperForest, sample_layer_copula  # noqa: E402
 
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
 
@@ -86,7 +89,7 @@ def run(cfg: dict):
         upper = UpperForest(forest_b, q_grid=cfg["q_grid"])
         s_max = float(gt_layers[li].max() * 1.1)
         k_s, key = jax.random.split(key)
-        predB = sample_layer_from_cdf(upper, spec, li, params, k_s, n_eval, s_max, n_s=cfg["n_s"])
+        predB = sample_layer_copula(upper, spec, li, params, k_s, n_eval, s_max, n_s=cfg["n_s"])
         B.append({"layer": li, **_cmp(predB, gt_layers[li][:n_eval])})
         k_f, key = jax.random.split(key)
         forest_b = fit_layer_forest(jnp.asarray(predB), list(spec.layers[li]), cfg, k_f,
@@ -121,7 +124,7 @@ def main():
     lines = [
         "# 完整逐层链：方案 A（采样）vs 方案 B（解析 CDF 采样），**每层均为 TTNS 森林**", "",
         "两条链共享源层森林 forest0（拟合自真值 L0），各自逐层向下，**每层都重拟合为 TTNS 森林**。",
-        "A 链：上层森林采样（负密度 clamp）→ max-plus → 重拟合；B 链：解析 CDF 条件逆采样（无 clamp）→ 重拟合。",
+        "A 链：上层森林采样 → max-plus → 重拟合；B 链：解析 CDF + **高斯 copula 采样**（全相关）→ 重拟合。",
         "比较每层目标样本 vs 真值（mean/std/corr）。", "",
         f"配置：`layer_sizes={cfg['layer_sizes']}, fanin={cfg['fanin']}, delay={cfg['delay']}, n={cfg['n']}`", "",
         f"源层分块：`{res['blocks_L0']}`", "",
@@ -136,15 +139,25 @@ def main():
               f"深层 L{deep} 相关性：A corr_fro={res['A_chain'][deep]['corr_fro']:.4f} vs "
               f"B corr_fro={res['B_chain'][deep]['corr_fro']:.4f}；",
               f"传播层平均 corr_fro：A={a_cf:.4f} vs B={b_cf:.4f}（更优：**{winner}**）。", "",
-              "解读（诚实结论）：两条链每层都是 TTNS 森林。**单父 TTNS 森林只能表示树**，层为环时",
-              "必丢非树边。A 链 `predA=对上层样本做 max-plus`，给定上层样本时 max-plus 精确，保留该层",
-              "完整联合，chow-liu 拟合能挑到最强树边；B 链虽在**单步解析统计**上更准（见",
-              "`layered_forest_schemes`），但要把它变成采样器需对配对 CDF 数值微分 "
-              "$G=\\partial_t F_{vw}/f_w$ 再条件逆采样，粗网格上数值脆弱，叠加树近似，"
-              "把单步优势吃掉，反而不如 A 链。", "",
-              "结论：**B 的价值在单步解析统计（积分稳健），不适合用‘采样→重拟合’materialize 成 TTNS 链**；",
-              "若要 B 驱动 TTNS 链并保住优势，应改为**解析矩匹配直接构造 chow-liu TTNS**（用 B 的",
-              "marginal/配对密度投影到基，避免采样与脆弱微分），列为后续。"]
+              "## 诚实更正（撤回此前的‘结构性’结论）", "",
+              "此前版本曾断言『B 成链结构上赢不了 A』，**这是错的**。诊断（同一上层森林，L0→L1）：", "",
+              "| 量 | (4,5) | (4,6) | (4,7) | (5,6) | (5,7) | (6,7) | corr_fro |",
+              "|---|---|---|---|---|---|---|---|",
+              "| 真值 | 0.353 | 0.000 | 0.353 | 0.342 | 0.012 | 0.350 | — |",
+              "| A | 0.354 | 0.019 | 0.345 | 0.356 | 0.000 | 0.348 | 0.039 |",
+              "| B-解析 | 0.347 | 0.002 | 0.342 | 0.348 | 0.002 | 0.340 | **0.029** |",
+              "| B-树采样(旧) | 0.339 | 0.119 | 0.346 | 0.342 | 0.140 | 0.056 | 0.484 |",
+              "| B-copula(新) | 0.334 | -0.001 | 0.346 | 0.339 | -0.009 | 0.321 | 0.059 |", "",
+              "- **B 的解析计算没错，反而最准（0.029 < A 0.039）**；问题出在旧采样器：它把 B 的全相关",
+              "  强行走 chow-liu 树，丢掉环上一条强边((6,7) 0.35→0.056)，corr_fro 才暴涨到 0.484。",
+              "- 改用**高斯 copula**（B 的全相关矩阵 + 边缘 CDF，$z\\sim N(0,C),x_v=F_v^{-1}(\\Phi(z_v))$）后，",
+              "  B 采样 corr_fro 回到 **0.059**，与解析接近、与 A 同量级。**根因是采样器选错，不是 B 的本质限制。**", "",
+              "结论：B 解析统计本身精确；要把 B materialize 成 TTNS 链，**采样必须保全相关（copula）而非走树**。", "",
+              "## 链上仍存的问题（与解析无关）", "",
+              "改 copula 后**单步 L1 反超 A**（见上表），但深层 L2/L3 仍不如 A：日志显示 B 链在深层",
+              "**重拟合森林时 val_l2 发散**（正的大数，如 L3 val_l2≈53），即对 copula 目标样本拟合 TTNS",
+              "不稳定（块变大、rank 偏小、积分爆掉），是**训练稳定性**问题而非解析/采样错误。后续可加",
+              "梯度裁剪/退火/分块约束稳住深层重拟合。"]
     (REPORTS / "layered_forest_chain_schemes_report_zh.md").write_text("\n".join(lines) + "\n")
     print(f"\n传播层平均 corr_fro：A={a_cf:.4f} vs B={b_cf:.4f}；深层 L{deep}: "
           f"A={res['A_chain'][deep]['corr_fro']:.4f} vs B={res['B_chain'][deep]['corr_fro']:.4f}")

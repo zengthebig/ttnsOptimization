@@ -216,6 +216,34 @@ def sample_layer_from_cdf(
     return out
 
 
+def sample_layer_copula(
+    upper: UpperForest, spec, li: int, params: DelayParams, key,
+    n: int, s_max: float, n_s: int = 200, n_s_pair: int = 100,
+) -> np.ndarray:
+    """从方案 B 的解析分布采样第 li 层，用**高斯 copula**保住全部两两相关 + 精确边缘。
+
+    B 给出每节点 marginal CDF $F_v$ 与**全相关矩阵** $C$（Hoeffding，非树）。
+    采样：$z\\sim N(0,C)$，$u_v=\\Phi(z_v)$，$x_v=F_v^{-1}(u_v)$。不丢非树边、无 clamp 截断。
+    （相比树采样：树会丢环上非树边；copula 保全 pairwise。）
+    """
+    import jax
+    from scipy.special import ndtr  # 标准正态 CDF
+
+    cur = list(spec.layers[li])
+    parents = {v: list(spec.parents(v)) for v in cur}
+    K = len(cur)
+    s_grid = np.linspace(0.0, s_max, n_s)
+    F = [upper.marginal_cdf(parents[v], s_grid, params) for v in cur]
+
+    C = propagate_layer_cdf_forest(upper, spec, li, params, s_max, n_s=n_s, n_s_pair=n_s_pair)["corr"]
+    w, V = np.linalg.eigh(C)
+    L = V @ np.diag(np.sqrt(np.clip(w, 1e-6, None)))
+    rng = np.random.default_rng(int(jax.random.randint(key, (), 0, 2**31 - 1)))
+    z = (L @ rng.standard_normal((K, n))).T  # [n, K]
+    u = ndtr(z)
+    return np.stack([_inv_cdf(F[j], s_grid, u[:, j]) for j in range(K)], axis=1)
+
+
 def propagate_layer_cdf_forest(
     upper: UpperForest, spec, li: int, params: DelayParams,
     s_max: float, n_s: int = 120, n_s_pair: int = 60,
