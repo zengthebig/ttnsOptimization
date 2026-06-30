@@ -1,0 +1,69 @@
+{
+  "config": {
+    "layer_sizes": [
+      4,
+      4,
+      4
+    ],
+    "fanin": 2,
+    "delay": {
+      "src_lo": 0.0,
+      "src_hi": 1.0,
+      "edge_lo": 0.0,
+      "edge_hi": 0.25,
+      "node_lo": 0.0,
+      "node_hi": 0.25
+    },
+    "n_total": 40000,
+    "q": 2,
+    "m": 16,
+    "rank": 8,
+    "budget": 120000,
+    "rmax": 40,
+    "lr": 0.002,
+    "steps": 1000,
+    "batch_sz": 512,
+    "init_noise": 0.01,
+    "train_noise": 0.001,
+    "log_every": 500,
+    "early_stop_patience": 8,
+    "mi_threshold": 0.02,
+    "seed": 0
+  },
+  "results": [
+    {
+      "model": "layered_forest+maxplus",
+      "learned_params": 64,
+      "blocks_L0": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "joint_loglik": 7.231301498967958,
+      "nonpos_rate": 0.0
+    },
+    {
+      "model": "TT_chain",
+      "rank": 27,
+      "learned_params": 117504,
+      "joint_loglik": -9.652317466308816,
+      "nonpos_rate": 0.3695
+    },
+    {
+      "model": "TTNS_chowliu",
+      "rank": 8,
+      "learned_params": 79488,
+      "joint_loglik": 3.8050307309695266,
+      "nonpos_rate": 0.02475
+    }
+  ]
+}

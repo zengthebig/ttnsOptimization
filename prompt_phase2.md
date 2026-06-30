@@ -248,7 +248,12 @@ Program.md                                # 人类维护交接（只读除非被
 - [x] **3 层多父 DAG 端到端 vs 树**：`experiments/fit_multilayer_dag_vs_tree.py`。L1={0,1}→L2={2,3}（和/差）→L3={4}（和），6 边 > 树上限 4。**DAG val_l2=-97.14 vs 最优树 hub@2 -75.13，提升 29.3%**（`multilayer_dag_vs_tree_report_zh.md`）
 - [x] **复杂结构（4 层 / 20 节点）+ 参数量对齐**：`experiments/fit_deep_dag_vs_tree.py` + `build_layered_spec`。banded 多父阶梯 `[5,5,5,5]`，27 边 > 树上限 19；**乘积/XOR 交互核**（子与单父近零相关，树成对路径不可表达）。**参数量对齐到 ~83-89k**（DAG rank6=89400；给树 chain rank22=87560、balanced rank10=83000 占满预算）。**DAG val_l2=-703207 vs 最优树 balanced -207451，提升 239.0%**。关键：给树补 rank 到等参数量毫无用处，只是更快过拟合发散（chain 300 步、balanced 350 步早停）——瓶颈是结构性的，非容量（`deep_dag_vs_tree_report_zh.md`）
 - [x] **工程加固**：einsum 改整数下标（解除 52 字母上限，支持大图）；训练加梯度裁剪 + train_noise + 早停（高维 L2 防过拟合/发散）；`dag_ttns` 20 项 dense 验证仍全 PASS
-- [ ] 后续打磨：逐层条件拟合（冻结上层 core）、层内森林（按相关性加层内边）、多 seed 统计
+- [x] **架构澄清（重要）**：模型侧**只用单父 TTNS**（淘汰多父 core）；多层 = 数据依赖结构；层间聚合用 **max-plus**：$x_v=\max_{u}(x_u+e_{uv})+d_v$（edge/node delay 已知、独立、连续）。传播 = 逐层进行。
+- [x] **TTNS 密度采样器**：`ttns_sampler.py` 条件 inverse-CDF 采样 + `experiments/check_ttns_sampler.py` 校验。诊断出线性 TTNS 负密度 clamp 是相关性衰减主因（拟合好时负质量 <2% 可忽略）。
+- [x] **max-plus 方案 A（采样+逐层重拟合）**：`maxplus_pipeline.py` + `experiments/fit_maxplus_propagation.py`。采样误差跨层累积。
+- [x] **max-plus 方案 B（CDF 域解析收缩）**：`maxplus_cdf.py` + `experiments/fit_maxplus_cdf_vs_sampling.py`。利用"多源 max 在 CDF 域 = 乘积"，可分离收缩、无截断；在带相关性的密度上比 A 更准地保相关。
+- [x] **逐层森林（层内分块）+ 传播 → 全联合密度 vs 扁平 TT/TTNS**：`layered_forest.py`（层内 MI 阈值连通分量分块 + 块内单父 chow-liu TTNS + max-plus 条件核闭式对数密度）+ `experiments/fit_layered_vs_flat_tt.py`。联合 $p(x)=p_{\text{forest}}(L_0)\prod_{l\ge1}\prod_v K_v(x_v\mid\mathrm{pa}(v))$。源层 4 个独立 $U(0,1)$ 被正确分成 4 块 `[[0],[1],[2],[3]]`。**留出集联合对数密度：分层 7.231（仅 64 学习参数）vs 扁平 TTNS_chowliu 3.805（79k 参数）vs TT_chain −9.652（117k，高秩发散）→ 优势 +3.426 nats/样本**（`layered_vs_flat_tt_report_zh.md`）。
+- [ ] 后续打磨：层内多块（构造块结构的合成层）、块内不同算法、方案 B 接入逐层全联合、多 seed 统计
 
 ---
 
@@ -257,3 +262,4 @@ Program.md                                # 人类维护交接（只读除非被
 *更新：2026-06-29 — 真多父 core 地基 + L2 拟合落地；diamond 有环结构 DAG vs 最优树 11.4%，证实多父超越树的表达力优势。*
 *更新：2026-06-29 — 层间传播 pipeline 打通（逐层采样 + 多父全联合拟合）；3 层多父 DAG 端到端 vs 最优树 29.3%，终局主线跑通。*
 *更新：2026-06-29 — 复杂 4 层/20 节点 + 乘积交互核：DAG vs 最优树 215.5%；einsum 整数下标 + 梯度裁剪/train_noise/早停 加固，支持大图稳定训练。*
+*更新：2026-06-30 — 架构定型为单父 TTNS + max-plus 逐层传播；方案 A（采样重拟合）/ B（CDF 域解析）落地；逐层森林（层内 MI 分块）+ 已知条件核组装全联合，留出集联合对数密度优于扁平 TT/TTNS +3.426 nats。*
