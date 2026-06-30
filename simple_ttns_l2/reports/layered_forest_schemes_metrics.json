@@ -1,0 +1,91 @@
+{
+  "config": {
+    "layer_sizes": [
+      4,
+      4,
+      4
+    ],
+    "fanin": 2,
+    "delay": {
+      "src_lo": 0.0,
+      "src_hi": 1.0,
+      "edge_lo": 0.0,
+      "edge_hi": 0.25,
+      "node_lo": 0.0,
+      "node_hi": 0.25
+    },
+    "n": 15000,
+    "q": 2,
+    "m": 16,
+    "rank": 8,
+    "lr": 0.002,
+    "steps": 800,
+    "batch_sz": 512,
+    "init_noise": 0.01,
+    "train_noise": 0.001,
+    "log_every": 400,
+    "early_stop_patience": 6,
+    "mi_threshold": 0.02,
+    "grid_size": 400,
+    "q_grid": 400,
+    "n_s": 160,
+    "n_s_pair": 100,
+    "seed": 0
+  },
+  "per_layer": [
+    {
+      "transition": "L0->L1",
+      "upper_blocks": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "gt_avg_abs_corr": 0.23523260669383186,
+      "A": {
+        "scheme": "A_sampling",
+        "mean_abs_err": 0.00142849681993093,
+        "std_abs_err": 0.0008796200765566753,
+        "corr_fro": 0.029236668203273957
+      },
+      "B": {
+        "scheme": "B_cdf_analytic",
+        "mean_abs_err": 0.001003339485894511,
+        "std_abs_err": 0.0014530730866662428,
+        "corr_fro": 0.02972677900806072
+      }
+    },
+    {
+      "transition": "L1->L2",
+      "upper_blocks": [
+        [
+          4,
+          5,
+          6,
+          7
+        ]
+      ],
+      "gt_avg_abs_corr": 0.4226465987101708,
+      "A": {
+        "scheme": "A_sampling",
+        "mean_abs_err": 0.0037036016042436004,
+        "std_abs_err": 0.007286641104306428,
+        "corr_fro": 0.1412614703702828
+      },
+      "B": {
+        "scheme": "B_cdf_analytic",
+        "mean_abs_err": 0.007686273125643961,
+        "std_abs_err": 0.00836429877223261,
+        "corr_fro": 0.0705551353273193
+      }
+    }
+  ]
+}
