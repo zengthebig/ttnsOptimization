@@ -1,0 +1,60 @@
+{
+  "config": {
+    "layer_sizes": [
+      4,
+      4,
+      4
+    ],
+    "fanin": 2,
+    "delay": {
+      "src_lo": 0.0,
+      "src_hi": 1.0,
+      "edge_lo": 0.0,
+      "edge_hi": 0.25,
+      "node_lo": 0.0,
+      "node_hi": 0.25
+    },
+    "n_total": 40000,
+    "q": 2,
+    "m": 16,
+    "budget": 120000,
+    "rmax": 40,
+    "lr": 0.002,
+    "steps": 1200,
+    "batch_sz": 512,
+    "init_noise": 0.01,
+    "train_noise": 0.001,
+    "log_every": 300,
+    "early_stop_patience": 8,
+    "seed": 0
+  },
+  "results": [
+    {
+      "model": "TT_chain",
+      "rank": 27,
+      "n_params": 117504,
+      "val_l2": -93.18730028929374,
+      "test_l2": -117.32631956032944,
+      "total_time_sec": 23.040891917
+    },
+    {
+      "model": "TTNS_chowliu",
+      "rank": 8,
+      "n_params": 79488,
+      "val_l2": -417.4232063931831,
+      "test_l2": -392.1784894782967,
+      "total_time_sec": 15.012409042000002
+    },
+    {
+      "model": "TTNS_balanced",
+      "rank": 12,
+      "n_params": 116352,
+      "val_l2": -154.94527940699192,
+      "test_l2": -153.48671648991953,
+      "total_time_sec": 19.580485041999992
+    }
+  ],
+  "tt_test_l2": -117.32631956032944,
+  "best_ttns_test_l2": -392.1784894782967,
+  "ttns_vs_tt_rel_improvement": 2.342630118697601
+}
