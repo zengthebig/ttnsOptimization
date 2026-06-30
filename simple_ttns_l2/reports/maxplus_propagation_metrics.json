@@ -1,0 +1,61 @@
+{
+  "config": {
+    "layer_sizes": [
+      4,
+      4,
+      4
+    ],
+    "fanin": 2,
+    "delay": {
+      "src_lo": 0.0,
+      "src_hi": 1.0,
+      "edge_lo": 0.0,
+      "edge_hi": 0.4,
+      "node_lo": 0.0,
+      "node_hi": 0.4
+    },
+    "n": 15000,
+    "q": 2,
+    "m": 16,
+    "rank": 8,
+    "lr": 0.002,
+    "steps": 800,
+    "batch_sz": 512,
+    "init_noise": 0.01,
+    "train_noise": 0.001,
+    "log_every": 200,
+    "early_stop_patience": 6,
+    "grid_size": 400,
+    "seed": 0
+  },
+  "results": [
+    {
+      "layer": 0,
+      "n_vars": 4,
+      "fit_val_l2": -0.9460628122381053,
+      "W1_marg_fit": 0.003503962078674567,
+      "corr_fro_fit": 0.01925571630949907,
+      "fit_sec": 5.753097125
+    },
+    {
+      "layer": 1,
+      "n_vars": 4,
+      "fit_val_l2": -1.2508035330651641,
+      "W1_marg_pred": 0.0035188988264953465,
+      "W1_marg_ref": 0.0024956074574631125,
+      "corr_fro_pred": 0.05508411673191257,
+      "corr_fro_ref": 0.03281803514141157,
+      "fit_sec": 2.5359105829999997
+    },
+    {
+      "layer": 2,
+      "n_vars": 4,
+      "fit_val_l2": -1.4078486512531716,
+      "W1_marg_pred": 0.007129198340072845,
+      "W1_marg_ref": 0.003541085915894988,
+      "corr_fro_pred": 0.11871333117885037,
+      "corr_fro_ref": 0.0161651605807723,
+      "fit_sec": 2.375126667
+    }
+  ]
+}
