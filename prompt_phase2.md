@@ -257,7 +257,12 @@ Program.md                                # 人类维护交接（只读除非被
 - [x] **方案 B（森林感知 CDF 解析）作为并列第二方案**（不改采样实现）：新增 `maxplus_cdf_forest.py`（`UpperForest` + `propagate_layer_cdf_forest`），利用块间独立 → 期望按块因子分解 $\mathbb{E}[\prod_u F_e(s-x_u)]=\prod_b\mathbb{E}_{x_b}[\cdots]$，复用 `maxplus_cdf.UpperModel` 的可分离收缩；`experiments/fit_layered_forest_schemes.py` 逐层共享同一上层森林比 A（采样）/B（解析）/真值。**[4,4,4] 结果：逐层平均 corr_fro A=0.085 vs B=0.050；相关上层（L1→L2 有符号密度）B=0.071 vs A=0.141（~2×）；独立上层（L0→L1，4 个独立块）两者相当**（`layered_forest_schemes_report_zh.md`）。
 - [x] **B 驱动的逐层 TTNS 链（每层都是 TTNS 森林）+ 诚实负结果**：`maxplus_cdf_forest.sample_layer_from_cdf`（按 B 的相关性建最大生成树 → marginal 逆 CDF + 配对 CDF 条件逆采样，无 clamp）+ `experiments/fit_layered_forest_chain_schemes.py`（A 链 vs B 链，每层重拟合森林）。**[4,4,4,4] 结果：A 链显著更优**（传播层平均 corr_fro A=0.274 vs B=0.715；深层 L3 A=0.499 vs B=1.119）。原因：① 单父 TTNS 森林只能表示树，层为环必丢非树边；② B 要变采样器需对配对 CDF 数值微分 $\partial_t F_{vw}/f_w$ 再条件逆采样，粗网格数值脆弱，叠加树近似把单步解析优势吃掉。**结论：B 的价值在单步解析统计（积分稳健，见 `layered_forest_schemes` B 更准），不宜用"采样→重拟合"materialize 成链**（`layered_forest_chain_schemes_report_zh.md`）。
 - [x] **B 改进尝试 + 根因诊断（结论：结构性，不再追求 B 链超 A）**：细网格（q_grid=600,n_s=400）重跑 B 链几乎无改善（L1 仍 0.468）→ 排除数值精度。根因：A 的 `predA=对上层样本 max-plus` 保留下一层**完整联合**（含环上非树边）；B 只有边缘+配对，采样必走树、丢非树边；而"从全联合采样"等价于"采样上层+max-plus"=方案 A 本身。故 **B 的解析优势只在低阶统计量精确，无法在"生成全联合/成链"上超过 A**。A、B 不同用途：A 成链、B 单步精确统计/诊断。
-- [ ] 后续打磨：层内多块合成层演示（验证深层多块森林）；块内不同算法；纯逐层森林链（A）在 30 维大例子上 vs 扁平 TT；多 seed 统计
+- [x] **B 采样修正（copula）+ 撤回"结构性"错误结论**：诊断证实 B 解析没错（L0→L1 corr_fro=0.029<A 0.039），旧 B 链差是采样器走 chow-liu 树丢环边（0.484）。改 `maxplus_cdf_forest.sample_layer_copula`（全相关矩阵+边缘高斯 copula）后单步回落到 0.059、成链 L1 反超 A（`fit_layered_forest_chain_schemes.py` 已切 copula）。
+- [x] **结构再生（regen）尝试 + 负结果并回滚**：曾试"共享父+上层边缘+已知核"现算相关、忽略上层跨父相关；3 种子 best-tracking 平均 corr_fro A=0.242 < B-copula=0.388 < **B-regen=0.755**（最差）。因上层是相关环、跨父相关重要，regen 丢掉后反而更差 → 回滚 regen 代码，仅保留 copula；报告记录负结果。
+- [x] **全局 TT vs 全局 TTNS vs 分层 TTNS（含图）**：`experiments/compare_global_vs_layered_plot.py`。**基础 [4,4,4] 均匀源**：分层 joint_LL 7.23（64 参数）vs 全局 TTNS 3.90（79k）vs 全局 TT −1.35（117k）；W1 0.0053 vs 0.0245 vs 0.0397；corr_fro 0.138 vs 2.13 vs 4.28。出 `reports/global_vs_layered_overview.png`、`_marginals.png` + 报告。
+- [x] **复杂分布（双峰源 + [6,6,6,6] 24 节点）**：分层 joint_LL 20.69（144 参数）vs 全局 TTNS 2.88（170k）vs 全局 TT 1.81（192k）；corr_fro 0.369 vs 7.39 vs 7.44。全局扁平抹平双峰、相关只剩对角线。`reports/global_vs_layered_complex_*`。
+- [x] **算法交接总纲**：新建仓库根 `ALGORITHM_zh.md`（架构 + 数据/模型/传播算法公式 + 文件索引 + 复现命令 + 已验证结论/负结果 + 未决方向），作为后续 agent 直接接手的统一入口。
+- [ ] 后续打磨：纯逐层森林链（A）在 30 维大例子上多 seed 统计；深层多块森林重拟合稳定化（偶发 val_l2 发散）；放宽单父约束在表示层面少丢环相关
 
 ---
 
@@ -271,3 +276,4 @@ Program.md                                # 人类维护交接（只读除非被
 *更新：2026-06-30 — 新增**森林感知方案 B（CDF 解析，不改采样）**`maxplus_cdf_forest.py` + `fit_layered_forest_schemes.py`；A vs B 逐层 corr_fro 0.085 vs 0.050，相关上层 B ~2× 更优。*
 *更新：2026-06-30 — B 驱动逐层 TTNS 链（`fit_layered_forest_chain_schemes.py`）：**诚实负结果**，A 链优于 B 链（corr_fro 0.274 vs 0.715）；B 单步解析准但不宜"采样→重拟合"成链。单父 TTNS 树限制 + 配对 CDF 微分脆弱是主因。*
 *更新：2026-06-30 — B 改进尝试（细网格）无效 → 根因诊断为**结构性**：B 只有低阶（边缘/配对）信息，采样必丢非树边；全联合采样等价于 A。结论：A 成链、B 单步统计，B 不再追求超 A。*
+*更新：2026-07-01 — B 采样修正为 copula（撤回"结构性赢不了"的过强结论：B 解析本身最准，旧差在树采样丢边）；regen 结构再生尝试失败并回滚；全局 TT/TTNS vs 分层 TTNS 对比 + 图（基础与双峰复杂两组，分层全面领先且参数少 3 个量级）；新建 `ALGORITHM_zh.md` 算法交接总纲。*
