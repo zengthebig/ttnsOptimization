@@ -80,6 +80,21 @@ class UpperModel:
         STQ = Fs[:, None, :] * Ft[None, :, :]
         return np.einsum("stq,qi->sti", STQ, self.Bx[u]) * self.dx[u]
 
+    def proj_single_multi(self, u: int, s_grids: Sequence[np.ndarray], params: DelayParams) -> np.ndarray:
+        r"""某上层父 $u$ 同时是 $c$ 个子坐标的父：向量
+        $\int \big(\prod_{j=1}^{c}F_e(s_j-x)\big)b_i(x)dx$，返回 [G_1,...,G_c, basis_dim]。
+
+        `proj_single`/`proj_single_pair` 的 $c$ 元推广（$c=1,2$ 时与二者一致）。"""
+        x = self.xgrids[u]  # [Q]
+        c = len(s_grids)
+        prod = np.ones((1,) * c + (len(x),))  # [1,...,1, Q]
+        for j, sg in enumerate(s_grids):
+            Fj = _uniform_cdf(sg[:, None] - x[None, :], params.edge_lo, params.edge_hi)  # [G_j, Q]
+            shape = [1] * c + [len(x)]
+            shape[j] = len(sg)
+            prod = prod * Fj.reshape(shape)  # broadcast 到 [G_1,...,G_c, Q]
+        return np.tensordot(prod, self.Bx[u], axes=([c], [0])) * self.dx[u]  # [G_1,...,G_c, basis]
+
     def _contract(self, leg_vectors: Dict[int, np.ndarray], batch: int) -> np.ndarray:
         """对上层 TTNS 收缩：未指定的腿用基积分，指定腿用给定向量（已 batch）。
 

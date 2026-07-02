@@ -15,15 +15,13 @@
       "node_lo": 0.0,
       "node_hi": 0.25
     },
-    "source_mode": "bimodal",
-    "src_sigma": 0.06,
     "n_total": 50000,
     "n_sample": 8000,
     "q": 2,
     "m": 24,
     "rank": 8,
     "budget": 200000,
-    "rmax": 48,
+    "rmax": 40,
     "lr": 0.002,
     "steps": 1000,
     "batch_sz": 512,
@@ -32,54 +30,110 @@
     "log_every": 250,
     "early_stop_patience": 8,
     "mi_threshold": 0.02,
-    "seed": 0
+    "seed": 0,
+    "include_ttde": true,
+    "ttde_rank": 18,
+    "ttde_steps": 2000,
+    "ttde_em_steps": 50,
+    "ttde_patience": 8,
+    "ttde_grid": 200,
+    "ttde_n_sample": 8000,
+    "monitor_val_sz": 4000,
+    "source_mode": "bimodal",
+    "src_sigma": 0.06
   },
   "results": [
     {
       "model": "layered_TTNS",
-      "learned_params": 144,
-      "blocks_L0": [
+      "learned_params": 19728,
+      "blocks_per_layer": [
         [
-          0
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [
+            4
+          ],
+          [
+            5
+          ]
         ],
         [
-          1
+          [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
         ],
         [
-          2
+          [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ]
         ],
         [
-          3
-        ],
-        [
-          4
-        ],
-        [
-          5
+          [
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ]
         ]
+      ],
+      "params_per_layer": [
+        144,
+        6528,
+        6528,
+        6528
       ],
       "joint_loglik": 20.68872900707839,
       "nonpos_rate": 0.0008,
-      "w1_marg": 0.005191594999868337,
-      "corr_fro": 0.36891617188891784
+      "w1_marg": 0.0048627973050594095,
+      "corr_fro": 0.29742382103608234
     },
     {
       "model": "global_TT",
       "rank": 19,
       "learned_params": 191520,
-      "joint_loglik": 1.8075565952453505,
-      "nonpos_rate": 0.1362,
-      "w1_marg": 0.041475354358135305,
-      "corr_fro": 7.439294004225767
+      "joint_loglik": 1.1706113326827345,
+      "nonpos_rate": 0.1606,
+      "w1_marg": 0.043360472485611944,
+      "corr_fro": 7.468116164017798
     },
     {
       "model": "global_TTNS",
       "rank": 10,
       "learned_params": 169920,
-      "joint_loglik": 2.8822664451296975,
-      "nonpos_rate": 0.137,
-      "w1_marg": 0.037724389001580934,
-      "corr_fro": 7.39392838080977
+      "joint_loglik": 3.675861082558826,
+      "nonpos_rate": 0.12226666666666666,
+      "w1_marg": 0.03516523839623015,
+      "corr_fro": 7.329757011318651
+    },
+    {
+      "model": "ttde_TT_mle",
+      "learned_params": 171936,
+      "joint_loglik": 15.822530134965682,
+      "nonpos_rate": 0.0,
+      "w1_marg": 0.005136683768540964,
+      "corr_fro": 2.9737642847521557
     }
   ]
 }

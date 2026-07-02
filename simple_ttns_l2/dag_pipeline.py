@@ -73,6 +73,35 @@ def build_layered_spec(layer_sizes: Sequence[int], fanin: int = 2, wrap: bool = 
     return MultiLayerSpec(tuple(layers), tuple(sorted(edges)))
 
 
+def build_clustered_spec(
+    n_layers: int, clusters: Sequence[int], fanin: int = 2, wrap: bool = True
+) -> MultiLayerSpec:
+    """构造**簇内相连、簇间独立**的多层 DAG（每层大小 = sum(clusters)）。
+
+    每层被划成若干簇（大小由 `clusters` 给定，簇的划分逐层对齐）；层间边只在**同簇内**
+    连接（每个子节点连同簇内 `fanin` 个相邻父，可 wrap）。不同簇不共享任何祖先源
+    → `structural_blocks` 能精确裂成对应的块，且块内节点存在真实非树相关（环）。
+    """
+    sz = sum(clusters)
+    layers: List[Tuple[int, ...]] = []
+    idx = 0
+    for _ in range(n_layers):
+        layers.append(tuple(range(idx, idx + sz)))
+        idx += sz
+    edges = set()
+    for li in range(1, n_layers):
+        prev, cur = layers[li - 1], layers[li]
+        off = 0
+        for csz in clusters:
+            pcl, ccl = prev[off:off + csz], cur[off:off + csz]
+            for j, node in enumerate(ccl):
+                for f in range(min(fanin, csz)):
+                    pos = (j + f) % csz if wrap else min(j + f, csz - 1)
+                    edges.add((pcl[pos], node))
+            off += csz
+    return MultiLayerSpec(tuple(layers), tuple(sorted(edges)))
+
+
 def build_graph_from_spec(spec: MultiLayerSpec, basis_dim: int) -> DAGGraph:
     """全联合图 = 所有层间边的无向并集；每个物理维取 `basis_dim`。"""
     spec.validate()

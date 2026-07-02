@@ -105,6 +105,71 @@ def _pair_delay_convolve(F_m: np.ndarray, s_grid: np.ndarray, t_grid: np.ndarray
     return F / n_d
 
 
+def _delay_convolve_axis(F: np.ndarray, grid: np.ndarray, params: DelayParams, axis: int, n_d: int = 16) -> np.ndarray:
+    """沿指定 axis 做 node delay 卷积 $F(\\cdot)\\leftarrow\\mathbb E_d[F(\\cdot-d)]$（与 pair 版一致，索引钳制）。"""
+    G = F.shape[axis]
+    Fm = np.moveaxis(F, axis, 0)  # [G, ...]
+    ds = np.linspace(params.node_lo, params.node_hi, n_d)
+    out = np.zeros_like(Fm)
+    tail = (1,) * (Fm.ndim - 1)
+    for d in ds:
+        idx = np.interp(grid - d, grid, np.arange(G), left=0, right=G - 1)
+        lo = np.floor(idx).astype(int); hi = np.minimum(lo + 1, G - 1); fr = idx - lo
+        out += (1 - fr).reshape((G,) + tail) * Fm[lo] + fr.reshape((G,) + tail) * Fm[hi]
+    out /= n_d
+    return np.moveaxis(out, 0, axis)
+
+
+def _broadcast_leg(sub: np.ndarray, coords: List[int], K: int, G: int) -> np.ndarray:
+    """把一个只依赖坐标子集 `coords` 的腿张量 [G,..,G(len),basis] 扩到 [G]*K + [basis]。"""
+    order = list(np.argsort(coords))
+    cs_sorted = [coords[i] for i in order]
+    sub_sorted = np.transpose(sub, tuple(order) + (sub.ndim - 1,))  # 坐标轴升序，basis 末位
+    shape, si = [], 0
+    for coord in range(K):
+        if si < len(cs_sorted) and cs_sorted[si] == coord:
+            shape.append(G); si += 1
+        else:
+            shape.append(1)
+    shape.append(sub_sorted.shape[-1])
+    leg = sub_sorted.reshape(shape)
+    return np.broadcast_to(leg, (G,) * K + (sub_sorted.shape[-1],))
+
+
+def block_joint_cdf(
+    upper: UpperForest, parents_list: Sequence[Sequence[int]], s_grid: np.ndarray,
+    params: DelayParams, n_d: int = 16,
+) -> np.ndarray:
+    r"""一个结构块（K 个子节点，`parents_list[v]` = 第 v 个子节点的全局父 id 列表）的
+    **完整 K 维联合 CDF** $F_Y(s_1,\dots,s_K)$，在同一 `s_grid` 上返回 [G]*K。
+
+    $F_Y=\mathbb E_x\big[\prod_v\prod_{u\in\mathrm{pa}(v)}F_e(s_v-x_u)\big]$，块间独立 → 各上层块收缩之积；
+    共享父 $u$（同一上层块中是多个 $v$ 的父）的腿放 $\prod_{v}F_e(s_v-x_u)$（`proj_single_multi`）。
+    最后对每个维度独立做 node delay 卷积。仅适用小 K（网格 $G^K$）。"""
+    K = len(parents_list)
+    G = len(s_grid)
+    Fm = np.ones((G,) * K)
+    for blk in upper.blocks:
+        um = blk["um"]; g2l = blk["gid2local"]; gset = blk["gids"]
+        legs_coords: Dict[int, List[int]] = {}
+        for v, ps in enumerate(parents_list):
+            for gp in ps:
+                if int(gp) in gset:
+                    legs_coords.setdefault(g2l[int(gp)], []).append(v)
+        if not legs_coords:
+            continue
+        legs: Dict[int, np.ndarray] = {}
+        for lu, cs in legs_coords.items():
+            sub = um.proj_single_multi(lu, [s_grid] * len(cs), params)  # [G,..,G(len cs),basis]
+            leg_full = _broadcast_leg(sub, cs, K, G)                    # [G]*K + [basis]
+            legs[lu] = np.ascontiguousarray(leg_full).reshape(G ** K, -1)
+        Fm *= um._contract(legs, batch=G ** K).reshape((G,) * K)
+    Fm = np.clip(Fm, 0.0, 1.0)
+    for ax in range(K):
+        Fm = _delay_convolve_axis(Fm, s_grid, params, ax, n_d)
+    return Fm
+
+
 def _inv_cdf(F: np.ndarray, grid: np.ndarray, u: np.ndarray) -> np.ndarray:
     """一维逆 CDF 采样：F[S] 单调∈[0,1]，u[n] → 样本[n]（桶内线性插值）。"""
     S = len(grid)

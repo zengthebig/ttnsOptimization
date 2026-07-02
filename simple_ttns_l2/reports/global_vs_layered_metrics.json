@@ -29,48 +29,87 @@
     "log_every": 250,
     "early_stop_patience": 8,
     "mi_threshold": 0.02,
-    "seed": 0
+    "seed": 0,
+    "include_ttde": true,
+    "ttde_rank": 20,
+    "ttde_steps": 2000,
+    "ttde_em_steps": 50,
+    "ttde_patience": 8,
+    "ttde_grid": 200,
+    "ttde_n_sample": 8000,
+    "monitor_val_sz": 4000
   },
   "results": [
     {
       "model": "layered_TTNS",
-      "learned_params": 64,
-      "blocks_L0": [
+      "learned_params": 4672,
+      "blocks_per_layer": [
         [
-          0
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ]
         ],
         [
-          1
+          [
+            4,
+            5,
+            6,
+            7
+          ]
         ],
         [
-          2
-        ],
-        [
-          3
+          [
+            8,
+            9,
+            10,
+            11
+          ]
         ]
+      ],
+      "params_per_layer": [
+        64,
+        2304,
+        2304
       ],
       "joint_loglik": 7.231266897591669,
       "nonpos_rate": 0.0,
-      "w1_marg": 0.0053215955720195786,
-      "corr_fro": 0.1384326042109567
+      "w1_marg": 0.005256036225064812,
+      "corr_fro": 0.12799111512698097
     },
     {
       "model": "global_TT",
       "rank": 27,
       "learned_params": 117504,
-      "joint_loglik": -1.3486734033863574,
-      "nonpos_rate": 0.08116666666666666,
-      "w1_marg": 0.039703801980379254,
-      "corr_fro": 4.279411836886203
+      "joint_loglik": -1.154429087325188,
+      "nonpos_rate": 0.072,
+      "w1_marg": 0.03516873986252867,
+      "corr_fro": 4.296082270537933
     },
     {
       "model": "global_TTNS",
       "rank": 8,
       "learned_params": 79488,
-      "joint_loglik": 3.897319698393609,
-      "nonpos_rate": 0.03841666666666667,
-      "w1_marg": 0.024518297719542895,
-      "corr_fro": 2.133924399816971
+      "joint_loglik": 3.4214908335360428,
+      "nonpos_rate": 0.029833333333333333,
+      "w1_marg": 0.03081894031927993,
+      "corr_fro": 2.5799639025981573
+    },
+    {
+      "model": "ttde_TT_mle",
+      "learned_params": 64640,
+      "joint_loglik": 5.629721892636031,
+      "nonpos_rate": 0.0,
+      "w1_marg": 0.006383510577683839,
+      "corr_fro": 1.0429200273578405
     }
   ]
 }

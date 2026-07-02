@@ -1,0 +1,20 @@
+{
+  "setting": "clustered [3,3]x3, 18-dim, m=24, seed=0",
+  "records": {
+    "TT(chain)\nrank=8": {
+      "ll_test": 12.52,
+      "ll_train": 13.17,
+      "params": 24960
+    },
+    "TT(chain)\nrank=64 (matched)": {
+      "ll_test": 12.47,
+      "ll_train": 14.99,
+      "params": 1575936
+    },
+    "TTNS(MI tree)\nrank=8": {
+      "ll_test": 14.34,
+      "ll_train": 14.84,
+      "params": 1596096
+    }
+  }
+}

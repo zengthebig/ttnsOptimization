@@ -46,6 +46,7 @@ from simple_ttns_l2.layered_forest import (  # noqa: E402
 from simple_ttns_l2.ttns_sampler import sample_ttns  # noqa: E402
 from simple_ttns_l2.experiments.fit_deep_dag_vs_tree import _count_params  # noqa: E402
 from simple_ttns_l2.experiments.fit_layered_vs_flat_tt import fit_flat, flat_joint_loglik  # noqa: E402
+from simple_ttns_l2.experiments.ttde_tt_baseline import fit_ttde_tt, ttde_logp, sample_ttde_tt  # noqa: E402
 
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
 
@@ -101,19 +102,30 @@ def run(cfg: dict):
     train_x, test_x = xs[:n_tr], xs[n_tr:]
     n_dims = xs.shape[1]
 
-    # ---- 分层模型：源层森林 + 已知 max-plus 核 ----
-    k_src, key = jax.random.split(key)
+    # ---- 分层模型：每层都拟合为 Chow-Liu TTNS 森林；层间用已知 max-plus 核连接 ----
     L0 = list(spec.layers[0])
-    forest = fit_layer_forest(jnp.asarray(train_x[:, L0]), L0, cfg, k_src, label="L0",
-                              mi_threshold=cfg["mi_threshold"])
-    blocks_info = [list(bm.global_vars) for bm in forest]
-    src_params = sum(_count_params(bm.ttns.cores) for bm in forest)
+    layer_forests = []
+    blocks_all = []
+    layer_params = []
+    full_params = 0
+    for li, layer in enumerate(spec.layers):
+        Lg = list(layer)
+        k_l, key = jax.random.split(key)
+        f = fit_layer_forest(jnp.asarray(train_x[:, Lg]), Lg, cfg, k_l,
+                             label=f"L{li}", mi_threshold=cfg["mi_threshold"])
+        layer_forests.append(f)
+        blocks_all.append([list(bm.global_vars) for bm in f])
+        pl = sum(_count_params(bm.ttns.cores) for bm in f)
+        layer_params.append(pl)
+        full_params += pl
+    forest = layer_forests[0]  # 源层：用于联合采样与 joint_LL 的 L0 因子
     ll_src, nonpos_src = forest_log_density(forest, test_x[:, L0])
     ll = ll_src.copy()
     for li in range(1, len(spec.layers)):
         for v in spec.layers[li]:
             ll += maxplus_cond_logdensity(test_x[:, v], test_x[:, list(spec.parents(v))], params)
-    layered = {"model": "layered_TTNS", "learned_params": src_params, "blocks_L0": blocks_info,
+    layered = {"model": "layered_TTNS", "learned_params": full_params,
+               "blocks_per_layer": blocks_all, "params_per_layer": layer_params,
                "joint_loglik": float(ll.mean()), "nonpos_rate": nonpos_src}
 
     # ---- 全局扁平：TT(chain) / TTNS(chow-liu) ----
@@ -136,6 +148,15 @@ def run(cfg: dict):
         results.append({"model": name, "rank": r, "learned_params": np_,
                         "joint_loglik": fll, "nonpos_rate": fnp})
 
+    # ---- 原版 TTDE TT（平方 MLE）基线 ----
+    if cfg.get("include_ttde"):
+        ttde_model, ttde_params, ttde_info = fit_ttde_tt(tr_j, val_j, cfg, cfg["seed"])
+        lp = ttde_logp(ttde_model, ttde_params, test_x, batch_sz=cfg["batch_sz"])
+        finite = np.isfinite(lp)
+        results.append({"model": "ttde_TT_mle", "learned_params": ttde_info["learned_params"],
+                        "joint_loglik": float(lp[finite].mean()),
+                        "nonpos_rate": float(1.0 - finite.mean())})
+
     # ---- 采样质量 ----
     n_s = cfg["n_sample"]
     gt_s = test_x[:n_s]
@@ -144,25 +165,43 @@ def run(cfg: dict):
     for name, (ttns, parent) in flat_models.items():
         k_m, key = jax.random.split(key)
         samp[name] = np.asarray(sample_ttns(ttns, bases, list(parent), k_m, n_s, grid_size=400))
+    if cfg.get("include_ttde"):
+        k_t, key = jax.random.split(key)
+        n_st = min(n_s, cfg.get("ttde_n_sample", n_s))
+        samp["ttde_TT_mle"] = sample_ttde_tt(ttde_model, ttde_params, k_t, n_st,
+                                             grid_size=cfg.get("ttde_grid", 200))
     for r in results:
-        m = sample_metrics(samp[r["model"]], gt_s)
-        r.update(m)
+        pred = samp[r["model"]]
+        r.update(sample_metrics(pred, gt_s[:pred.shape[0]]))
 
     return spec, results, samp, gt_s
 
 
-def plot_overview(results, samp, gt_s, out: Path):
-    order = ["global_TT", "global_TTNS", "layered_TTNS"]
-    rmap = {r["model"]: r for r in results}
-    colors = {"global_TT": "tab:orange", "global_TTNS": "tab:green", "layered_TTNS": "tab:red"}
+COLORS = {"global_TT": "tab:orange", "global_TTNS": "tab:green",
+          "ttde_TT_mle": "tab:purple", "layered_TTNS": "tab:red"}
 
-    fig = plt.figure(figsize=(15, 8))
-    gs = fig.add_gridspec(2, 4, height_ratios=[1, 1.1])
+
+def _order(results):
+    pref = ["global_TT", "global_TTNS", "ttde_TT_mle", "layered_TTNS"]
+    have = {r["model"] for r in results}
+    return [m for m in pref if m in have]
+
+
+def plot_overview(results, samp, gt_s, out: Path):
+    order = _order(results)
+    rmap = {r["model"]: r for r in results}
+    colors = COLORS
+    ncol = max(4, len(order) + 1)
+
+    fig = plt.figure(figsize=(3.7 * ncol, 8))
+    gs = fig.add_gridspec(2, ncol, height_ratios=[1, 1.1])
+
+    nb = len(order)
 
     def bar(ax, key, title, better):
         vals = [rmap[m][key] for m in order]
-        ax.bar(range(3), vals, color=[colors[m] for m in order])
-        ax.set_xticks(range(3)); ax.set_xticklabels(order, rotation=15, fontsize=8)
+        ax.bar(range(nb), vals, color=[colors[m] for m in order])
+        ax.set_xticks(range(nb)); ax.set_xticklabels(order, rotation=15, fontsize=8)
         ax.set_title(f"{title}\n({better})", fontsize=10)
         for i, v in enumerate(vals):
             ax.text(i, v, f"{v:.3g}", ha="center", va="bottom", fontsize=8)
@@ -172,8 +211,8 @@ def plot_overview(results, samp, gt_s, out: Path):
     bar(fig.add_subplot(gs[0, 2]), "corr_fro", "correlation Frobenius error", "lower=better")
     axp = fig.add_subplot(gs[0, 3])
     pv = [rmap[m]["learned_params"] for m in order]
-    axp.bar(range(3), pv, color=[colors[m] for m in order])
-    axp.set_yscale("log"); axp.set_xticks(range(3)); axp.set_xticklabels(order, rotation=15, fontsize=8)
+    axp.bar(range(nb), pv, color=[colors[m] for m in order])
+    axp.set_yscale("log"); axp.set_xticks(range(nb)); axp.set_xticklabels(order, rotation=15, fontsize=8)
     axp.set_title("learned params (log)\nlower=cheaper", fontsize=10)
     for i, v in enumerate(pv):
         axp.text(i, v, f"{v}", ha="center", va="bottom", fontsize=8)
@@ -194,8 +233,8 @@ def plot_overview(results, samp, gt_s, out: Path):
 
 
 def plot_marginals(spec, samp, gt_s, out: Path):
-    order = ["global_TT", "global_TTNS", "layered_TTNS"]
-    colors = {"global_TT": "tab:orange", "global_TTNS": "tab:green", "layered_TTNS": "tab:red"}
+    order = [m for m in ["global_TT", "global_TTNS", "ttde_TT_mle", "layered_TTNS"] if m in samp]
+    colors = COLORS
     nL = len(spec.layers)
     nN = max(len(l) for l in spec.layers)
     fig, axes = plt.subplots(nL, nN, figsize=(3.0 * nN, 2.4 * nL), squeeze=False)
@@ -226,19 +265,31 @@ def plot_marginals(spec, samp, gt_s, out: Path):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--complex", action="store_true", help="双峰源分布(更复杂)")
+    args = ap.parse_args()
+
     cfg = dict(
         layer_sizes=[4, 4, 4], fanin=2,
         delay=dict(src_lo=0.0, src_hi=1.0, edge_lo=0.0, edge_hi=0.25, node_lo=0.0, node_hi=0.25),
         n_total=40000, n_sample=8000, q=2, m=16, rank=8, budget=120000, rmax=40,
         lr=2e-3, steps=1000, batch_sz=512, init_noise=1e-2, train_noise=1e-3,
         log_every=250, early_stop_patience=8, mi_threshold=0.02, seed=0,
+        include_ttde=True, ttde_rank=20, ttde_steps=2000, ttde_em_steps=50,
+        ttde_patience=8, ttde_grid=200, ttde_n_sample=8000, monitor_val_sz=4000,
     )
+    if args.complex:
+        cfg.update(layer_sizes=[6, 6, 6, 6], n_total=50000, m=24, budget=200000,
+                   source_mode="bimodal", src_sigma=0.06, ttde_rank=18)
+    prefix = "global_vs_layered_complex" if args.complex else "global_vs_layered"
+
     spec, results, samp, gt_s = run(cfg)
 
     REPORTS.mkdir(parents=True, exist_ok=True)
-    plot_overview(results, samp, gt_s, REPORTS / "global_vs_layered_overview.png")
-    plot_marginals(spec, samp, gt_s, REPORTS / "global_vs_layered_marginals.png")
-    (REPORTS / "global_vs_layered_metrics.json").write_text(
+    plot_overview(results, samp, gt_s, REPORTS / f"{prefix}_overview.png")
+    plot_marginals(spec, samp, gt_s, REPORTS / f"{prefix}_marginals.png")
+    (REPORTS / f"{prefix}_metrics.json").write_text(
         json.dumps({"config": cfg, "results": results}, indent=2, ensure_ascii=False))
 
     print("\n==== 全局 TT vs 全局 TTNS vs 分层 TTNS ====")
