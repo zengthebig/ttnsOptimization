@@ -20,6 +20,7 @@ from ttde.ttns.ttns_opt import (
     normalized_eval_rank1_ttns,
     normalized_quadratic_form_ttns,
 )
+from simple_ttns_l2.reparam import effective_ttns, rescale_root_for_scale
 
 
 def _recover_scalar(normalized_value) -> jnp.ndarray:
@@ -51,13 +52,15 @@ def eval_q_ttns(
     basis_vectors: jnp.ndarray,
     parent: Sequence[int],
     stable: bool = False,
+    transform: str = "identity",
 ) -> jnp.ndarray:
     r"""
-    q_theta(x) = <T_theta, \otimes_k b_k(x_k)>.
+    q_theta(x) = <T_{g(theta)}, \otimes_k b_k(x_k)>, where g is the core transform.
     """
+    eff = effective_ttns(ttns, transform)
     if stable:
-        return _recover_scalar(normalized_eval_rank1_ttns(ttns, basis_vectors, parent))
-    return eval_rank1_ttns(ttns, basis_vectors, parent)
+        return _recover_scalar(normalized_eval_rank1_ttns(eff, basis_vectors, parent))
+    return eval_rank1_ttns(eff, basis_vectors, parent)
 
 
 def batch_eval_q_ttns(
@@ -65,10 +68,14 @@ def batch_eval_q_ttns(
     basis_vectors_batch: jnp.ndarray,
     parent: Sequence[int],
     stable: bool = False,
+    transform: str = "identity",
 ) -> jnp.ndarray:
     if not stable:
-        return batch_eval_rank1_ttns(ttns, basis_vectors_batch, parent)
-    return vmap(lambda vectors: eval_q_ttns(ttns, vectors, parent, stable=stable))(basis_vectors_batch)
+        eff = effective_ttns(ttns, transform)
+        return batch_eval_rank1_ttns(eff, basis_vectors_batch, parent)
+    return vmap(
+        lambda vectors: eval_q_ttns(ttns, vectors, parent, stable=stable, transform=transform)
+    )(basis_vectors_batch)
 
 
 def integral_q_ttns(
@@ -76,11 +83,12 @@ def integral_q_ttns(
     basis_integrals: jnp.ndarray,
     parent: Sequence[int],
     stable: bool = False,
+    transform: str = "identity",
 ) -> jnp.ndarray:
     r"""
     \int q_theta(x) dx, where basis_integrals[k, i] = \int f_{k,i}(x_k) dx_k.
     """
-    return eval_q_ttns(ttns, basis_integrals, parent, stable=stable)
+    return eval_q_ttns(ttns, basis_integrals, parent, stable=stable, transform=transform)
 
 
 def integral_q2_ttns(
@@ -88,13 +96,15 @@ def integral_q2_ttns(
     gram_matrices: jnp.ndarray,
     parent: Sequence[int],
     stable: bool = False,
+    transform: str = "identity",
 ) -> jnp.ndarray:
     r"""
     \int q_theta(x)^2 dx, where gram_matrices[k, i, j] = \int f_{k,i} f_{k,j}.
     """
+    eff = effective_ttns(ttns, transform)
     if stable:
-        return _recover_scalar(normalized_quadratic_form_ttns(ttns, gram_matrices, parent))
-    return quadratic_form_ttns(ttns, gram_matrices, parent)
+        return _recover_scalar(normalized_quadratic_form_ttns(eff, gram_matrices, parent))
+    return quadratic_form_ttns(eff, gram_matrices, parent)
 
 
 def mc_expectation_q_ttns(
@@ -102,8 +112,11 @@ def mc_expectation_q_ttns(
     basis_vectors_batch: jnp.ndarray,
     parent: Sequence[int],
     stable: bool = False,
+    transform: str = "identity",
 ) -> jnp.ndarray:
-    return batch_eval_q_ttns(ttns, basis_vectors_batch, parent, stable=stable).mean()
+    return batch_eval_q_ttns(
+        ttns, basis_vectors_batch, parent, stable=stable, transform=transform
+    ).mean()
 
 
 def l2_objective_ttns(
@@ -112,13 +125,16 @@ def l2_objective_ttns(
     gram_matrices: jnp.ndarray,
     parent: Sequence[int],
     stable: bool = False,
+    transform: str = "identity",
 ) -> jnp.ndarray:
     r"""
     L(theta) = \int q_theta^2 - 2 * E_data[q_theta].
     Constant term \int p^2 is dropped.
     """
-    int_q2 = integral_q2_ttns(ttns, gram_matrices, parent, stable=stable)
-    mc_q = mc_expectation_q_ttns(ttns, basis_vectors_batch, parent, stable=stable)
+    int_q2 = integral_q2_ttns(ttns, gram_matrices, parent, stable=stable, transform=transform)
+    mc_q = mc_expectation_q_ttns(
+        ttns, basis_vectors_batch, parent, stable=stable, transform=transform
+    )
     return int_q2 - 2.0 * mc_q
 
 
@@ -127,10 +143,11 @@ def l2_objective_from_samples(
     bases,
     xs: jnp.ndarray,
     parent: Sequence[int],
+    transform: str = "identity",
 ) -> jnp.ndarray:
     basis_vectors_batch = batch_basis_vectors_from_samples(bases, xs)
     gram_matrices = vmap(type(bases).l2_integral)(bases)
-    return l2_objective_ttns(ttns, basis_vectors_batch, gram_matrices, parent)
+    return l2_objective_ttns(ttns, basis_vectors_batch, gram_matrices, parent, transform=transform)
 
 
 def normalize_ttns_by_integral(
@@ -139,16 +156,17 @@ def normalize_ttns_by_integral(
     parent: Sequence[int],
     eps: float = 1e-12,
     stable: bool = False,
+    transform: str = "identity",
 ) -> Tuple[TTNSOpt, jnp.ndarray]:
     r"""
     Project to unit integral:
         q_new = q / \int q
-    by scaling the root core.
+    by scaling the root core, transform-aware (see reparam.rescale_root_for_scale).
     """
-    z = integral_q_ttns(ttns, basis_integrals, parent, stable=stable)
+    z = integral_q_ttns(ttns, basis_integrals, parent, stable=stable, transform=transform)
     safe_z = jnp.where(jnp.abs(z) < eps, 1.0, z)
     scale = 1.0 / safe_z
     root = _root_from_parent(parent)
     cores = list(ttns.cores)
-    cores[root] = cores[root] * scale
+    cores[root] = rescale_root_for_scale(transform, cores[root], scale)
     return TTNSOpt(tuple(cores)), z
