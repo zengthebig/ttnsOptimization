@@ -36,7 +36,6 @@
 - **五模型逐层对比**（`per_layer_all_methods.py`）：全联合 28 维，分层 joint_LL **23.10** vs TTDE 19.35 vs global_TTNS 7.34 vs global_TT 3.75。
 - **全局 TTDE：TT(链) vs TTNS(MI 树)**：同 rank MI 树 ↑似然（test_LL 12.52→14.34）；**等参数量下 MI 树 TTNS 仍胜 +1.87**（TT 提到 rank=64 纯过拟合）。
 - **加速**：hub 边降 rank（速度 ∝ rank^(fanout+1)）：hub_rank=12 → 3.5× 几乎无损；rank=8 → 12×。3-child 融合 einsum → junction 训练 3.2×。
-- **【负结果】core 参数重参数化 θ→θ²/exp θ**（`simple_ttns_l2/reparam.py`，报告 `reports/reparam_theta_report_zh.md`）：在线性 L2 TTNS 里把存储核 θ 收缩前过 g（identity/square/exp），基非负→有效核非负→强制 q≥0。正确性全 PASS（g(θ) 逐元素、变换感知归一化 ∫q=1、identity bit-for-bit）。**但无提升反而变差**（4D 双峰 3 seed val_l2：identity −0.197 / square −0.193 且方差大 6× / exp −0.126 明显最差）。原因：线性 L2 靠核正负相消表达多峰，强制非负削弱表达力；exp 还令 init ∫q≈3.6e3 病态。**结论：非负性收益必须走 `p=ψ²/Z` MLE 路线（§2.2）兑现，不能在 L2 目标里硬加符号约束。**
 
 ### 2.2 尚未系统完成
 
@@ -117,13 +116,29 @@
 
 | 数据集 | 维度 | 本地可用 | 状态 |
 |---|---|---|---|
-| **POWER** | 6 | ✅ `data/data/power/data.npy`（125M） | 可直接跑 TTDE/TTNS MLE |
-| **GAS** | 8 | ✅ `data/data/gas/ethylene_CO.pickle`（168M） | 可直接跑 |
+| **POWER** | 6 | ✅ `data/data/power/data.npy`（125M） | ✅ 已跑 TTDE/线性TTNS/平方TTNS 三方基准 |
+| **GAS** | 8 | ✅ `data/data/gas/ethylene_CO.pickle`（168M） | ✅ 已跑三方基准 |
 | HEPMASS | 21 | ❌ 未下载 | README 给下载指引 |
 | MINIBOONE | 43 | ❌ 未下载 | — |
 | BSDS300 | 64 | ❌ 未下载 | — |
 
-> `data/data/` 下 `mnist`（空）、`cifar10`（仅 2 个 batch）不完整，非当前主线。**POWER/GAS 可立即用于 TTNS MLE 真实数据基准**（`Program.md` §4.2「未完成」列项）。数据根目录传 `--data-dir data/data`，加载器按 `root/<name>/...` 取文件。
+> `data/data/` 下 `mnist`（空）、`cifar10`（仅 2 个 batch）不完整，非当前主线。**POWER/GAS 已完成 TTNS MLE 真实数据三方基准**（`uci_ttde_vs_ttns.py`）。数据根目录传 `--data-dir data/data`，加载器按 `root/<name>/...` 取文件。
+
+#### 5.2.1 UCI 三方基准结果（2026-07-03，B-spline q=2 m=48，等参数量对齐 match_params，1000 步）
+
+入口：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --dataset power|gas`。
+同基、同 Chow–Liu 树（`estimate_chow_liu_tree(n_bins=16, root=0)`）、平方 TT(链) 用 `match_params` 反解 rank 与 TTNS 等参数量。test_LL = 留出集平均对数密度；线性模型 `q` 已 $\int q{=}1$，负值点 clip 到 1e-12 并报 `nonpos_rate`（线性参数化固有缺陷）；平方模型 log_p 在密度近零点可下溢为 $-\infty$，取 finite 均值并报非正率。切片密度 2D 积分 ≈1，平方 TT 边缘 vs `ttde_block_logp` 交叉检验 max|Δ|≈1e-16（机器精度）。
+
+| 数据集 | 模型 | 参数化/拓扑 | test_LL↑ | train_LL | params | nonpos |
+|---|---|---|---|---|---|---|
+| POWER(6D) | global_TTDE | 平方TT(链) | **−0.550** | −0.417 | 63,936 | 0.000 |
+| POWER | global_TTNS | 线性TTNS(MI树) | −2.297 | −2.257 | 118,944 | 0.026 |
+| POWER | global_TTNSDE | 平方TTNS(MI树) | **−0.526** | −0.422 | 65,088 | 0.000 |
+| GAS(8D) | global_TTDE | 平方TT(链) | **−4.435** | −4.439 | 7,680 | 0.000 |
+| GAS | global_TTNS | 线性TTNS(MI树) | −7.962 | −8.012 | 112,320 | 0.077 |
+| GAS | global_TTNSDE | 平方TTNS(MI树) | **−4.453** | −4.463 | 6,720 | 0.000 |
+
+**UCI 结论**：① **平方参数化是决定性杠杆**——线性→平方提升 +1.77(POWER)/+3.51(GAS) nats；线性 TTNS 因 $q$ 可负、2.6%~7.7% 点密度≤0，test_LL 大幅落后。② **树拓扑收益在等参数量下基本消失**——平方 TT(链) vs 平方 TTNS(MI 树) 仅 +0.024(POWER)/−0.018(GAS)，不显著。③ 真实数据上**平方 TTNS(MI 树) ≈ 平方 TT(链)**，不像合成 DAG 那样树结构占优；推测因 UCI 经标准化+去相关预处理后变量间近树依赖弱，且 m=48 控时配置下链式已足够。图：`uci_ttde_vs_ttns_bars.png`、`uci_{power,gas}_ttde_vs_ttns_slices.png`。
 
 ### 5.3 评测指标
 
@@ -160,7 +175,7 @@
 
 - [ ] **R6 矩张量版**：确定性传播 + 完整联合，无 MC 累积、$O(m^K)$（≤15× 加速），在小块上同时拿到 R5 的深层 LL 稳 + R7 的 corr 好。
 - [ ] **平方 TTNS 块**：单 3 节点块平方 LL 推向 TTDE 水平 → 扩 `UpperForest` 二次型传播打通全链。
-- [ ] **真实 UCI（POWER/GAS）**：TTNS MLE 多 seed 系统基准，对照 TTDE 论文报告值。
+- [ ] **真实 UCI（POWER/GAS）多 seed 系统基准**：✅ 单 seed 三方对比已完成（见 §5.2.1），待补 ≥3 seed 均值/方差 + 论文级 m(256/512)/rank 配置复现 TTDE 报告值。初步结论：平方参数化主导（+1.77/+3.51 nats），树拓扑等参数量下基本持平。
 - [ ] **大图稳定性**：30+ 维多块层方案 A 链多 seed 统计；深层 refit 不发散。
 
 ---
@@ -264,7 +279,7 @@ Program.md / ALGORITHM_zh.md / clarify.md / squared_ttns_theory_zh.md  # 交接/
 
 1. **R6 矩张量 $O(m^K)$ 交叉项**（高优先）：确定性 + 完整联合 + 无 MC 累积，小块两头都占。实现见 `ALGORITHM_zh.md` §3.5（把 `_cross_term_fn_joint` 网格换基索引）。
 2. **平方 TTNS 单块验证**：在 3 节点块验证平方 LL 是否推向 TTDE，再扩 `UpperForest` 二次型传播。补平方 TTNS 树采样器。
-3. **真实 UCI 基准**：POWER/GAS 上 TTNS(MI 树) MLE 多 seed，对照 TTDE 论文值与等参数量 TT。
+3. **真实 UCI 基准升级**：POWER/GAS 单 seed 三方已跑（§5.2.1）；待补 ① ≥3 seed 均值/方差 ② 论文级 m=256/512、rank=16/32 全配置复现 TTDE 报告 test_LL(POWER 0.46 / GAS 8.93) ③ 度数受限树验证 UCI 上树拓扑是否真能持平/胜链。
 4. **大图稳定性**：30+ 维多块层方案 A 链多 seed；深层 refit 退火/正则防发散。
 5. **TTDE TTNS 度数受限树**：限制 hub 孩子数压参数量，看拓扑收益是否保持。
 
