@@ -424,6 +424,28 @@ flowchart LR
 
 ---
 
+### 6.7 大预算扫描：分层链能做到多好（`experiments/budget_sweep_layered.py`）
+
+**首次对分层链本身**（R5/R7）做预算阶梯扫描（rank/m/n_fit），100 节点 clustered `[2,3,4,5,6]`×5 层，对照 k-NN(Kozachenko–Leonenko) 熵 oracle 上限与等预算全局基线。报告/图/JSON：`reports/budget_sweep_layered_*`、`budget_sweep_error_viz.png`、`budget_r6_block_ref_metrics.json`、`budget_baselines_ll_metrics.json`。
+
+**关键结论**：
+
+1. **三旋钮各攻一条误差轴**（下游层 L1–L4 平均）：
+   - **rank↑**：压 R7 相关（fro 0.829→0.624，rank16 甜点、rank24 饱和）；对 R5 相关无效（横盘 ~1.11）。
+   - **m↑(24→48)**：压 R5 逐点密度（gap 0.874→0.753）；相关不变。
+   - **n_fit↑(20k→40k→80k)**：专攻 R7 深层 LL——最深层 L4 joint_LL **0.03→0.72→1.23** 单调拉起（证实深层退化是 MC 累积、可被样本预算缓解）。
+   - ⇒ **无单一配置全面最优；R5 管密度、R7 管相关，互补。**
+
+2. **误差量级**（最好配置）：每维密度达 oracle 的 **95–98%**（每维 gap 0.017–0.051 nats）；R7 每对相关系数误差 **0.02–0.05**（尺度 [-1,1]）。
+
+3. **corr 残差来自目标口径而非容量**（R6 小块参照，clustered `[3,3]`）：加 rank(8→16)对树投影 fro **毫无帮助**（0.261→0.260）；换完整联合目标(R6)才压到 ~0.045（5×）。堆 rank/m 补不动，出路是 R6 矩张量版或平方 TTNS。
+
+4. **等预算胜全局**（joint_LL@truth，budget=576k）：分层 R5 在**每个下游层**都胜过所有等预算全局模型——global_TT/TTNS 在下游层崩到**负数**（L2–L4），最强的 global_TTDE 也被逐层小胜（L1 5.67>5.06 … L4 2.60>2.50），且分层参数量更省。
+
+> **局限**：结论点单 seed（大 rank/大 n_fit 在测试机触发内存 swap，用干净进程+checkpoint 稳住）；BIG 全大点因内存未跑（每旋钮独立效应已充分刻画）。**深层前沿**待 R6 矩张量 $O(m^K)$ / 平方 TTNS 兑现。
+
+---
+
 ## 7. 关键文件索引
 
 ```
