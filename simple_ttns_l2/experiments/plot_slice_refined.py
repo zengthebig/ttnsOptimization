@@ -50,11 +50,12 @@ N_PLOT = 16000
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
 
 C_TRUTH = "0.45"      # gray
-C_R5 = "#d62728"      # red   (analytic chain)
+C_R5 = "#d62728"      # red   (analytic chain, tree projection)
+C_R6 = "#2ca02c"      # green (analytic chain, full joint)
 C_R7 = "#1f77b4"      # blue  (sampled chain)
 
 # 更深、每层更小,省内存。7 层 × 6 维 = 42 节点,下游 L1..L6。
-# 层间延迟改 log-skew-normal(正支撑、右偏重尾),非均匀。
+# 层间延迟改 log-skew-normal(正支撑、右偏重尾),非均匀。R6(完整联合)也跑,三方对比。
 CFG = dict(
     n_layers=7, clusters=[3, 3], fanin=2,
     delay=dict(src_lo=0.0, src_hi=1.0, kind="logskewnorm",
@@ -64,13 +65,14 @@ CFG = dict(
     lr=2e-3, steps=500, batch_sz=512, init_noise=1e-2, train_noise=1e-3,
     log_every=250, early_stop_patience=8, mi_threshold=0.02, seed=0,
     n_s=100, n_s_pair=80, an_lr=3e-3, an_steps=500,
+    with_r6=True, n_s_joint=44,
 )
 
 
 def main():
     t_all = time.perf_counter()
     cfg = CFG
-    spec, layers, test_x, AN, SP, key = fit_all(cfg)
+    spec, layers, test_x, AN, SP, JN, key = fit_all(cfg)
     n = N_PLOT
 
     down = list(range(1, len(layers)))          # 下游层 L1..L6
@@ -86,15 +88,19 @@ def main():
     print(f"[plot] 大真值样本 {truth_big.shape}  模型每层采样 n={n}", flush=True)
 
     # 每层各采一次(1D + 2D 复用),模型采 N_PLOT 与真值同量。
-    r5_samp, r7_samp = {}, {}
+    r5_samp, r7_samp, r6_samp = {}, {}, {}
     for li in down:
         k1, key2 = jax.random.split(key); key = key2
         k2, key2 = jax.random.split(key); key = key2
         r5_samp[li] = np.asarray(sample_forest(AN[li], k1, n, grid_size=400))
         r7_samp[li] = np.asarray(sample_forest(SP[li], k2, n, grid_size=400))
+        if JN is not None:
+            k3, key2 = jax.random.split(key); key = key2
+            r6_samp[li] = np.asarray(sample_forest(JN[li], k3, n, grid_size=400))
 
     # -------- Block 2 误差指标(每维密度 gap、每对相关误差)--------
     gap_r5, gap_r7, fro_r5, fro_r7 = [], [], [], []
+    gap_r6, fro_r6 = [], []
     for li in down:
         tev = test_x[:, layers[li]]
         K = len(layers[li])
@@ -109,8 +115,16 @@ def main():
         denom = np.sqrt(K * (K - 1))
         fro_r5.append(f5 / denom)
         fro_r7.append(f7 / denom)
-        print(f"[L{li}] gap/K R5={gap_r5[-1]:.4f} R7={gap_r7[-1]:.4f}  "
-              f"corr_err R5={fro_r5[-1]:.4f} R7={fro_r7[-1]:.4f}", flush=True)
+        if JN is not None:
+            ll6 = float(forest_log_density(JN[li], tev)[0].mean())
+            gap_r6.append((ceils[li] - ll6) / K)
+            k3, key = jax.random.split(key)
+            f6, _ = corr_fro_layer(JN[li], tev, k3, n)
+            fro_r6.append(f6 / denom)
+        print(f"[L{li}] gap/K R5={gap_r5[-1]:.4f} R7={gap_r7[-1]:.4f}"
+              + (f" R6={gap_r6[-1]:.4f}" if JN is not None else "")
+              + f"  corr_err R5={fro_r5[-1]:.4f} R7={fro_r7[-1]:.4f}"
+              + (f" R6={fro_r6[-1]:.4f}" if JN is not None else ""), flush=True)
 
     # ================= 绘图 =================
     N_NODE = 3   # 每层画方差前 N_NODE 个节点(更多切片)
@@ -142,6 +156,7 @@ def main():
                 block_top_ax[1] = ax
             gid = layers[li][j]
             truth, r5, r7 = truth_big[:, gid], r5_samp[li][:, j], r7_samp[li][:, j]
+            r6 = r6_samp[li][:, j] if JN is not None else None
             lo = float(np.percentile(truth, 0.5)); hi = float(np.percentile(truth, 99.5))
             pad = 0.12 * (hi - lo + 1e-9)
             bins = np.linspace(lo - pad, hi + pad, 80)   # 同一组 bin 边界
@@ -151,6 +166,8 @@ def main():
             xs = np.linspace(lo - pad, hi + pad, 400)
             try:
                 ax.plot(xs, gaussian_kde(r5)(xs), color=C_R5, lw=1.7, label="R5 analytic")
+                if r6 is not None:
+                    ax.plot(xs, gaussian_kde(r6)(xs), color=C_R6, lw=1.5, label="R6 analytic")
                 ax.plot(xs, gaussian_kde(r7)(xs), color=C_R7, lw=1.7, label="R7 sampled")
             except np.linalg.LinAlgError:                # 退化(方差近 0)时跳过 KDE
                 ax.plot([], [], color=C_R5, lw=1.7, label="R5 analytic")
@@ -185,8 +202,10 @@ def main():
     # ---------- Block 2: 显式误差 vs 层 ----------
     ax_g = fig.add_subplot(gs[6, 0:3])
     block_top_ax[2] = ax_g
-    ax_g.plot(xl, gap_r5, "o-", color=C_R5, lw=1.9, label="R5 analytic")
-    ax_g.plot(xl, gap_r7, "s-", color=C_R7, lw=1.9, label="R7 sampled")
+    ax_g.plot(xl, gap_r5, "o-", color=C_R5, lw=1.9, label="R5 analytic (tree)")
+    if gap_r6:
+        ax_g.plot(xl, gap_r6, "^-", color=C_R6, lw=1.9, label="R6 analytic (joint)")
+    ax_g.plot(xl, gap_r7, "s-", color=C_R7, lw=1.9, label="R7 sampled (joint)")
     ax_g.axhline(0, ls="--", color="gray", lw=1.2, label="oracle (gap=0)")
     ax_g.set_title("Per-dim density gap vs layer  (ceiling - joint_LL)/K,  lower=better",
                    fontsize=11)
@@ -194,15 +213,17 @@ def main():
     ax_g.legend(fontsize=9); ax_g.grid(alpha=0.3)
 
     ax_c = fig.add_subplot(gs[6, 3:6])
-    ax_c.plot(xl, fro_r5, "o-", color=C_R5, lw=1.9, label="R5 analytic")
-    ax_c.plot(xl, fro_r7, "s-", color=C_R7, lw=1.9, label="R7 sampled")
+    ax_c.plot(xl, fro_r5, "o-", color=C_R5, lw=1.9, label="R5 analytic (tree)")
+    if fro_r6:
+        ax_c.plot(xl, fro_r6, "^-", color=C_R6, lw=1.9, label="R6 analytic (joint)")
+    ax_c.plot(xl, fro_r7, "s-", color=C_R7, lw=1.9, label="R7 sampled (joint)")
     ax_c.axhline(0, ls="--", color="gray", lw=1.2, label="oracle (err=0)")
     ax_c.set_title("Per-pair corr error vs layer  corr_fro/sqrt(K(K-1)),  lower=better",
                    fontsize=11)
     ax_c.set_xlabel("layer"); ax_c.set_ylabel("corr error per pair")
     ax_c.legend(fontsize=9); ax_c.grid(alpha=0.3)
 
-    # ---------- Block 3: 强相关对 浅(L1) vs 深(L6) ----------
+    # ---------- Block 3: 强相关对 浅(L1) vs 深(L6), truth/R5/R6/R7 四列 ----------
     scatter_stats = {}
     for row, li in enumerate((down[0], down[-1])):     # L1 浅, L6 深
         tev = test_x[:, layers[li]]
@@ -212,11 +233,15 @@ def main():
         yr = (float(np.percentile(tev[:, j_p], 1)), float(np.percentile(tev[:, j_p], 99)))
         dx = 0.1 * (xr[1] - xr[0] + 1e-9); dy = 0.1 * (yr[1] - yr[0] + 1e-9)
         series = [("truth", truth_big[:, gx], truth_big[:, gy], C_TRUTH),
-                  ("R5 analytic", r5_samp[li][:, i_p], r5_samp[li][:, j_p], C_R5),
-                  ("R7 sampled", r7_samp[li][:, i_p], r7_samp[li][:, j_p], C_R7)]
+                  ("R5 analytic", r5_samp[li][:, i_p], r5_samp[li][:, j_p], C_R5)]
+        if JN is not None:
+            series.append(("R6 analytic", r6_samp[li][:, i_p], r6_samp[li][:, j_p], C_R6))
+        series.append(("R7 sampled", r7_samp[li][:, i_p], r7_samp[li][:, j_p], C_R7))
+        ncol = len(series)
+        subrow = GridSpecFromSubplotSpec(1, ncol, subplot_spec=gs[7 + row, 0:6], wspace=0.32)
         rs = {}
         for col, (tag, xx, yy, color) in enumerate(series):
-            ax = fig.add_subplot(gs[7 + row, 2 * col:2 * col + 2])
+            ax = fig.add_subplot(subrow[0, col])
             if row == 0 and col == 0:
                 block_top_ax[3] = ax
             r = float(np.corrcoef(xx, yy)[0, 1])
@@ -227,7 +252,8 @@ def main():
             ax.set_xlabel(f"node{gx}"); ax.set_ylabel(f"node{gy}")
             ax.set_xlim(xr[0] - dx, xr[1] + dx); ax.set_ylim(yr[0] - dy, yr[1] + dy)
         scatter_stats[li] = dict(pair=(gx, gy), r_truth=rs["truth"],
-                                 r_r5=rs["R5 analytic"], r_r7=rs["R7 sampled"])
+                                 r_r5=rs["R5 analytic"], r_r7=rs["R7 sampled"],
+                                 r_r6=rs.get("R6 analytic"))
 
     # 分块标题(锚到每块左上子图上方,避免与子图重叠)
     fig.text(0.5, 0.988, "Refined layered-chain slice fit  "
@@ -236,7 +262,7 @@ def main():
     headers = {
         1: "Block 1 - Per-layer 1D marginal density (L1..L6 x top-3 var nodes) with residual band",
         2: "Block 2 - Explicit error vs depth (density gap / corr error)",
-        3: "Block 3 - Strongest-corr pair: shallow L1 vs deep L6 (truth / R5 / R7)",
+        3: "Block 3 - Strongest-corr pair: shallow L1 vs deep L6 (truth / R5 / R6 / R7)",
     }
     for blk, ax in block_top_ax.items():
         y = ax.get_position().y1 + 0.011

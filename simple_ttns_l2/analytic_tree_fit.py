@@ -547,9 +547,66 @@ def fit_analytic_chain(
     return forests
 
 
+# ------------------------------------------------------------------ R6 全解析链(完整联合目标)
+
+
+def fit_next_layer_forest_joint(
+    upper: UpperForest, spec, li: int, params: DelayParams, key,
+    s_max: float, q: int = 2, m: int = 24, rank: int = 8,
+    n_s: int = 100, n_s_pair: int = 80, n_s_joint: int = 44,
+    lr: float = 3e-3, steps: int = 1500, init_noise: float = 0.01,
+    log_every: int = 0, use_mi: bool = True,
+) -> List[BlockModel]:
+    """R6：全解析拟合第 li 层为 TTNS 森林，但目标口径 = **块完整 K 维联合**(而非树投影)。
+
+    结构(分块/树拓扑)与 R5 相同；仅把 `analytic_block_target`→`analytic_block_target_joint`、
+    `_fit_analytic_ttns`→`_fit_analytic_ttns_joint`。仅小块(K≤3~4, 受 G^K 约束)。返回森林。
+    """
+    layer_nodes = list(spec.layers[li])
+    blocks = structural_blocks(spec, li)
+    forest: List[BlockModel] = []
+    for bi, blk in enumerate(blocks):
+        gids = [layer_nodes[i] for i in blk]
+        target = analytic_block_target_joint(
+            upper, spec, gids, params, s_max,
+            n_s=n_s, n_s_pair=n_s_pair, n_s_joint=n_s_joint, use_mi=use_mi,
+        )
+        k_b, key = jax.random.split(key)
+        ttns, bases = _fit_analytic_ttns_joint(
+            target, k_b, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}.b{bi}"
+        )
+        forest.append(BlockModel(
+            tuple(blk), tuple(int(g) for g in gids), tuple(target.parent), ttns, bases
+        ))
+    return forest
+
+
+def fit_analytic_chain_joint(
+    forest0, spec, params: DelayParams, key, s_max0: float,
+    q: int = 2, m: int = 24, rank: int = 8,
+    n_s: int = 100, n_s_pair: int = 80, n_s_joint: int = 44,
+    lr: float = 3e-3, steps: int = 1500,
+    init_noise: float = 0.01, log_every: int = 0, use_mi: bool = True,
+) -> Dict[int, list]:
+    """R6 全解析链：逐层材料化为 TTNS 森林，每块目标 = **完整块联合**(确定性传播、无 MC 累积)。
+
+    与 `fit_analytic_chain`(R5) 结构一致，仅每块目标口径升级为完整联合。仅小块(G^K)。返回 {li: forest}。
+    """
+    forests: Dict[int, list] = {0: forest0}
+    s_max = s_max0
+    for li in range(1, len(spec.layers)):
+        s_max = s_max + (edge_hi_eff(params) + node_hi_eff(params)) + 0.3
+        upper = UpperForest(forests[li - 1], q_grid=400)
+        k_l, key = jax.random.split(key)
+        forests[li] = fit_next_layer_forest_joint(
+            upper, spec, li, params, k_l, s_max=s_max,
+            q=q, m=m, rank=rank, n_s=n_s, n_s_pair=n_s_pair, n_s_joint=n_s_joint,
+            lr=lr, steps=steps, init_noise=init_noise, log_every=log_every, use_mi=use_mi,
+        )
+    return forests
+
+
 # ------------------------------------------------------------------ 采样交叉项链(允许 MC 噪声)
-
-
 def fit_sampled_chain(forest0, spec, params: DelayParams, key, cfg: dict) -> Dict[int, list]:
     """采样求 L2 的分层链:结构与解析链一致(DAG 结构分块),但每块目标 = **完整联合的样本**。
 
