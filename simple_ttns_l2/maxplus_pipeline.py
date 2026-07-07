@@ -21,13 +21,20 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Tuple
 
 import numpy as np
+from scipy.stats import skewnorm
 
 from simple_ttns_l2.dag_pipeline import MultiLayerSpec
 
 
 @dataclass(frozen=True)
 class DelayParams:
-    """各延迟分布参数（均匀分布，连续且相互独立）。"""
+    """各延迟分布参数。
+
+    `kind="uniform"`（默认，向后兼容）：edge~U[edge_lo,edge_hi], node~U[node_lo,node_hi]。
+    `kind="logskewnorm"`：edge/node ~ exp(SkewNormal)（log-skew-normal, 正支撑、右偏）。
+      Y~skewnorm(a=alpha, loc=xi, scale=omega), delay=exp(Y)。edge/node 各一套参数。
+      edge_lo/hi、node_lo/hi 在此模式下忽略（保留字段仅为兼容旧构造）。
+    """
 
     src_lo: float = 0.0
     src_hi: float = 1.0
@@ -35,17 +42,80 @@ class DelayParams:
     edge_hi: float = 0.5
     node_lo: float = 0.0
     node_hi: float = 0.5
+    kind: str = "uniform"
+    # log-skew-normal 参数(仅 kind="logskewnorm" 用): edge / node 各一套
+    e_xi: float = -2.12    # log-location ≈ log(0.12)
+    e_omega: float = 0.45  # log-scale
+    e_alpha: float = 4.0   # 偏度(>0 右偏)
+    d_xi: float = -2.12
+    d_omega: float = 0.45
+    d_alpha: float = 4.0
+
+
+# ---- 延迟分布抽象: 采样 / 边CDF / node求积 / 高分位数(供支撑生长) ----
+
+def sample_edge(params: DelayParams, rng: np.random.Generator, shape) -> np.ndarray:
+    if params.kind == "uniform":
+        return rng.uniform(params.edge_lo, params.edge_hi, size=shape)
+    y = skewnorm.rvs(params.e_alpha, loc=params.e_xi, scale=params.e_omega,
+                     size=shape, random_state=rng)
+    return np.exp(y)
+
+
+def sample_node(params: DelayParams, rng: np.random.Generator, shape) -> np.ndarray:
+    if params.kind == "uniform":
+        return rng.uniform(params.node_lo, params.node_hi, size=shape)
+    y = skewnorm.rvs(params.d_alpha, loc=params.d_xi, scale=params.d_omega,
+                     size=shape, random_state=rng)
+    return np.exp(y)
+
+
+def edge_cdf(params: DelayParams, y: np.ndarray) -> np.ndarray:
+    r"""$F_e(y)=\Pr[\text{edge delay}\le y]$，向量化。"""
+    y = np.asarray(y)
+    if params.kind == "uniform":
+        return np.clip((y - params.edge_lo) / (params.edge_hi - params.edge_lo), 0.0, 1.0)
+    out = np.zeros_like(y, dtype=float)
+    pos = y > 0
+    out[pos] = skewnorm.cdf(np.log(y[pos]), params.e_alpha, loc=params.e_xi, scale=params.e_omega)
+    return out
+
+
+def node_quadrature(params: DelayParams, n_d: int) -> Tuple[np.ndarray, np.ndarray]:
+    r"""node delay 的求积点+权重(用于卷积 $F_v(t)=\sum_i w_i F_m(t-d_i)$)。
+
+    等概率分位数求积: d_i=ppf((i+0.5)/n_d), w_i=1/n_d。均匀/log-skew-normal 统一。"""
+    probs = (np.arange(n_d) + 0.5) / n_d
+    if params.kind == "uniform":
+        d = params.node_lo + (params.node_hi - params.node_lo) * probs
+    else:
+        d = np.exp(skewnorm.ppf(probs, params.d_alpha, loc=params.d_xi, scale=params.d_omega))
+    w = np.full(n_d, 1.0 / n_d)
+    return d, w
+
+
+def edge_hi_eff(params: DelayParams, q: float = 0.995) -> float:
+    """edge delay 的高分位数(供解析网格支撑生长; 均匀=edge_hi)。"""
+    if params.kind == "uniform":
+        return params.edge_hi
+    return float(np.exp(skewnorm.ppf(q, params.e_alpha, loc=params.e_xi, scale=params.e_omega)))
+
+
+def node_hi_eff(params: DelayParams, q: float = 0.995) -> float:
+    if params.kind == "uniform":
+        return params.node_hi
+    return float(np.exp(skewnorm.ppf(q, params.d_alpha, loc=params.d_xi, scale=params.d_omega)))
 
 
 def _maxplus_step(parent_vals: np.ndarray, rng: np.random.Generator, params: DelayParams) -> np.ndarray:
     """对一个下层节点施加 max-plus：parent_vals[n,k] -> [n]。
 
-    $x_v=\\max_u(x_u+e_{uv})+d_v$，每次调用抽取新的独立 edge/node delay。
+    $x_v=\\max_u(x_u+e_{uv})+d_v$，每次调用抽取新的独立 edge/node delay(分布见 DelayParams.kind)。
     """
     n, k = parent_vals.shape
-    e = rng.uniform(params.edge_lo, params.edge_hi, size=(n, k))
+    e = sample_edge(params, rng, (n, k))
     income = parent_vals + e
-    d = rng.uniform(params.node_lo, params.node_hi, size=n)
+    d = sample_node(params, rng, n)
     return income.max(axis=1) + d
 
 

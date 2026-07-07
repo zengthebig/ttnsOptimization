@@ -45,7 +45,7 @@ from ttde.ttns.ttns_opt import (  # noqa: E402
 from simple_ttns_l2.train_l2 import build_bases, init_ttns_from_rank1  # noqa: E402
 from simple_ttns_l2.objective import integral_q_ttns, normalize_ttns_by_integral  # noqa: E402
 from simple_ttns_l2.ttns_sampler import _basis_eval_dim  # noqa: E402
-from simple_ttns_l2.maxplus_pipeline import DelayParams, propagate_layer  # noqa: E402
+from simple_ttns_l2.maxplus_pipeline import DelayParams, propagate_layer, edge_hi_eff, node_hi_eff  # noqa: E402
 from simple_ttns_l2.chow_liu import estimate_chow_liu_tree  # noqa: E402
 from simple_ttns_l2.maxplus_cdf import moments_from_marginal, cov_hoeffding  # noqa: E402
 from simple_ttns_l2.maxplus_cdf_forest import (  # noqa: E402
@@ -536,7 +536,7 @@ def fit_analytic_chain(
     forests: Dict[int, list] = {0: forest0}
     s_max = s_max0
     for li in range(1, len(spec.layers)):
-        s_max = s_max + (params.edge_hi + params.node_hi) + 0.3
+        s_max = s_max + (edge_hi_eff(params) + node_hi_eff(params)) + 0.3
         upper = UpperForest(forests[li - 1], q_grid=400)
         k_l, key = jax.random.split(key)
         forests[li] = fit_next_layer_forest(
