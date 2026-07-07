@@ -39,6 +39,13 @@ from simple_ttns_l2.experiments.plot_slice_viz import fit_all, strongest_pair  #
 from simple_ttns_l2.experiments.budget_sweep_layered import (  # noqa: E402
     layer_ceilings, corr_fro_layer,
 )
+from simple_ttns_l2.dag_pipeline import sample_joint  # noqa: E402
+from simple_ttns_l2.maxplus_pipeline import DelayParams, ground_truth_samplers  # noqa: E402
+from simple_ttns_l2.experiments.per_layer_all_methods import complex_sources  # noqa: E402
+
+# 可视化专用大样本量(真值从生成过程直接抽,与拟合 n_total 解耦; 模型森林同量采样)。
+# 直方图/残差/散点更密更平滑,不加重拟合内存。16k 兼顾密度与本机内存(30k 会 swap)。
+N_PLOT = 16000
 
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
 
@@ -61,13 +68,21 @@ def main():
     t_all = time.perf_counter()
     cfg = CFG
     spec, layers, test_x, AN, SP, key = fit_all(cfg)
-    n = cfg["n_sample"]
+    n = N_PLOT
 
     down = list(range(1, len(layers)))          # 下游层 L1..L6
     ceils = layer_ceilings(test_x, spec)
     print("[oracle 上限] " + "  ".join(f"L{i}={c:.3f}" for i, c in enumerate(ceils)), flush=True)
 
-    # 每层各采一次(1D + 2D 复用)。
+    # 可视化用大真值样本:从生成过程直接抽 N_PLOT(与拟合 n_total 解耦,truth 更密)。
+    params = DelayParams(**cfg["delay"])
+    sources, kernels = ground_truth_samplers(spec, params)
+    sources = {**sources, **complex_sources(spec, cfg)}
+    k_big, key = jax.random.split(key)
+    truth_big = np.asarray(sample_joint(spec, sources, kernels, k_big, N_PLOT, clip=(-1e9, 1e9)))
+    print(f"[plot] 大真值样本 {truth_big.shape}  模型每层采样 n={n}", flush=True)
+
+    # 每层各采一次(1D + 2D 复用),模型采 N_PLOT 与真值同量。
     r5_samp, r7_samp = {}, {}
     for li in down:
         k1, key2 = jax.random.split(key); key = key2
@@ -102,6 +117,8 @@ def main():
 
     xl = [f"L{li}" for li in down]
     block_top_ax = {}   # 记录每块左上子图,用于放分块标题
+    res_axes = []       # Block 1 残差带,循环后统一设共享对称 ylim
+    res_absmax = 0.0
 
     # ---------- Block 1: 逐层 1D 边缘 (2x3),每格 = 主密度 + 残差带 ----------
     for idx, li in enumerate(down):
@@ -116,7 +133,7 @@ def main():
         tev = test_x[:, layers[li]]
         j = int(np.argmax(tev.var(axis=0)))
         gid = layers[li][j]
-        truth, r5, r7 = tev[:, j], r5_samp[li][:, j], r7_samp[li][:, j]
+        truth, r5, r7 = truth_big[:, gid], r5_samp[li][:, j], r7_samp[li][:, j]
         lo = float(np.percentile(truth, 0.5)); hi = float(np.percentile(truth, 99.5))
         pad = 0.12 * (hi - lo + 1e-9)
         bins = np.linspace(lo - pad, hi + pad, 80)     # 同一组 bin 边界
@@ -152,10 +169,16 @@ def main():
         ax_res.plot(centers, res5, color=C_R5, lw=1.4)
         ax_res.plot(centers, res7, color=C_R7, lw=1.4)
         ax_res.set_xlim(lo - pad, hi + pad)
-        amax = float(np.max(np.abs(np.concatenate([res5, res7])))) + 1e-9
-        ax_res.set_ylim(-1.08 * amax, 1.08 * amax)   # 正负对称
         ax_res.set_xlabel("value"); ax_res.set_ylabel("density err", fontsize=8.5)
         ax_res.tick_params(labelsize=8)
+        res_axes.append(ax_res)
+        res_absmax = max(res_absmax,
+                         float(np.max(np.abs(np.concatenate([res5, res7])))))
+
+    # 六个残差带统一对称 ylim,便于跨深度(L1..L6)直接比较误差幅度。
+    res_ylim = 1.08 * (res_absmax + 1e-9)
+    for axr in res_axes:
+        axr.set_ylim(-res_ylim, res_ylim)
 
     # ---------- Block 2: 显式误差 vs 层 ----------
     ax_g = fig.add_subplot(gs[2, 0:3])
@@ -186,7 +209,7 @@ def main():
         xr = (float(np.percentile(tev[:, i_p], 1)), float(np.percentile(tev[:, i_p], 99)))
         yr = (float(np.percentile(tev[:, j_p], 1)), float(np.percentile(tev[:, j_p], 99)))
         dx = 0.1 * (xr[1] - xr[0] + 1e-9); dy = 0.1 * (yr[1] - yr[0] + 1e-9)
-        series = [("truth", tev[:, i_p], tev[:, j_p], C_TRUTH),
+        series = [("truth", truth_big[:, gx], truth_big[:, gy], C_TRUTH),
                   ("R5 analytic", r5_samp[li][:, i_p], r5_samp[li][:, j_p], C_R5),
                   ("R7 sampled", r7_samp[li][:, i_p], r7_samp[li][:, j_p], C_R7)]
         rs = {}
@@ -196,7 +219,7 @@ def main():
                 block_top_ax[3] = ax
             r = float(np.corrcoef(xx, yy)[0, 1])
             rs[tag] = r
-            ax.scatter(xx, yy, s=5, alpha=0.16, color=color, edgecolors="none", rasterized=True)
+            ax.scatter(xx, yy, s=4, alpha=0.09, color=color, edgecolors="none", rasterized=True)
             depth = "shallow" if row == 0 else "deep"
             ax.set_title(f"L{li} ({depth}) {tag}  r={r:+.3f}", fontsize=10.5)
             ax.set_xlabel(f"node{gx}"); ax.set_ylabel(f"node{gy}")
