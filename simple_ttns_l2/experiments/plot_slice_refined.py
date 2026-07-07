@@ -186,13 +186,19 @@ def main():
             res5 = _smooth(r5_d - t_d); res7 = _smooth(r7_d - t_d)
             ax_res.axhline(0, ls="--", color="gray", lw=0.9)
             ax_res.plot(centers, res5, color=C_R5, lw=1.2)
+            res_stack = [res5, res7]
+            if r6 is not None:
+                r6_d, _ = np.histogram(r6, bins=bins, density=True)
+                res6 = _smooth(r6_d - t_d)
+                ax_res.plot(centers, res6, color=C_R6, lw=1.1)
+                res_stack.append(res6)
             ax_res.plot(centers, res7, color=C_R7, lw=1.2)
             ax_res.set_xlim(lo - pad, hi + pad)
             ax_res.set_xlabel("value", fontsize=8); ax_res.set_ylabel("err", fontsize=7.5)
             ax_res.tick_params(labelsize=7)
             res_axes.append(ax_res)
             res_absmax = max(res_absmax,
-                             float(np.max(np.abs(np.concatenate([res5, res7])))))
+                             float(np.max(np.abs(np.concatenate(res_stack)))))
 
     # 所有残差带统一对称 ylim,便于跨节点/跨深度直接比较误差幅度。
     res_ylim = 1.08 * (res_absmax + 1e-9)
