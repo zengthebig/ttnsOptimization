@@ -32,7 +32,7 @@ from matplotlib.gridspec import GridSpec  # noqa: E402
 from simple_ttns_l2.dag_pipeline import build_clustered_spec, sample_joint  # noqa: E402
 from simple_ttns_l2.maxplus_pipeline import DelayParams, ground_truth_samplers  # noqa: E402
 from simple_ttns_l2.layered_forest import fit_layer_forest, sample_forest  # noqa: E402
-from simple_ttns_l2.analytic_tree_fit import fit_analytic_chain, fit_sampled_chain  # noqa: E402
+from simple_ttns_l2.analytic_tree_fit import fit_analytic_chain, fit_sampled_chain, fit_analytic_chain_joint  # noqa: E402
 from simple_ttns_l2.experiments.per_layer_all_methods import complex_sources  # noqa: E402
 
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
@@ -89,7 +89,19 @@ def fit_all(cfg):
     SP = fit_sampled_chain(forest0, spec, params, k_sp, cfg)
     print(f"[R7 sampled chain]  fit {time.perf_counter()-t0:.1f}s", flush=True)
 
-    return spec, layers, test_x, AN, SP, key
+    JN = None
+    if cfg.get("with_r6"):
+        t0 = time.perf_counter()
+        k_jn, key = jax.random.split(key)
+        JN = fit_analytic_chain_joint(forest0, spec, params, k_jn, s_max0,
+                                      q=cfg["q"], m=cfg["m"], rank=cfg["rank"],
+                                      n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"],
+                                      n_s_joint=cfg.get("n_s_joint", 44),
+                                      lr=cfg["an_lr"], steps=cfg["an_steps"],
+                                      init_noise=cfg["init_noise"], log_every=0)
+        print(f"[R6 joint chain]    fit {time.perf_counter()-t0:.1f}s", flush=True)
+
+    return spec, layers, test_x, AN, SP, JN, key
 
 
 def strongest_pair(mat):
@@ -104,7 +116,7 @@ def strongest_pair(mat):
 def main():
     cfg = CFG
     t_all = time.perf_counter()
-    spec, layers, test_x, AN, SP, key = fit_all(cfg)
+    spec, layers, test_x, AN, SP, JN, key = fit_all(cfg)
     n = cfg["n_sample"]
 
     li_shallow, li_deep = 1, 4                      # L1 浅层, L4 最深层
