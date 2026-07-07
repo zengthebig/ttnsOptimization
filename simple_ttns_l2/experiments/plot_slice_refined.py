@@ -162,6 +162,8 @@ def main():
             bins = np.linspace(lo - pad, hi + pad, 80)   # 同一组 bin 边界
             ax.hist(truth, bins=bins, density=True, color=C_TRUTH, alpha=0.55, label="truth")
             ax.hist(r5, bins=bins, density=True, histtype="step", color=C_R5, lw=1.2, alpha=0.5)
+            if r6 is not None:
+                ax.hist(r6, bins=bins, density=True, histtype="step", color=C_R6, lw=1.1, alpha=0.5)
             ax.hist(r7, bins=bins, density=True, histtype="step", color=C_R7, lw=1.2, alpha=0.5)
             xs = np.linspace(lo - pad, hi + pad, 400)
             try:
