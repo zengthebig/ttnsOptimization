@@ -20,6 +20,7 @@ from pathlib import Path
 
 import jax
 import numpy as np
+from scipy.stats import gaussian_kde
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 for _p in (str(REPO_ROOT), str(REPO_ROOT / "TTNSDE")):
@@ -31,7 +32,7 @@ jax.config.update("jax_enable_x64", True)
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.gridspec import GridSpec  # noqa: E402
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec  # noqa: E402
 
 from simple_ttns_l2.layered_forest import forest_log_density, sample_forest  # noqa: E402
 from simple_ttns_l2.experiments.plot_slice_viz import fit_all, strongest_pair  # noqa: E402
@@ -49,7 +50,7 @@ C_R7 = "#1f77b4"      # blue  (sampled chain)
 CFG = dict(
     n_layers=7, clusters=[3, 3], fanin=2,
     delay=dict(src_lo=0.0, src_hi=1.0, edge_lo=0.0, edge_hi=0.3, node_lo=0.0, node_hi=0.3),
-    n_total=12000, n_sample=4000, n_fit=12000, q=2, m=24, rank=16, src_sigma=0.03,
+    n_total=12000, n_sample=6000, n_fit=12000, q=2, m=24, rank=16, src_sigma=0.03,
     lr=2e-3, steps=500, batch_sz=512, init_noise=1e-2, train_noise=1e-3,
     log_every=250, early_stop_patience=8, mi_threshold=0.02, seed=0,
     n_s=100, n_s_pair=80, an_lr=3e-3, an_steps=500,
@@ -94,7 +95,7 @@ def main():
               f"corr_err R5={fro_r5[-1]:.4f} R7={fro_r7[-1]:.4f}", flush=True)
 
     # ================= 绘图 =================
-    fig = plt.figure(figsize=(15.5, 19.0))
+    fig = plt.figure(figsize=(18.0, 22.0))
     gs = GridSpec(5, 6, figure=fig, hspace=0.62, wspace=0.5,
                   height_ratios=[1.0, 1.0, 1.15, 1.05, 1.05],
                   top=0.925, bottom=0.035, left=0.055, right=0.985)
@@ -102,10 +103,14 @@ def main():
     xl = [f"L{li}" for li in down]
     block_top_ax = {}   # 记录每块左上子图,用于放分块标题
 
-    # ---------- Block 1: 逐层 1D 边缘 (2x3) ----------
+    # ---------- Block 1: 逐层 1D 边缘 (2x3),每格 = 主密度 + 残差带 ----------
     for idx, li in enumerate(down):
         r, c = idx // 3, idx % 3
-        ax = fig.add_subplot(gs[r, c])
+        # 每个 layer 位置放一个 [3,1] 的子网格:上主图 + 下残差带,共享 x。
+        sub = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[r, c],
+                                      height_ratios=[3, 1], hspace=0.08)
+        ax = fig.add_subplot(sub[0])              # 主图(密度)
+        ax_res = fig.add_subplot(sub[1], sharex=ax)  # 残差带
         if idx == 0:
             block_top_ax[1] = ax
         tev = test_x[:, layers[li]]
@@ -114,15 +119,43 @@ def main():
         truth, r5, r7 = tev[:, j], r5_samp[li][:, j], r7_samp[li][:, j]
         lo = float(np.percentile(truth, 0.5)); hi = float(np.percentile(truth, 99.5))
         pad = 0.12 * (hi - lo + 1e-9)
-        bins = np.linspace(lo - pad, hi + pad, 60)
+        bins = np.linspace(lo - pad, hi + pad, 80)     # 同一组 bin 边界
+        # 主图:密度直方图
         ax.hist(truth, bins=bins, density=True, color=C_TRUTH, alpha=0.55, label="truth")
-        ax.hist(r5, bins=bins, density=True, histtype="step", color=C_R5, lw=1.8, label="R5 analytic")
-        ax.hist(r7, bins=bins, density=True, histtype="step", color=C_R7, lw=1.8, label="R7 sampled")
-        ax.set_xlim(lo - pad, hi + pad)
+        ax.hist(r5, bins=bins, density=True, histtype="step", color=C_R5, lw=1.4, alpha=0.55)
+        ax.hist(r7, bins=bins, density=True, histtype="step", color=C_R7, lw=1.4, alpha=0.55)
+        # 叠加平滑 KDE(细实线),让形状更干净
+        xs = np.linspace(lo - pad, hi + pad, 400)
+        try:
+            ax.plot(xs, gaussian_kde(r5)(xs), color=C_R5, lw=1.8, label="R5 analytic")
+            ax.plot(xs, gaussian_kde(r7)(xs), color=C_R7, lw=1.8, label="R7 sampled")
+        except np.linalg.LinAlgError:  # 退化(方差近 0)时跳过 KDE
+            ax.plot([], [], color=C_R5, lw=1.8, label="R5 analytic")
+            ax.plot([], [], color=C_R7, lw=1.8, label="R7 sampled")
         ax.set_title(f"L{li}  node{gid} (max-var dim)", fontsize=10.5)
-        ax.set_xlabel("value"); ax.set_ylabel("density")
+        ax.set_ylabel("density")
+        ax.tick_params(labelbottom=False)          # x 轴交给残差带
         if idx == 0:
             ax.legend(fontsize=8.5, loc="upper right")
+        # 残差带:density err = model - truth,逐 bin 用同一 bin 边界算
+        t_d, _ = np.histogram(truth, bins=bins, density=True)
+        r5_d, _ = np.histogram(r5, bins=bins, density=True)
+        r7_d, _ = np.histogram(r7, bins=bins, density=True)
+        centers = 0.5 * (bins[:-1] + bins[1:])
+        # 轻度平滑(3 点滑动平均),bin 中点连线,让残差曲线更干净
+        def _smooth(a):
+            k = np.array([0.25, 0.5, 0.25])
+            return np.convolve(a, k, mode="same")
+        res5 = _smooth(r5_d - t_d)
+        res7 = _smooth(r7_d - t_d)
+        ax_res.axhline(0, ls="--", color="gray", lw=1.0)
+        ax_res.plot(centers, res5, color=C_R5, lw=1.4)
+        ax_res.plot(centers, res7, color=C_R7, lw=1.4)
+        ax_res.set_xlim(lo - pad, hi + pad)
+        amax = float(np.max(np.abs(np.concatenate([res5, res7])))) + 1e-9
+        ax_res.set_ylim(-1.08 * amax, 1.08 * amax)   # 正负对称
+        ax_res.set_xlabel("value"); ax_res.set_ylabel("density err", fontsize=8.5)
+        ax_res.tick_params(labelsize=8)
 
     # ---------- Block 2: 显式误差 vs 层 ----------
     ax_g = fig.add_subplot(gs[2, 0:3])
@@ -186,7 +219,7 @@ def main():
 
     REPORTS.mkdir(parents=True, exist_ok=True)
     out = REPORTS / "budget_sweep_slice_refined.png"
-    fig.savefig(out, dpi=150)
+    fig.savefig(out, dpi=170)
     print(f"\nsaved {out}", flush=True)
 
     # -------- 误差数字小结(浅 L1 vs 深 L6)--------
