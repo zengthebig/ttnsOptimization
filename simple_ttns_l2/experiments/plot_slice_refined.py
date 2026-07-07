@@ -44,7 +44,7 @@ from simple_ttns_l2.maxplus_pipeline import DelayParams, ground_truth_samplers  
 from simple_ttns_l2.experiments.per_layer_all_methods import complex_sources  # noqa: E402
 
 # 可视化专用大样本量(真值从生成过程直接抽,与拟合 n_total 解耦; 模型森林同量采样)。
-# 直方图/残差/散点更密更平滑,不加重拟合内存。16k 兼顾密度与本机内存(30k 会 swap)。
+# 直方图/残差/散点更密更平滑,不加重拟合内存。16k 兼顾密度与本机内存(22k+ 会 swap)。
 N_PLOT = 16000
 
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
@@ -110,78 +110,77 @@ def main():
               f"corr_err R5={fro_r5[-1]:.4f} R7={fro_r7[-1]:.4f}", flush=True)
 
     # ================= 绘图 =================
-    fig = plt.figure(figsize=(18.0, 22.0))
-    gs = GridSpec(5, 6, figure=fig, hspace=0.62, wspace=0.5,
-                  height_ratios=[1.0, 1.0, 1.15, 1.05, 1.05],
-                  top=0.925, bottom=0.035, left=0.055, right=0.985)
+    N_NODE = 3   # 每层画方差前 N_NODE 个节点(更多切片)
+    fig = plt.figure(figsize=(18.0, 32.0))
+    gs = GridSpec(9, 6, figure=fig, hspace=0.66, wspace=0.5,
+                  height_ratios=[1, 1, 1, 1, 1, 1, 1.15, 1.05, 1.05],
+                  top=0.95, bottom=0.028, left=0.055, right=0.985)
 
     xl = [f"L{li}" for li in down]
     block_top_ax = {}   # 记录每块左上子图,用于放分块标题
     res_axes = []       # Block 1 残差带,循环后统一设共享对称 ylim
     res_absmax = 0.0
 
-    # ---------- Block 1: 逐层 1D 边缘 (2x3),每格 = 主密度 + 残差带 ----------
-    for idx, li in enumerate(down):
-        r, c = idx // 3, idx % 3
-        # 每个 layer 位置放一个 [3,1] 的子网格:上主图 + 下残差带,共享 x。
-        sub = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[r, c],
-                                      height_ratios=[3, 1], hspace=0.08)
-        ax = fig.add_subplot(sub[0])              # 主图(密度)
-        ax_res = fig.add_subplot(sub[1], sharex=ax)  # 残差带
-        if idx == 0:
-            block_top_ax[1] = ax
-        tev = test_x[:, layers[li]]
-        j = int(np.argmax(tev.var(axis=0)))
-        gid = layers[li][j]
-        truth, r5, r7 = truth_big[:, gid], r5_samp[li][:, j], r7_samp[li][:, j]
-        lo = float(np.percentile(truth, 0.5)); hi = float(np.percentile(truth, 99.5))
-        pad = 0.12 * (hi - lo + 1e-9)
-        bins = np.linspace(lo - pad, hi + pad, 80)     # 同一组 bin 边界
-        # 主图:密度直方图
-        ax.hist(truth, bins=bins, density=True, color=C_TRUTH, alpha=0.55, label="truth")
-        ax.hist(r5, bins=bins, density=True, histtype="step", color=C_R5, lw=1.4, alpha=0.55)
-        ax.hist(r7, bins=bins, density=True, histtype="step", color=C_R7, lw=1.4, alpha=0.55)
-        # 叠加平滑 KDE(细实线),让形状更干净
-        xs = np.linspace(lo - pad, hi + pad, 400)
-        try:
-            ax.plot(xs, gaussian_kde(r5)(xs), color=C_R5, lw=1.8, label="R5 analytic")
-            ax.plot(xs, gaussian_kde(r7)(xs), color=C_R7, lw=1.8, label="R7 sampled")
-        except np.linalg.LinAlgError:  # 退化(方差近 0)时跳过 KDE
-            ax.plot([], [], color=C_R5, lw=1.8, label="R5 analytic")
-            ax.plot([], [], color=C_R7, lw=1.8, label="R7 sampled")
-        ax.set_title(f"L{li}  node{gid} (max-var dim)", fontsize=10.5)
-        ax.set_ylabel("density")
-        ax.tick_params(labelbottom=False)          # x 轴交给残差带
-        if idx == 0:
-            ax.legend(fontsize=8.5, loc="upper right")
-        # 残差带:density err = model - truth,逐 bin 用同一 bin 边界算
-        t_d, _ = np.histogram(truth, bins=bins, density=True)
-        r5_d, _ = np.histogram(r5, bins=bins, density=True)
-        r7_d, _ = np.histogram(r7, bins=bins, density=True)
-        centers = 0.5 * (bins[:-1] + bins[1:])
-        # 轻度平滑(3 点滑动平均),bin 中点连线,让残差曲线更干净
-        def _smooth(a):
-            k = np.array([0.25, 0.5, 0.25])
-            return np.convolve(a, k, mode="same")
-        res5 = _smooth(r5_d - t_d)
-        res7 = _smooth(r7_d - t_d)
-        ax_res.axhline(0, ls="--", color="gray", lw=1.0)
-        ax_res.plot(centers, res5, color=C_R5, lw=1.4)
-        ax_res.plot(centers, res7, color=C_R7, lw=1.4)
-        ax_res.set_xlim(lo - pad, hi + pad)
-        ax_res.set_xlabel("value"); ax_res.set_ylabel("density err", fontsize=8.5)
-        ax_res.tick_params(labelsize=8)
-        res_axes.append(ax_res)
-        res_absmax = max(res_absmax,
-                         float(np.max(np.abs(np.concatenate([res5, res7])))))
+    def _smooth(a):
+        k = np.array([0.25, 0.5, 0.25])
+        return np.convolve(a, k, mode="same")
 
-    # 六个残差带统一对称 ylim,便于跨深度(L1..L6)直接比较误差幅度。
+    # ---------- Block 1: 逐层 top-N 方差节点 1D 边缘 (6 层 × N_NODE),每格 = 主密度 + 残差带 ----------
+    for ri, li in enumerate(down):                       # 每层一行
+        tev = test_x[:, layers[li]]
+        order = np.argsort(tev.var(axis=0))[::-1][:N_NODE]   # 方差前 N_NODE 维
+        for ci, j in enumerate(order):
+            j = int(j)
+            sub = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[ri, 2 * ci:2 * ci + 2],
+                                          height_ratios=[3, 1], hspace=0.08)
+            ax = fig.add_subplot(sub[0])                 # 主图(密度)
+            ax_res = fig.add_subplot(sub[1], sharex=ax)  # 残差带
+            if ri == 0 and ci == 0:
+                block_top_ax[1] = ax
+            gid = layers[li][j]
+            truth, r5, r7 = truth_big[:, gid], r5_samp[li][:, j], r7_samp[li][:, j]
+            lo = float(np.percentile(truth, 0.5)); hi = float(np.percentile(truth, 99.5))
+            pad = 0.12 * (hi - lo + 1e-9)
+            bins = np.linspace(lo - pad, hi + pad, 80)   # 同一组 bin 边界
+            ax.hist(truth, bins=bins, density=True, color=C_TRUTH, alpha=0.55, label="truth")
+            ax.hist(r5, bins=bins, density=True, histtype="step", color=C_R5, lw=1.2, alpha=0.5)
+            ax.hist(r7, bins=bins, density=True, histtype="step", color=C_R7, lw=1.2, alpha=0.5)
+            xs = np.linspace(lo - pad, hi + pad, 400)
+            try:
+                ax.plot(xs, gaussian_kde(r5)(xs), color=C_R5, lw=1.7, label="R5 analytic")
+                ax.plot(xs, gaussian_kde(r7)(xs), color=C_R7, lw=1.7, label="R7 sampled")
+            except np.linalg.LinAlgError:                # 退化(方差近 0)时跳过 KDE
+                ax.plot([], [], color=C_R5, lw=1.7, label="R5 analytic")
+                ax.plot([], [], color=C_R7, lw=1.7, label="R7 sampled")
+            tag = "max-var" if ci == 0 else f"var#{ci + 1}"
+            ax.set_title(f"L{li}  node{gid} ({tag})", fontsize=9.5)
+            ax.set_ylabel("density", fontsize=9)
+            ax.tick_params(labelbottom=False, labelsize=8)  # x 轴交给残差带
+            if ri == 0 and ci == 0:
+                ax.legend(fontsize=8, loc="upper right")
+            # 残差带:density err = model - truth,逐 bin 用同一 bin 边界算
+            t_d, _ = np.histogram(truth, bins=bins, density=True)
+            r5_d, _ = np.histogram(r5, bins=bins, density=True)
+            r7_d, _ = np.histogram(r7, bins=bins, density=True)
+            centers = 0.5 * (bins[:-1] + bins[1:])
+            res5 = _smooth(r5_d - t_d); res7 = _smooth(r7_d - t_d)
+            ax_res.axhline(0, ls="--", color="gray", lw=0.9)
+            ax_res.plot(centers, res5, color=C_R5, lw=1.2)
+            ax_res.plot(centers, res7, color=C_R7, lw=1.2)
+            ax_res.set_xlim(lo - pad, hi + pad)
+            ax_res.set_xlabel("value", fontsize=8); ax_res.set_ylabel("err", fontsize=7.5)
+            ax_res.tick_params(labelsize=7)
+            res_axes.append(ax_res)
+            res_absmax = max(res_absmax,
+                             float(np.max(np.abs(np.concatenate([res5, res7])))))
+
+    # 所有残差带统一对称 ylim,便于跨节点/跨深度直接比较误差幅度。
     res_ylim = 1.08 * (res_absmax + 1e-9)
     for axr in res_axes:
         axr.set_ylim(-res_ylim, res_ylim)
 
     # ---------- Block 2: 显式误差 vs 层 ----------
-    ax_g = fig.add_subplot(gs[2, 0:3])
+    ax_g = fig.add_subplot(gs[6, 0:3])
     block_top_ax[2] = ax_g
     ax_g.plot(xl, gap_r5, "o-", color=C_R5, lw=1.9, label="R5 analytic")
     ax_g.plot(xl, gap_r7, "s-", color=C_R7, lw=1.9, label="R7 sampled")
@@ -191,7 +190,7 @@ def main():
     ax_g.set_xlabel("layer"); ax_g.set_ylabel("gap per dim (nats)")
     ax_g.legend(fontsize=9); ax_g.grid(alpha=0.3)
 
-    ax_c = fig.add_subplot(gs[2, 3:6])
+    ax_c = fig.add_subplot(gs[6, 3:6])
     ax_c.plot(xl, fro_r5, "o-", color=C_R5, lw=1.9, label="R5 analytic")
     ax_c.plot(xl, fro_r7, "s-", color=C_R7, lw=1.9, label="R7 sampled")
     ax_c.axhline(0, ls="--", color="gray", lw=1.2, label="oracle (err=0)")
@@ -214,7 +213,7 @@ def main():
                   ("R7 sampled", r7_samp[li][:, i_p], r7_samp[li][:, j_p], C_R7)]
         rs = {}
         for col, (tag, xx, yy, color) in enumerate(series):
-            ax = fig.add_subplot(gs[3 + row, 2 * col:2 * col + 2])
+            ax = fig.add_subplot(gs[7 + row, 2 * col:2 * col + 2])
             if row == 0 and col == 0:
                 block_top_ax[3] = ax
             r = float(np.corrcoef(xx, yy)[0, 1])
@@ -228,11 +227,11 @@ def main():
                                  r_r5=rs["R5 analytic"], r_r7=rs["R7 sampled"])
 
     # 分块标题(锚到每块左上子图上方,避免与子图重叠)
-    fig.text(0.5, 0.958, "Refined layered-chain slice fit  "
+    fig.text(0.5, 0.988, "Refined layered-chain slice fit  "
              f"(7 layers x 6 dims, rank={cfg['rank']}, m={cfg['m']})",
-             ha="center", fontsize=15, weight="bold")
+             ha="center", fontsize=16, weight="bold")
     headers = {
-        1: "Block 1 - Per-layer 1D marginal density (L1..L6, max-var dim)",
+        1: "Block 1 - Per-layer 1D marginal density (L1..L6 x top-3 var nodes) with residual band",
         2: "Block 2 - Explicit error vs depth (density gap / corr error)",
         3: "Block 3 - Strongest-corr pair: shallow L1 vs deep L6 (truth / R5 / R7)",
     }
