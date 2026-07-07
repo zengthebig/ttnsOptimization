@@ -54,9 +54,12 @@ C_R5 = "#d62728"      # red   (analytic chain)
 C_R7 = "#1f77b4"      # blue  (sampled chain)
 
 # 更深、每层更小,省内存。7 层 × 6 维 = 42 节点,下游 L1..L6。
+# 层间延迟改 log-skew-normal(正支撑、右偏重尾),非均匀。
 CFG = dict(
     n_layers=7, clusters=[3, 3], fanin=2,
-    delay=dict(src_lo=0.0, src_hi=1.0, edge_lo=0.0, edge_hi=0.3, node_lo=0.0, node_hi=0.3),
+    delay=dict(src_lo=0.0, src_hi=1.0, kind="logskewnorm",
+               e_xi=-2.12, e_omega=0.45, e_alpha=4.0,
+               d_xi=-2.12, d_omega=0.45, d_alpha=4.0),
     n_total=12000, n_sample=6000, n_fit=12000, q=2, m=24, rank=16, src_sigma=0.03,
     lr=2e-3, steps=500, batch_sz=512, init_noise=1e-2, train_noise=1e-3,
     log_every=250, early_stop_patience=8, mi_threshold=0.02, seed=0,
@@ -228,7 +231,7 @@ def main():
 
     # 分块标题(锚到每块左上子图上方,避免与子图重叠)
     fig.text(0.5, 0.988, "Refined layered-chain slice fit  "
-             f"(7 layers x 6 dims, rank={cfg['rank']}, m={cfg['m']})",
+             f"(7 layers x 6 dims, rank={cfg['rank']}, m={cfg['m']}, log-skew-normal delays)",
              ha="center", fontsize=16, weight="bold")
     headers = {
         1: "Block 1 - Per-layer 1D marginal density (L1..L6 x top-3 var nodes) with residual band",

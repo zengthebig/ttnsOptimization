@@ -33,7 +33,7 @@ if str(TTNSDE_ROOT) not in sys.path:
 
 from ttde.ttns.ttns_opt import TTNSOpt, batch_eval_rank1_ttns  # noqa: E402
 
-from simple_ttns_l2.maxplus_pipeline import DelayParams
+from simple_ttns_l2.maxplus_pipeline import DelayParams, edge_cdf, node_quadrature
 from simple_ttns_l2.ttns_sampler import _basis_eval_dim
 
 
@@ -68,14 +68,14 @@ class UpperModel:
     def proj_single(self, u: int, s_grid: np.ndarray, params: DelayParams) -> np.ndarray:
         r"""每条父腿向量 vec_u(s)[i]=$\int F_e(s-x)b_{u,i}(x)dx$，返回 [S, basis_dim]。"""
         x = self.xgrids[u]
-        F = _uniform_cdf(s_grid[:, None] - x[None, :], params.edge_lo, params.edge_hi)  # [S,Q]
+        F = edge_cdf(params, s_grid[:, None] - x[None, :])  # [S,Q]
         return (F @ self.Bx[u]) * self.dx[u]
 
     def proj_single_pair(self, u: int, s_grid: np.ndarray, t_grid: np.ndarray, params: DelayParams) -> np.ndarray:
         r"""共享父腿向量 $\int F_e(s-x)F_e(t-x)b_i(x)dx$，返回 [S, T, basis_dim]。"""
         x = self.xgrids[u]
-        Fs = _uniform_cdf(s_grid[:, None] - x[None, :], params.edge_lo, params.edge_hi)  # [S,Q]
-        Ft = _uniform_cdf(t_grid[:, None] - x[None, :], params.edge_lo, params.edge_hi)  # [T,Q]
+        Fs = edge_cdf(params, s_grid[:, None] - x[None, :])  # [S,Q]
+        Ft = edge_cdf(params, t_grid[:, None] - x[None, :])  # [T,Q]
         # [S,T,Q] = Fs[:,None,:]*Ft[None,:,:]，再与 Bx[u] 收缩
         STQ = Fs[:, None, :] * Ft[None, :, :]
         return np.einsum("stq,qi->sti", STQ, self.Bx[u]) * self.dx[u]
@@ -89,7 +89,7 @@ class UpperModel:
         c = len(s_grids)
         prod = np.ones((1,) * c + (len(x),))  # [1,...,1, Q]
         for j, sg in enumerate(s_grids):
-            Fj = _uniform_cdf(sg[:, None] - x[None, :], params.edge_lo, params.edge_hi)  # [G_j, Q]
+            Fj = edge_cdf(params, sg[:, None] - x[None, :])  # [G_j, Q]
             shape = [1] * c + [len(x)]
             shape[j] = len(sg)
             prod = prod * Fj.reshape(shape)  # broadcast 到 [G_1,...,G_c, Q]
@@ -107,12 +107,12 @@ class UpperModel:
 
 
 def _delay_convolve_1d(F_m: np.ndarray, s_grid: np.ndarray, params: DelayParams, n_d: int = 64) -> np.ndarray:
-    """$F_v(t)=\\mathbb{E}_{d}[F_m(t-d)]$，d~U(node_lo,node_hi)。在 s_grid 上插值平均。"""
-    ds = np.linspace(params.node_lo, params.node_hi, n_d)
+    r"""$F_v(t)=\mathbb{E}_{d}[F_m(t-d)]=\sum_i w_i F_m(t-d_i)$，node delay 分布见 params。"""
+    dvals, w = node_quadrature(params, n_d)
     out = np.zeros_like(F_m)
-    for d in ds:
-        out += np.interp(s_grid - d, s_grid, F_m, left=0.0, right=1.0)
-    return out / n_d
+    for d, wi in zip(dvals, w):
+        out += wi * np.interp(s_grid - d, s_grid, F_m, left=0.0, right=1.0)
+    return out
 
 
 def marginal_cdf(
@@ -158,22 +158,20 @@ def pair_cdf(
     F_m = upper._contract(legs, batch=S * T).reshape(S, T)
     F_m = np.clip(F_m, 0.0, 1.0)
 
-    # 对 s、t 两个方向分别做独立 node delay 卷积
+    # 对 s、t 两个方向分别做独立 node delay 卷积(加权求积)
     F = np.zeros_like(F_m)
-    ds = np.linspace(params.node_lo, params.node_hi, n_d)
+    dvals, wq = node_quadrature(params, n_d)
     # 先沿 s 卷积
     tmp = np.zeros_like(F_m)
-    for d in ds:
+    for d, wi in zip(dvals, wq):
         idx = np.interp(s_grid - d, s_grid, np.arange(S), left=0, right=S - 1)
         lo = np.floor(idx).astype(int); hi = np.minimum(lo + 1, S - 1); fr = idx - lo
-        tmp += (1 - fr)[:, None] * F_m[lo, :] + fr[:, None] * F_m[hi, :]
-    tmp /= n_d
+        tmp += wi * ((1 - fr)[:, None] * F_m[lo, :] + fr[:, None] * F_m[hi, :])
     # 再沿 t 卷积
-    for d in ds:
+    for d, wi in zip(dvals, wq):
         idx = np.interp(t_grid - d, t_grid, np.arange(T), left=0, right=T - 1)
         lo = np.floor(idx).astype(int); hi = np.minimum(lo + 1, T - 1); fr = idx - lo
-        F += (1 - fr)[None, :] * tmp[:, lo] + fr[None, :] * tmp[:, hi]
-    F /= n_d
+        F += wi * ((1 - fr)[None, :] * tmp[:, lo] + fr[None, :] * tmp[:, hi])
     return F
 
 

@@ -24,7 +24,7 @@ TTNSDE_ROOT = REPO_ROOT / "TTNSDE"
 if str(TTNSDE_ROOT) not in sys.path:
     sys.path.insert(0, str(TTNSDE_ROOT))
 
-from simple_ttns_l2.maxplus_pipeline import DelayParams
+from simple_ttns_l2.maxplus_pipeline import DelayParams, node_quadrature
 from simple_ttns_l2.maxplus_cdf import (
     UpperModel,
     _delay_convolve_1d,
@@ -90,33 +90,31 @@ def _pair_delay_convolve(F_m: np.ndarray, s_grid: np.ndarray, t_grid: np.ndarray
                          params: DelayParams, n_d: int = 24) -> np.ndarray:
     """对 [S,T] 的配对 CDF 沿 s、t 各做独立 node delay 卷积（与 maxplus_cdf.pair_cdf 一致）。"""
     S, T = F_m.shape
-    ds = np.linspace(params.node_lo, params.node_hi, n_d)
+    dvals, wq = node_quadrature(params, n_d)
     tmp = np.zeros_like(F_m)
-    for d in ds:
+    for d, wi in zip(dvals, wq):
         idx = np.interp(s_grid - d, s_grid, np.arange(S), left=0, right=S - 1)
         lo = np.floor(idx).astype(int); hi = np.minimum(lo + 1, S - 1); fr = idx - lo
-        tmp += (1 - fr)[:, None] * F_m[lo, :] + fr[:, None] * F_m[hi, :]
-    tmp /= n_d
+        tmp += wi * ((1 - fr)[:, None] * F_m[lo, :] + fr[:, None] * F_m[hi, :])
     F = np.zeros_like(F_m)
-    for d in ds:
+    for d, wi in zip(dvals, wq):
         idx = np.interp(t_grid - d, t_grid, np.arange(T), left=0, right=T - 1)
         lo = np.floor(idx).astype(int); hi = np.minimum(lo + 1, T - 1); fr = idx - lo
-        F += (1 - fr)[None, :] * tmp[:, lo] + fr[None, :] * tmp[:, hi]
-    return F / n_d
+        F += wi * ((1 - fr)[None, :] * tmp[:, lo] + fr[None, :] * tmp[:, hi])
+    return F
 
 
 def _delay_convolve_axis(F: np.ndarray, grid: np.ndarray, params: DelayParams, axis: int, n_d: int = 16) -> np.ndarray:
     """沿指定 axis 做 node delay 卷积 $F(\\cdot)\\leftarrow\\mathbb E_d[F(\\cdot-d)]$（与 pair 版一致，索引钳制）。"""
     G = F.shape[axis]
     Fm = np.moveaxis(F, axis, 0)  # [G, ...]
-    ds = np.linspace(params.node_lo, params.node_hi, n_d)
+    dvals, wq = node_quadrature(params, n_d)
     out = np.zeros_like(Fm)
     tail = (1,) * (Fm.ndim - 1)
-    for d in ds:
+    for d, wi in zip(dvals, wq):
         idx = np.interp(grid - d, grid, np.arange(G), left=0, right=G - 1)
         lo = np.floor(idx).astype(int); hi = np.minimum(lo + 1, G - 1); fr = idx - lo
-        out += (1 - fr).reshape((G,) + tail) * Fm[lo] + fr.reshape((G,) + tail) * Fm[hi]
-    out /= n_d
+        out += wi * ((1 - fr).reshape((G,) + tail) * Fm[lo] + fr.reshape((G,) + tail) * Fm[hi])
     return np.moveaxis(out, 0, axis)
 
 
