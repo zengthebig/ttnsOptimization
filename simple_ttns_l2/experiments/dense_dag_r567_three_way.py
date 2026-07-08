@@ -195,26 +195,29 @@ def run_one_seed(cfg: dict, seed: int):
     for name in R_CHAINS:
         params_by[name] = int(sum(forest_params(chains[name][li]) for li in range(len(layers))))
 
-    # ---- 全局扁平：TT(chain) / TTNS(chow-liu) ----
-    bases = build_bases(jnp.asarray(train_x), cfg["q"], cfg["m"])
-    gram = vmap(type(bases).l2_integral)(bases)
-    basis_integrals = vmap(type(bases).integral)(bases)
-    tr_j = jnp.asarray(train_x[:int(0.85 * n_tr)])
-    val_j = jnp.asarray(train_x[int(0.85 * n_tr):])
-    flat_specs = {
-        "global_TT": [int(p) for p in chain_parent(n_dims)],
-        "global_TTNS": [int(p) for p in estimate_chow_liu_tree(train_x, n_bins=16, root=0).parent],
-    }
+    # ---- 全局扁平：TT(chain) / TTNS(chow-liu)。默认关闭：108 维平方TTNS 的 L2
+    #      归一化(∫q)与 ∫q² 都是 108 因子收缩，高维失去数值条件数 → loss 爆到 -1e20，
+    #      且评测阶段拿爆掉的模型 grid 采样易 OOM 把进程拖死。用 --with-global 才跑。 ----
     flat_models = {}
-    for name, parent in flat_specs.items():
-        t0 = time.perf_counter()
-        k_ff, key = jax.random.split(key)
-        ttns, parent, r, np_ = fit_flat(parent, name, tr_j, val_j, bases, gram, basis_integrals,
-                                        cfg["budget"], cfg, k_ff)
-        flat_models[name] = (ttns, list(parent))
-        timings[name] = time.perf_counter() - t0
-        params_by[name] = int(np_)
-        print(f"[seed {seed}][{name}] rank={r} params={np_} 用时 {timings[name]:.1f}s", flush=True)
+    if cfg.get("with_global", False):
+        bases = build_bases(jnp.asarray(train_x), cfg["q"], cfg["m"])
+        gram = vmap(type(bases).l2_integral)(bases)
+        basis_integrals = vmap(type(bases).integral)(bases)
+        tr_j = jnp.asarray(train_x[:int(0.85 * n_tr)])
+        val_j = jnp.asarray(train_x[int(0.85 * n_tr):])
+        flat_specs = {
+            "global_TT": [int(p) for p in chain_parent(n_dims)],
+            "global_TTNS": [int(p) for p in estimate_chow_liu_tree(train_x, n_bins=16, root=0).parent],
+        }
+        for name, parent in flat_specs.items():
+            t0 = time.perf_counter()
+            k_ff, key = jax.random.split(key)
+            ttns, parent, r, np_ = fit_flat(parent, name, tr_j, val_j, bases, gram, basis_integrals,
+                                            cfg["budget"], cfg, k_ff)
+            flat_models[name] = (ttns, list(parent))
+            timings[name] = time.perf_counter() - t0
+            params_by[name] = int(np_)
+            print(f"[seed {seed}][{name}] rank={r} params={np_} 用时 {timings[name]:.1f}s", flush=True)
 
     # ---- 逐层评测：joint_LL@truth + corr_fro ----
     rows = []
@@ -293,9 +296,10 @@ def print_report(results: List[dict], agg, params, fj, timings, seeds):
     print("\n学习参数量：")
     for m in ALL_METHODS:
         print(f"  {m:<14}{params[m]:>12,}")
-    print("\n全局模型全联合 joint_LL (↑，仅 global 可比)：")
-    for m in GLOBALS:
-        print(f"  {m:<14}{fj[m][0]:>10.3f}±{fj[m][1]:.3f}")
+    if GLOBALS:
+        print("\n全局模型全联合 joint_LL (↑，仅 global 可比)：")
+        for m in GLOBALS:
+            print(f"  {m:<14}{fj[m][0]:>10.3f}±{fj[m][1]:.3f}")
     print("\n平均单 seed 用时(s)：")
     for m in ALL_METHODS:
         print(f"  {m:<14}{timings[m]:>8.1f}")
@@ -320,15 +324,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", default="0,1,2", help="逗号分隔，默认 0,1,2 (≥3)")
     ap.add_argument("--quick", action="store_true", help="小图快跑冒烟(3 层/簇[2,3]/短步)")
+    ap.add_argument("--with-global", action="store_true",
+                    help="也跑全局基线 global_TT/global_TTNS(108维L2会数值爆炸且评测易OOM，默认关闭)")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
+    global GLOBALS, ALL_METHODS
+    if not args.with_global:
+        GLOBALS = []
+        ALL_METHODS = list(R_CHAINS)
+
     cfg = dict(CFG)
+    cfg["with_global"] = args.with_global
     if args.quick:
         cfg.update(n_layers=3, clusters=[2, 3], fanin=2, n_total=8000, n_sample=2000,
                    n_fit=6000, steps=120, an_steps=120, budget=80000, n_s_joint=16, joint_kmax=3)
 
-    print(f"运行配置: seeds={seeds}, init_noise={cfg['init_noise']}, "
+    print(f"运行配置: seeds={seeds}, with_global={args.with_global}, init_noise={cfg['init_noise']}, "
           f"n_layers={cfg['n_layers']}, clusters={cfg['clusters']}, fanin={cfg['fanin']}", flush=True)
 
     REPORTS.mkdir(parents=True, exist_ok=True)
