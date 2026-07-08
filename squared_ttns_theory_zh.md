@@ -209,3 +209,5 @@ $$\sum_n\log\hat p(y^{(n)})=\sum_n\Big(\log\psi(y^{(n)})^2-\log Z\Big),\quad Z=\
 ---
 
 *创建：2026-07-02 — 证明平方（非负）TTNS 与 clarify.md 的层间传递 merge 解析传播/拟合相容：$\psi^2$ 仍是张量网络，Scheme B 全量化为二次型树收缩（闭式），拟合可保持无采样（L2）；代价为 bond 维平方、仅小块安全。配套 `ALGORITHM_zh.md` §3.4/§6.5。*
+
+

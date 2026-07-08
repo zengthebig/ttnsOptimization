@@ -540,3 +540,29 @@ env -u PYTHONPATH python3 -m unittest simple_ttns_l2/tests/test_ttns_l2_objectiv
 *更新：2026-07-02(c) — 新增全局 TTDE 的 **TTNS(MI 树)** 变体（`fit_ttde_ttns` + `ttde_ttns_vs_tt.py`，库内 `PAsTTNSSqrOpt`）。§6.5：同 rank 下换 MI 树拓扑↑似然（test_LL 12.52→14.34）但**参数暴涨 64×、慢 20×**（MI 树枢纽节点核 ~ rank^deg，rank16 编译爆炸）。**等参数量已验证**：TT 提到 rank=64（≈1.58M 参数）仍只有 12.47（纯过拟合），**MI 树 TTNS 等参数量下仍胜 ~+1.87**。脚本加参数量公式 + `match_params` 自动反解 TT rank。*
 
 *更新：2026-07-02(d) — **算法路线全景化 + 层间完整传播**。(1) 新增 §0.1 算法路线总览（主流程图 + R1–R9 路线表），并为**每条路线补 mermaid 流程图 + 算法说明**（§2.3、§3.1–3.6、§4、§6.5）。(2) 新增 **R6 全解析链-完整联合目标**（§3.5，`block_joint_cdf`/`proj_single_multi`/`analytic_block_target_joint`/`_cross_term_fn_joint`/`_fit_analytic_ttns_joint`；交叉项菜单：网格 $O(G^K)$ 已实现 / 矩张量 $O(m^K)$ 待实现 / loopy）与 **R7 采样求 L2 链**（§3.6，`fit_sampled_chain`）。(3) 新增 §6.6 结果：单块 R5/R6/R7 对比（块内非树相关块 `corr_fro` 0.260→0.049/0.061）+ 链级 R5 vs R7（每层 `corr_fro` 砍半，但 R7 深层 LL 因 MC 累积略降）。新增脚本 `joint_vs_tree_block.py`、`sampled_vs_analytic_chain.py`。**原 R5 主模型未改动**。*
+
+```mermaid
+flowchart TD
+  subgraph L0["源层 L0(源分布)"]
+    a0((x1)); a1((x2)); a2((x3))
+  end
+  subgraph L1["下游层 L1"]
+    b0((y1)); b1((y2)); b2((y3))
+  end
+  a0 -->|"e+d, max"| b0
+  a1 -->|merge| b0
+  a1 --> b1
+  a2 --> b1
+  a2 --> b2
+  a0 --> b2
+  L1 -.->|同规则继续| L2["下游层 L2 ..."]
+```
+
+```mermaid
+flowchart TD
+  Layer["某一层的样本(20维)"] --> Blk["structural_blocks: 按共享祖先分块"]
+  Blk --> B1["块1: chow-liu 单父树 → TTNS q1"]
+  Blk --> B2["块2: chow-liu 单父树 → TTNS q2"]
+  Blk --> Bk["... 块k → TTNS qk"]
+  B1 & B2 & Bk --> F["层密度 = ∏ q_block (森林)"]
+```
