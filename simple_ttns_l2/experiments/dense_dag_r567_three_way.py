@@ -175,16 +175,19 @@ def run_one_seed(cfg: dict, seed: int):
         lr=cfg["an_lr"], steps=cfg["an_steps"], init_noise=cfg["init_noise"], log_every=0)
     timings["R5_tree"] = time.perf_counter() - t0
 
-    # ---- R6：全解析链-完整联合(大块回退 R5) ----
-    t0 = time.perf_counter()
-    k_j, key = jax.random.split(key)
-    chains["R6_joint"] = fit_analytic_chain_joint(
-        forest0, spec, params, k_j, s_max0,
-        q=cfg["q"], m=cfg["m"], rank=cfg["rank"],
-        n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"], n_s_joint=cfg["n_s_joint"],
-        lr=cfg["an_lr"], steps=cfg["an_steps"], init_noise=cfg["init_noise"],
-        joint_kmax=cfg["joint_kmax"], log_every=0)
-    timings["R6_joint"] = time.perf_counter() - t0
+    # ---- R6：全解析链-完整联合(大块回退 R5)。默认关闭：交叉项在完整 K 维网格上
+    #      精确积分 O(G^K)，满配 K=4/G=22 单块 23 万点·每步自动微分×700步 → 极慢。
+    #      用 --with-r6 才跑。 ----
+    if cfg.get("with_r6", False):
+        t0 = time.perf_counter()
+        k_j, key = jax.random.split(key)
+        chains["R6_joint"] = fit_analytic_chain_joint(
+            forest0, spec, params, k_j, s_max0,
+            q=cfg["q"], m=cfg["m"], rank=cfg["rank"],
+            n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"], n_s_joint=cfg["n_s_joint"],
+            lr=cfg["an_lr"], steps=cfg["an_steps"], init_noise=cfg["init_noise"],
+            joint_kmax=cfg["joint_kmax"], log_every=0)
+        timings["R6_joint"] = time.perf_counter() - t0
 
     # ---- R7：采样求 L2 链 ----
     t0 = time.perf_counter()
@@ -326,21 +329,27 @@ def main():
     ap.add_argument("--quick", action="store_true", help="小图快跑冒烟(3 层/簇[2,3]/短步)")
     ap.add_argument("--with-global", action="store_true",
                     help="也跑全局基线 global_TT/global_TTNS(108维L2会数值爆炸且评测易OOM，默认关闭)")
+    ap.add_argument("--with-r6", action="store_true",
+                    help="也跑 R6 全解析联合(交叉项 O(G^K) 维度灾难，满配 K=4 极慢，默认关闭)")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
-    global GLOBALS, ALL_METHODS
+    global GLOBALS, R_CHAINS, ALL_METHODS
+    if not args.with_r6:
+        R_CHAINS = [m for m in R_CHAINS if m != "R6_joint"]
     if not args.with_global:
         GLOBALS = []
-        ALL_METHODS = list(R_CHAINS)
+    ALL_METHODS = GLOBALS + R_CHAINS
 
     cfg = dict(CFG)
     cfg["with_global"] = args.with_global
+    cfg["with_r6"] = args.with_r6
     if args.quick:
         cfg.update(n_layers=3, clusters=[2, 3], fanin=2, n_total=8000, n_sample=2000,
                    n_fit=6000, steps=120, an_steps=120, budget=80000, n_s_joint=16, joint_kmax=3)
 
-    print(f"运行配置: seeds={seeds}, with_global={args.with_global}, init_noise={cfg['init_noise']}, "
+    print(f"运行配置: seeds={seeds}, with_global={args.with_global}, with_r6={args.with_r6}, "
+          f"methods={ALL_METHODS}, init_noise={cfg['init_noise']}, "
           f"n_layers={cfg['n_layers']}, clusters={cfg['clusters']}, fanin={cfg['fanin']}", flush=True)
 
     REPORTS.mkdir(parents=True, exist_ok=True)
