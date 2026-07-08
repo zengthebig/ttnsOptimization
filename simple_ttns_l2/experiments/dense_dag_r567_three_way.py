@@ -331,25 +331,30 @@ def main():
     print(f"运行配置: seeds={seeds}, init_noise={cfg['init_noise']}, "
           f"n_layers={cfg['n_layers']}, clusters={cfg['clusters']}, fanin={cfg['fanin']}", flush=True)
 
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    out = REPORTS / "dense_dag_r567_three_way_metrics.json"
+
+    def emit(results, done_seeds):
+        """每个 seed 跑完即打表 + 落盘(kill-safe 增量输出):即使被中途 kill，
+        已完成 seed 的汇总表与 JSON 都已写出，不会只留在内存。"""
+        agg, params, fj, timings = aggregate(results)
+        print_report(results, agg, params, fj, timings, done_seeds)
+        dump = {"config": {k: (list(v) if isinstance(v, (list, tuple)) else v)
+                            for k, v in cfg.items()},
+                "seeds": done_seeds,
+                "aggregate": {"ll": agg["ll"], "fro": agg["fro"],
+                              "params": params, "full_joint_ll": fj, "timings": timings},
+                "per_seed": results}
+        out.write_text(json.dumps(dump, indent=2, ensure_ascii=False))
+        print(f"\nsaved({len(done_seeds)} seed): {out}", flush=True)
+
     t_all = time.perf_counter()
     results = []
     for seed in seeds:
         print(f"\n########## seed {seed} ##########", flush=True)
         results.append(run_one_seed(cfg, seed))
+        emit(results, seeds[:len(results)])  # 增量:本 seed 完成即出表+落盘
 
-    agg, params, fj, timings = aggregate(results)
-    print_report(results, agg, params, fj, timings, seeds)
-
-    REPORTS.mkdir(parents=True, exist_ok=True)
-    out = REPORTS / "dense_dag_r567_three_way_metrics.json"
-    dump = {"config": {k: (list(v) if isinstance(v, (list, tuple)) else v)
-                        for k, v in cfg.items()},
-            "seeds": seeds,
-            "aggregate": {"ll": agg["ll"], "fro": agg["fro"],
-                          "params": params, "full_joint_ll": fj, "timings": timings},
-            "per_seed": results}
-    out.write_text(json.dumps(dump, indent=2, ensure_ascii=False))
-    print(f"\nsaved: {out}")
     print(f"总用时 {time.perf_counter() - t_all:.1f}s")
 
 
