@@ -328,6 +328,8 @@ def write_report_md(cfg, results, agg, params, timings, seeds, out_path):
              f"(下一层节点是否同 TTNS 只看上一层直接父，不追祖先源 → 每层块有界)")
     L.append(f"- **方法**: {', '.join(methods)}(R6/global 关闭) · seeds={seeds} · init_noise={cfg['init_noise']}")
     L.append(f"- **示意图**: `simple_ttns_l2/reports/dense_dag_r567_schematic.png`")
+    L.append(f"- **结果图**: `simple_ttns_l2/reports/dense_dag_r567_results.png` "
+             f"(逐层 LL/corr_fro，R5 vs R7；用 `plot_dense_dag_results` 生成)")
     L.append("")
 
     def table(metric, title, arrow):

@@ -5,6 +5,7 @@
 - **分块口径(模型)**: block_mode=`immediate` (下一层节点是否同 TTNS 只看上一层直接父，不追祖先源 → 每层块有界)
 - **方法**: R5_tree, R7_sampled(R6/global 关闭) · seeds=[0, 1, 2] · init_noise=0.0
 - **示意图**: `simple_ttns_l2/reports/dense_dag_r567_schematic.png`
+- **结果图**: `simple_ttns_l2/reports/dense_dag_r567_results.png` (逐层 LL/corr_fro，R5 vs R7；用 `plot_dense_dag_results` 生成)
 
 ## 逐层 joint_LL@truth (↑ 越高越好)
 
