@@ -195,10 +195,11 @@ def run_one_seed(cfg: dict, seed: int):
         timings["R6_joint"] = time.perf_counter() - t0
 
     # ---- R7：采样求 L2 链 ----
-    t0 = time.perf_counter()
-    k_sp, key = jax.random.split(key)
-    chains["R7_sampled"] = fit_sampled_chain(forest0, spec, params, k_sp, cfg)
-    timings["R7_sampled"] = time.perf_counter() - t0
+    if "R7_sampled" in R_CHAINS:
+        t0 = time.perf_counter()
+        k_sp, key = jax.random.split(key)
+        chains["R7_sampled"] = fit_sampled_chain(forest0, spec, params, k_sp, cfg)
+        timings["R7_sampled"] = time.perf_counter() - t0
 
     for name in R_CHAINS:
         params_by[name] = int(sum(forest_params(chains[name][li]) for li in range(len(layers))))
@@ -383,12 +384,16 @@ def main():
                     help="也跑全局基线 global_TT/global_TTNS(108维L2会数值爆炸且评测易OOM，默认关闭)")
     ap.add_argument("--with-r6", action="store_true",
                     help="也跑 R6 全解析联合(交叉项 O(G^K) 维度灾难，满配 K=4 极慢，默认关闭)")
+    ap.add_argument("--r5-only", action="store_true",
+                    help="只跑 R5_tree，跳过 R7_sampled；用于隔离 sampled L2 噪声/发散")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
     global GLOBALS, R_CHAINS, ALL_METHODS
     if not args.with_r6:
         R_CHAINS = [m for m in R_CHAINS if m != "R6_joint"]
+    if args.r5_only:
+        R_CHAINS = [m for m in R_CHAINS if m != "R7_sampled"]
     if not args.with_global:
         GLOBALS = []
     ALL_METHODS = GLOBALS + R_CHAINS

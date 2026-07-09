@@ -6,6 +6,7 @@
 #   sbatch simple_ttns_l2/experiments/run_dense_r567.sbatch
 #   # 覆盖 seeds:  SEEDS=0,1,2,3,4 sbatch ... run_dense_r567.sbatch
 #   # 冒烟:        QUICK=1 SEEDS=0 sbatch ... run_dense_r567.sbatch
+#   # 只跑 R5:     RUN_R7=0 SEEDS=0 sbatch ... run_dense_r567.sbatch
 # 产物:
 #   simple_ttns_l2/reports/dense_dag_r567_report_zh.md   (中文报告, 每 seed 增量写)
 #   simple_ttns_l2/reports/dense_dag_r567_three_way_metrics.json
@@ -57,6 +58,7 @@ mkdir -p logs
 SEEDS="${SEEDS:-0,1,2}"
 EXTRA=""
 [ "${QUICK:-0}" = "1" ] && EXTRA="--quick"
+[ "${RUN_R7:-1}" = "0" ] && EXTRA="${EXTRA} --r5-only"
 echo "[dense_r567] host=$(hostname) cpus=${OMP_NUM_THREADS} seeds=${SEEDS} extra='${EXTRA}'"
 echo "[dense_r567] start: $(date)"
 
