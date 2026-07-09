@@ -1,0 +1,219 @@
+{
+  "seed": 0,
+  "marginal_weights": [
+    0.3,
+    1.0
+  ],
+  "timings": {
+    "R5 λ=0.3": 1080.0,
+    "R5 λ=1.0": 360.0,
+    "R7 nonneg": 229.61973554920405
+  },
+  "results": {
+    "R5_marg0": {
+      "label": "R5 λ=0 (audit)",
+      "per_layer": [
+        {
+          "layer": 0,
+          "joint_ll": 22.693,
+          "nonpos_rate": 0.037,
+          "std_ratio_mean": 0.994
+        },
+        {
+          "layer": 1,
+          "joint_ll": 5.272,
+          "nonpos_rate": 0.009,
+          "std_ratio_mean": 1.021
+        },
+        {
+          "layer": 2,
+          "joint_ll": 5.213,
+          "nonpos_rate": 0.035,
+          "std_ratio_mean": 0.918
+        },
+        {
+          "layer": 3,
+          "joint_ll": 1.969,
+          "nonpos_rate": 0.143,
+          "std_ratio_mean": 0.834
+        },
+        {
+          "layer": 4,
+          "joint_ll": -12.585,
+          "nonpos_rate": 0.571,
+          "std_ratio_mean": 0.987
+        }
+      ]
+    },
+    "R7 baseline": {
+      "label": "R7 baseline (audit)",
+      "per_layer": [
+        {
+          "layer": 0,
+          "joint_ll": 22.69296305143478,
+          "nonpos_rate": 0.03652777777777778,
+          "gt_std_mean": 0.1855888119389263,
+          "model_std_mean": 0.18630972002050739,
+          "std_ratio_mean": 1.0050419527416676,
+          "std_ratio_min": 0.9743175309195048
+        },
+        {
+          "layer": 1,
+          "joint_ll": 5.837794081928741,
+          "nonpos_rate": 0.02,
+          "gt_std_mean": 0.21487321844752555,
+          "model_std_mean": 0.21150830661331912,
+          "std_ratio_mean": 0.9843365302542584,
+          "std_ratio_min": 0.961581453115218
+        },
+        {
+          "layer": 2,
+          "joint_ll": 5.107531865301652,
+          "nonpos_rate": 0.04888888888888889,
+          "gt_std_mean": 0.20922501024035317,
+          "model_std_mean": 0.178100974477798,
+          "std_ratio_mean": 0.850571618552447,
+          "std_ratio_min": 0.7204968380050213
+        },
+        {
+          "layer": 3,
+          "joint_ll": 3.1108145180669147,
+          "nonpos_rate": 0.0825,
+          "gt_std_mean": 0.2079256908984391,
+          "model_std_mean": 0.15704517022210057,
+          "std_ratio_mean": 0.7571922870876682,
+          "std_ratio_min": 0.6794058592032844
+        },
+        {
+          "layer": 4,
+          "joint_ll": 1.0487804821773996,
+          "nonpos_rate": 0.13375,
+          "gt_std_mean": 0.2051602754545399,
+          "model_std_mean": 0.1470610037800587,
+          "std_ratio_mean": 0.7221007008183566,
+          "std_ratio_min": 0.6498858661425613
+        }
+      ]
+    },
+    "R5 λ=0.3": {
+      "label": "R5 λ=0.3",
+      "per_layer": [
+        {
+          "layer": 0,
+          "joint_ll": 22.693,
+          "nonpos_rate": 0.037,
+          "std_ratio_mean": 1.001
+        },
+        {
+          "layer": 1,
+          "joint_ll": 5.003,
+          "nonpos_rate": 0.011,
+          "std_ratio_mean": 1.18
+        },
+        {
+          "layer": 2,
+          "joint_ll": -23.865,
+          "nonpos_rate": 0.985,
+          "std_ratio_mean": 2.209
+        },
+        {
+          "layer": 3,
+          "joint_ll": -77.632,
+          "nonpos_rate": 0.999,
+          "std_ratio_mean": 4.322
+        },
+        {
+          "layer": 4,
+          "joint_ll": -84.489,
+          "nonpos_rate": 1.0,
+          "std_ratio_mean": 6.247
+        }
+      ]
+    },
+    "R5 λ=1.0": {
+      "label": "R5 λ=1.0",
+      "per_layer": [
+        {
+          "layer": 0,
+          "joint_ll": 22.693,
+          "nonpos_rate": 0.037,
+          "std_ratio_mean": 1.0
+        },
+        {
+          "layer": 1,
+          "joint_ll": -0.908,
+          "nonpos_rate": 0.075,
+          "std_ratio_mean": 1.721
+        },
+        {
+          "layer": 2,
+          "joint_ll": -26.07,
+          "nonpos_rate": 0.99,
+          "std_ratio_mean": 2.224
+        },
+        {
+          "layer": 3,
+          "joint_ll": -69.16,
+          "nonpos_rate": 0.986,
+          "std_ratio_mean": 4.438
+        },
+        {
+          "layer": 4,
+          "joint_ll": -68.861,
+          "nonpos_rate": 1.0,
+          "std_ratio_mean": 5.965
+        }
+      ]
+    },
+    "R7 nonneg": {
+      "label": "R7 nonneg",
+      "per_layer": [
+        {
+          "layer": 0,
+          "joint_ll": 23.285691621902455,
+          "nonpos_rate": 0.0,
+          "gt_std_mean": 0.1855888119389263,
+          "model_std_mean": 0.18612711766812304,
+          "std_ratio_mean": 1.0042363028476697,
+          "std_ratio_min": 0.9866380546465728
+        },
+        {
+          "layer": 1,
+          "joint_ll": 7.072942373234665,
+          "nonpos_rate": 0.0,
+          "gt_std_mean": 0.21487321844752555,
+          "model_std_mean": 0.2148599312729509,
+          "std_ratio_mean": 0.9997446664585563,
+          "std_ratio_min": 0.9777533522005132
+        },
+        {
+          "layer": 2,
+          "joint_ll": 7.478609019559121,
+          "nonpos_rate": 0.0002777777777777778,
+          "gt_std_mean": 0.20922501024035317,
+          "model_std_mean": 0.20956830342988014,
+          "std_ratio_mean": 1.0017583801092123,
+          "std_ratio_min": 0.9761989724963489
+        },
+        {
+          "layer": 3,
+          "joint_ll": 7.146331378504685,
+          "nonpos_rate": 0.0001388888888888889,
+          "gt_std_mean": 0.2079256908984391,
+          "model_std_mean": 0.20451074333818342,
+          "std_ratio_mean": 0.9834305025856507,
+          "std_ratio_min": 0.9560737328149649
+        },
+        {
+          "layer": 4,
+          "joint_ll": 7.068384050350359,
+          "nonpos_rate": 0.0005555555555555556,
+          "gt_std_mean": 0.2051602754545399,
+          "model_std_mean": 0.19897768614186576,
+          "std_ratio_mean": 0.9705821181565529,
+          "std_ratio_min": 0.9532953680683256
+        }
+      ]
+    }
+  }
+}
