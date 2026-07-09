@@ -142,6 +142,173 @@ def corr_fro_sampler(sample_fn, tev, key, n, n_rep=3):
     return float(np.mean(fros)), float(np.std(fros))
 
 
+# --------------------------------------------------------------- 同进程绘图（复用本次训练结果，不二次拟合）
+def plot_from_run_artifacts(seed: int, cfg: dict, spec, layers, test_x: np.ndarray,
+                            chains: Dict[str, dict], key) -> None:
+    """用本次 run 已训练好的 forest 直接画 marginal/slice 图，避免绘图脚本重新训练。"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+
+    methods = [m for m in R_CHAINS if m in chains]
+    if not methods:
+        return
+    labels = {"R5_tree": "R5 analytic", "R7_sampled": "R7 sampled", "R6_joint": "R6 joint"}
+    colors = {"R5_tree": "#d62728", "R7_sampled": "#1f77b4", "R6_joint": "#9467bd"}
+    n_plot = min(int(cfg.get("plot_n", 8000)), int(test_x.shape[0]))
+
+    samples = {m: {} for m in methods}
+    for m in methods:
+        for li in range(len(layers)):
+            key, ks = jax.random.split(key)
+            samples[m][li] = np.asarray(sample_forest(chains[m][li], ks, n_plot, grid_size=400))
+
+    # 1) 全节点一维边缘切片图
+    nL = len(layers)
+    nN = max(len(l) for l in layers)
+    fig, axes = plt.subplots(nL, nN, figsize=(1.55 * nN, 1.95 * nL), squeeze=False)
+    for li in range(nL):
+        nodes = layers[li]
+        truth_layer = test_x[:n_plot, nodes]
+        for j in range(nN):
+            ax = axes[li][j]
+            if j >= len(nodes):
+                ax.axis("off")
+                continue
+            gtv = truth_layer[:, j]
+            lo = float(np.percentile(gtv, 0.5))
+            hi = float(np.percentile(gtv, 99.5))
+            pad = 0.15 * (hi - lo + 1e-9)
+            bins = np.linspace(lo - pad, hi + pad, 70)
+            ax.hist(gtv, bins=bins, density=True, histtype="step", color="k", lw=1.9, label="GT")
+            for m in methods:
+                ax.hist(samples[m][li][:, j], bins=bins, density=True, histtype="step",
+                        color=colors[m], lw=1.3, label=labels[m])
+            ax.set_xlim(lo - pad, hi + pad)
+            ax.set_yticks([])
+            ax.set_title(f"L{li}·n{nodes[j]}", fontsize=7.5)
+            if li == 0 and j == 0:
+                ax.legend(fontsize=6.5, loc="upper right")
+    fig.suptitle("dense_dag_r567 per-node marginal slices (same-run plots)", fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.98])
+    out_slices = REPORTS / "dense_dag_r567_slices.png"
+    fig.savefig(out_slices, dpi=125)
+    plt.close(fig)
+    print(f"saved: {out_slices}", flush=True)
+
+    # 2) 精细图：top-3 边缘 + LL/corr 随深度 + 最强相关对散点
+    down = list(range(1, len(layers)))
+    if not down:
+        return
+    nrow = len(down) + 3
+    fig = plt.figure(figsize=(18.0, 4.4 * nrow))
+    gs = GridSpec(nrow, 6, figure=fig, hspace=0.66, wspace=0.5,
+                  height_ratios=[1] * len(down) + [1.1, 1.05, 1.05],
+                  top=0.955, bottom=0.035, left=0.055, right=0.985)
+    res_axes, res_absmax = [], 0.0
+
+    def smooth(a):
+        return np.convolve(a, np.array([0.25, 0.5, 0.25]), mode="same")
+
+    for ri, li in enumerate(down):
+        tev = test_x[:n_plot, layers[li]]
+        order = np.argsort(tev.var(axis=0))[::-1][:3]
+        for ci, j in enumerate(order):
+            j = int(j)
+            sub = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[ri, 2 * ci:2 * ci + 2],
+                                          height_ratios=[3, 1], hspace=0.08)
+            ax = fig.add_subplot(sub[0])
+            axr = fig.add_subplot(sub[1], sharex=ax)
+            truth = tev[:, j]
+            lo = float(np.percentile(truth, 0.5))
+            hi = float(np.percentile(truth, 99.5))
+            pad = 0.12 * (hi - lo + 1e-9)
+            bins = np.linspace(lo - pad, hi + pad, 80)
+            ax.hist(truth, bins=bins, density=True, color="0.45", alpha=0.55, label="truth")
+            t_d, _ = np.histogram(truth, bins=bins, density=True)
+            centers = 0.5 * (bins[:-1] + bins[1:])
+            for m in methods:
+                vals = samples[m][li][:, j]
+                ax.hist(vals, bins=bins, density=True, histtype="step",
+                        color=colors[m], lw=1.5, label=labels[m])
+                d_m, _ = np.histogram(vals, bins=bins, density=True)
+                res = smooth(d_m - t_d)
+                axr.plot(centers, res, color=colors[m], lw=1.1)
+                res_absmax = max(res_absmax, float(np.max(np.abs(res))))
+            ax.set_title(f"L{li} node{layers[li][j]} (var#{ci + 1})", fontsize=9.5)
+            ax.set_ylabel("density", fontsize=9)
+            ax.tick_params(labelbottom=False, labelsize=8)
+            if ri == 0 and ci == 0:
+                ax.legend(fontsize=8, loc="upper right")
+            axr.axhline(0, ls="--", color="gray", lw=0.9)
+            axr.set_xlabel("value", fontsize=8)
+            axr.set_ylabel("err", fontsize=7.5)
+            axr.tick_params(labelsize=7)
+            res_axes.append(axr)
+    for axr in res_axes:
+        axr.set_ylim(-1.08 * (res_absmax + 1e-9), 1.08 * (res_absmax + 1e-9))
+
+    xl = [f"L{li}" for li in down]
+    ax_ll = fig.add_subplot(gs[len(down), 0:3])
+    ax_corr = fig.add_subplot(gs[len(down), 3:6])
+    for m in methods:
+        ll_vals, corr_vals = [], []
+        for li in down:
+            tev = test_x[:, layers[li]]
+            ll_vals.append(float(forest_log_density(chains[m][li], tev)[0].mean()) / max(len(layers[li]), 1))
+            Ct = np.corrcoef(tev.T)
+            denom = np.sqrt(len(layers[li]) * max(len(layers[li]) - 1, 1))
+            corr_vals.append(float(np.linalg.norm(Ct - np.corrcoef(samples[m][li].T))) / denom)
+        ax_ll.plot(xl, ll_vals, "o-", color=colors[m], lw=1.8, label=labels[m])
+        ax_corr.plot(xl, corr_vals, "o-", color=colors[m], lw=1.8, label=labels[m])
+    ax_ll.set_title("Per-dim held-out joint LL vs layer (higher=better)", fontsize=11)
+    ax_ll.set_ylabel("LL/K")
+    ax_ll.grid(alpha=0.3)
+    ax_ll.legend(fontsize=9)
+    ax_corr.set_title("Per-pair corr error vs layer (lower=better)", fontsize=11)
+    ax_corr.set_ylabel("corr_fro/sqrt(K(K-1))")
+    ax_corr.grid(alpha=0.3)
+    ax_corr.legend(fontsize=9)
+
+    def strongest_pair(mat):
+        C = np.corrcoef(mat.T)
+        best, bi, bj = -1.0, 0, min(1, C.shape[0] - 1)
+        for i in range(C.shape[0]):
+            for j in range(i + 1, C.shape[0]):
+                if abs(C[i, j]) > best:
+                    best, bi, bj = abs(C[i, j]), i, j
+        return bi, bj
+
+    for row, li in enumerate((down[0], down[-1])):
+        tev = test_x[:n_plot, layers[li]]
+        i_p, j_p = strongest_pair(tev)
+        gx, gy = layers[li][i_p], layers[li][j_p]
+        xr = np.percentile(tev[:, i_p], [1, 99])
+        yr = np.percentile(tev[:, j_p], [1, 99])
+        dx, dy = 0.1 * (xr[1] - xr[0] + 1e-9), 0.1 * (yr[1] - yr[0] + 1e-9)
+        series = [("truth", tev[:, i_p], tev[:, j_p], "0.45")]
+        for m in methods:
+            series.append((labels[m], samples[m][li][:, i_p], samples[m][li][:, j_p], colors[m]))
+        srow = GridSpecFromSubplotSpec(1, len(series), subplot_spec=gs[len(down) + 1 + row, 0:6],
+                                       wspace=0.32)
+        for col, (tag, xx, yy, color) in enumerate(series):
+            ax = fig.add_subplot(srow[0, col])
+            r = float(np.corrcoef(xx, yy)[0, 1])
+            ax.scatter(xx, yy, s=4, alpha=0.09, color=color, edgecolors="none", rasterized=True)
+            ax.set_title(f"L{li} {tag} node{gx}-{gy} r={r:+.3f}", fontsize=10)
+            ax.set_xlim(xr[0] - dx, xr[1] + dx)
+            ax.set_ylim(yr[0] - dy, yr[1] + dy)
+            ax.set_xlabel(f"node{gx}")
+            ax.set_ylabel(f"node{gy}")
+
+    fig.suptitle(f"dense_dag_r567 refined slice fit (seed={seed}, same-run plots)", fontsize=15, weight="bold")
+    out_refined = REPORTS / "dense_dag_r567_slice_refined.png"
+    fig.savefig(out_refined, dpi=170)
+    plt.close(fig)
+    print(f"saved: {out_refined}", flush=True)
+
+
 # --------------------------------------------------------------- 单 seed 全流程
 def run_one_seed(cfg: dict, seed: int):
     key = jax.random.PRNGKey(seed)
@@ -254,6 +421,9 @@ def run_one_seed(cfg: dict, seed: int):
     # ---- 全局模型全联合 LL(仅 global 有意义) ----
     for name, (ttns, parent) in flat_models.items():
         fll_all[name], _ = flat_joint_loglik(ttns, parent, bases, test_x)
+
+    if cfg.get("make_plots", False):
+        plot_from_run_artifacts(seed, cfg, spec, layers, test_x, chains, key)
 
     spec_info = {"n_nodes": int(spec.n), "n_layers": len(layers),
                  "layer_dim": len(layers[0]), "n_edges": len(spec.edges),
@@ -390,6 +560,8 @@ def main():
                     help="也跑 R6 全解析联合(交叉项 O(G^K) 维度灾难，满配 K=4 极慢，默认关闭)")
     ap.add_argument("--r5-only", action="store_true",
                     help="只跑 R5_tree，跳过 R7_sampled；用于隔离 sampled L2 噪声/发散")
+    ap.add_argument("--plot", action="store_true",
+                    help="单 seed 时复用本次训练结果直接生成 marginal/slice 图，不重新拟合")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
@@ -405,6 +577,7 @@ def main():
     cfg = dict(CFG)
     cfg["with_global"] = args.with_global
     cfg["with_r6"] = args.with_r6
+    cfg["make_plots"] = args.plot
     if args.quick:
         cfg.update(n_layers=3, clusters=[2, 3], fanin=2, n_total=8000, n_sample=2000,
                    n_fit=6000, steps=120, an_steps=120, budget=80000, n_s_joint=16, joint_kmax=3)
