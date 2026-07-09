@@ -33,7 +33,8 @@ set -euo pipefail
 #   source ~/miniconda3/etc/profile.d/conda.sh
 #   conda activate <你带 jax 的环境名>
 # 什么都不配则用系统默认 python3(需自带 jax + numpy + 可选 matplotlib)
-
+source ~/conda_start.sh
+conda activate ttns
 # ---- 2. 线程数与 SLURM 分配一致, 避免超额占核 --------------------
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-8}"
 export OPENBLAS_NUM_THREADS="${OMP_NUM_THREADS}"

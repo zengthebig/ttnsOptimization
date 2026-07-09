@@ -1,0 +1,16 @@
+Already on 'worktree-dense-r567-compare'
+From github.com:zengthebig/ttnsOptimization
+ * branch            worktree-dense-r567-compare -> FETCH_HEAD
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 187, in _run_module_as_main
+    mod_name, mod_spec, code = _get_module_details(mod_name, _Error)
+  File "/usr/lib/python3.10/runpy.py", line 110, in _get_module_details
+    __import__(pkg_name)
+  File "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/__init__.py", line 1, in <module>
+    from .objective import (
+  File "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/objective.py", line 15, in <module>
+    from ttde.ttns.ttns_opt import (
+  File "/home/sbzeng/2_1/research/TTDE/TTNSDE/ttde/ttns/__init__.py", line 3, in <module>
+    from flax import struct, linen as lenin
+ModuleNotFoundError: No module named 'flax'
+srun: error: bigMem0: task 0: Exited with exit code 1

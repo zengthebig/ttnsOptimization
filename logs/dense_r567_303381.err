@@ -1,0 +1,23 @@
+/bin/bash: /opt/anaconda3/lib/libtinfo.so.6: no version information available (required by /bin/bash)
+Already on 'worktree-dense-r567-compare'
+From github.com:zengthebig/ttnsOptimization
+ * branch            worktree-dense-r567-compare -> FETCH_HEAD
+WARNING:2026-07-09 11:40:16,733:jax._src.xla_bridge:876: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/maxplus_pipeline.py:6: SyntaxWarning: "\m" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\m"? A raw string is also an option.
+  $$x_v = \max_{u\in\mathrm{pa}(v)} (x_u + e_{uv}) + d_v,$$
+/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/maxplus_cdf_forest.py:6: SyntaxWarning: "\m" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\m"? A raw string is also an option.
+  $$\mathbb{E}_x\Big[\prod_{u\in\mathrm{pa}(v)}F_e(s-x_u)\Big]
+/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/ttns_sampler.py:8: SyntaxWarning: "\l" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\l"? A raw string is also an option.
+  - 单父 TTNS 表示密度 $q(x)=\langle T,\bigotimes_k b_k(x_k)\rangle$，关于每个物理腿线性。
+/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/analytic_tree_fit.py:8: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+  $$p_{tree}(y)=p_{root}(y_{root})\prod_{v\ne root}p(y_v\mid y_{pa(v)}),$$
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/experiments/dense_dag_r567_three_way.py", line 59, in <module>
+    from simple_ttns_l2.experiments.per_layer_all_methods import complex_sources, linear_block_logp  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/experiments/per_layer_all_methods.py", line 34, in <module>
+    import matplotlib
+ModuleNotFoundError: No module named 'matplotlib'
+srun: error: bigMem0: task 0: Exited with exit code 1

@@ -1,0 +1,9 @@
+/bin/bash: /opt/anaconda3/lib/libtinfo.so.6: no version information available (required by /bin/bash)
+Already on 'worktree-dense-r567-compare'
+From github.com:zengthebig/ttnsOptimization
+ * branch            worktree-dense-r567-compare -> FETCH_HEAD
+WARNING:2026-07-09 11:41:31,796:jax._src.xla_bridge:876: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/experiments/ttde_tt_baseline.py:5: SyntaxWarning: "\i" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\i"? A raw string is also an option.
+  - 采样：平方 TT 的条件 CDF 逆采样——已采维用 $b(x)b(x)^\top$、未采维用 Gram $\int bb^\top$、
+/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/experiments/ttde_tt_baseline.py:119: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+  密度 $p(x)\propto \psi(x)^2$，$\psi(x)=\prod_k A^{(k)}(x_k)$，$A^{(k)}(x)=\sum_i b_i(x)G^{(k)}[:,i,:]$。
