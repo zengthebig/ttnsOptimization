@@ -433,8 +433,16 @@ def _fit_analytic_ttns_joint(
 def _fit_analytic_ttns(
     layer: AnalyticLayer, key, q: int, m: int, rank: int,
     lr: float, steps: int, init_noise: float, log_every: int = 0, label: str = "",
+    marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> Tuple[TTNSOpt, object]:
-    """对给定 AnalyticLayer(树目标)做解析 L2 拟合，返回 (归一化 ttns, bases)。"""
+    """对给定 AnalyticLayer(树目标)做解析 L2 拟合，返回 (归一化 ttns, bases)。
+
+    `marginal_l2_weight>0` 时，额外约束每个一维边缘匹配解析目标边缘，用于诊断
+    块级 L2 投影牺牲边缘的问题；默认 0 保持原实验不变。
+
+    `normalize_every>0` 时，优化过程中定期投影回 $\int q=1$，与 sampled L2
+    训练链保持一致；默认每步归一化。
+    """
     K = len(layer.nodes)
     bases = _build_layer_bases(layer.s_grid, K, q, m)
     gram = vmap(type(bases).l2_integral)(bases)         # [K, m, m]
@@ -446,6 +454,30 @@ def _fit_analytic_ttns(
     root = _root_from_parent(layer.parent)
     p_root = jnp.asarray(layer.p_marg[root])
     cross = _cross_term_fn(layer.parent, Bg, pcond_j, p_root, delta)
+    par = list(layer.parent)
+    eye = jnp.eye(m)
+    p_marg_moments = jnp.stack([
+        Bg[v].T @ jnp.asarray(layer.p_marg[v]) * delta for v in range(K)
+    ])
+
+    def marginal_coeffs_from_cores(cores, dim: int) -> jnp.ndarray:
+        T = TTNSOpt(tuple(cores))
+        V = basis_int[None, :, :]
+
+        def eval_with_onehot(onehot):
+            Vt = V.at[:, dim, :].set(onehot[None, :])
+            return batch_eval_rank1_ttns(T, Vt, par)[0]
+
+        return vmap(eval_with_onehot)(eye)
+
+    def marginal_l2_term(cores) -> jnp.ndarray:
+        vals = []
+        for dim in range(K):
+            c = marginal_coeffs_from_cores(cores, dim)
+            int_qi2 = (c @ gram[dim]) @ c
+            cross_i = c @ p_marg_moments[dim]
+            vals.append(int_qi2 - 2.0 * cross_i)
+        return jnp.mean(jnp.stack(vals))
 
     k_init, key = jax.random.split(key)
     ttns = _init_rank1(layer, bases, gram, Bg, rank, k_init, init_noise)
@@ -458,7 +490,10 @@ def _fit_analytic_ttns(
     def loss_fn(cores):
         T = TTNSOpt(tuple(cores))
         int_q2 = quadratic_form_ttns(T, gram, layer.parent)
-        return int_q2 - 2.0 * cross(cores)
+        loss = int_q2 - 2.0 * cross(cores)
+        if marginal_l2_weight > 0:
+            loss = loss + marginal_l2_weight * marginal_l2_term(cores)
+        return loss
 
     @jax.jit
     def step_fn(cores, opt_state):
@@ -469,6 +504,9 @@ def _fit_analytic_ttns(
 
     for st in range(steps):
         cores, opt_state, loss = step_fn(cores, opt_state)
+        if normalize_every > 0 and ((st + 1) % normalize_every == 0):
+            ttns_step, _ = normalize_ttns_by_integral(TTNSOpt(tuple(cores)), basis_int, layer.parent)
+            cores = list(ttns_step.cores)
         if log_every and ((st + 1) % log_every == 0 or st == 0):
             print(f"  [analytic-fit {label}] step {st+1}/{steps} L2={float(loss):.6f}", flush=True)
 
@@ -482,12 +520,13 @@ def fit_next_layer_tree(
     s_max: float, q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80,
     lr: float = 3e-3, steps: int = 1500, init_noise: float = 0.01,
-    log_every: int = 0,
+    log_every: int = 0, marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> Tuple[TTNSOpt, List[int], object, AnalyticLayer]:
     """全解析拟合第 li 层的**单棵**树 TTNS(不分块)。返回 (ttns, parent, bases, AnalyticLayer)。"""
     layer = analytic_layer_target(upper, spec, li, params, s_max, n_s=n_s, n_s_pair=n_s_pair)
     ttns, bases = _fit_analytic_ttns(
-        layer, key, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}"
+        layer, key, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}",
+        marginal_l2_weight=marginal_l2_weight, normalize_every=normalize_every,
     )
     return ttns, list(layer.parent), bases, layer
 
@@ -498,6 +537,7 @@ def fit_next_layer_forest(
     n_s: int = 100, n_s_pair: int = 80,
     lr: float = 3e-3, steps: int = 1500, init_noise: float = 0.01,
     log_every: int = 0, use_mi: bool = True, block_mode: str = "source",
+    marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> List[BlockModel]:
     """全解析拟合第 li 层为 **TTNS 森林**：按 DAG 结构分块(block_mode)，每块解析拟合成一棵树。
 
@@ -513,7 +553,8 @@ def fit_next_layer_forest(
         )
         k_b, key = jax.random.split(key)
         ttns, bases = _fit_analytic_ttns(
-            target, k_b, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}.b{bi}"
+            target, k_b, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}.b{bi}",
+            marginal_l2_weight=marginal_l2_weight, normalize_every=normalize_every,
         )
         forest.append(BlockModel(
             tuple(blk), tuple(int(g) for g in gids), tuple(target.parent), ttns, bases
@@ -536,7 +577,7 @@ def fit_analytic_chain(
     q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80, lr: float = 3e-3, steps: int = 1500,
     init_noise: float = 0.01, log_every: int = 0, use_mi: bool = True,
-    block_mode: str = "source",
+    block_mode: str = "source", marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> Dict[int, list]:
     """clarify.md 全解析链：L0(数据森林) → L1 → ... 逐层解析拟合 **TTNS 森林**，**全程无采样**。
 
@@ -553,7 +594,8 @@ def fit_analytic_chain(
             upper, spec, li, params, k_l, s_max=s_max,
             q=q, m=m, rank=rank, n_s=n_s, n_s_pair=n_s_pair,
             lr=lr, steps=steps, init_noise=init_noise, log_every=log_every,
-            use_mi=use_mi, block_mode=block_mode,
+            use_mi=use_mi, block_mode=block_mode, marginal_l2_weight=marginal_l2_weight,
+            normalize_every=normalize_every,
         )
     return forests
 

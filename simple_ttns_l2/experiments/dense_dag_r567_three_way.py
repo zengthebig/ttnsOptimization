@@ -368,9 +368,9 @@ CFG = dict(
     delay=dict(src_lo=0.0, src_hi=1.0, edge_lo=0.0, edge_hi=0.3, node_lo=0.0, node_hi=0.3),
     n_total=24000, n_sample=8000, n_fit=20000, q=2, m=24, rank=8,
     src_sigma=0.03, budget=400000, rmax=48,
-    lr=2e-3, steps=700, batch_sz=512, init_noise=0.0, train_noise=1e-3,
+    lr=2e-3, steps=700, batch_sz=512, init_noise=1e-3, train_noise=1e-3,
     log_every=350, early_stop_patience=8, mi_threshold=0.02,
-    n_s=100, n_s_pair=80, n_s_joint=22, joint_kmax=4, an_lr=3e-3, an_steps=700,
+    n_s=100, n_s_pair=80, n_s_joint=22, joint_kmax=4, an_lr=3e-5, an_steps=5000,
     monitor_val_sz=2000,
 )
 
