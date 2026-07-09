@@ -489,6 +489,8 @@ def main():
     ap.add_argument("--skip-r5-nonneg", action="store_true", help="跳过 R5 非负解析链")
     ap.add_argument("--only-r5-nonneg", action="store_true",
                     help="只跑 R5 非负，其余从已有 JSON 合并")
+    ap.add_argument("--marginal-json", type=str, default="",
+                    help="已有 marginal 结果 JSON（skip-marginal 时合并）")
     ap.add_argument("--merge-json", type=str, default="",
                     help="only-r5-nonneg 时合并的已有结果 JSON")
     args = ap.parse_args()
@@ -515,7 +517,7 @@ def main():
         all_results.update({k: v for k, v in baseline.items() if k == "R5_marg0"})
         print("[baseline] loaded R5 λ=0 from audit", flush=True)
 
-    merge_path = args.marginal_json or args.merge_json
+    merge_path = args.merge_json or getattr(args, "marginal_json", "")
     if merge_path and Path(merge_path).exists():
         mj = json.loads(Path(merge_path).read_text())
         for k, v in mj.get("results", {}).items():

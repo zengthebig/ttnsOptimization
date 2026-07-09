@@ -7,7 +7,8 @@
   "timings": {
     "R5 λ=0.3": 1080.0,
     "R5 λ=1.0": 360.0,
-    "R7 nonneg": 229.61973554920405
+    "R7 nonneg": 229.61973554920405,
+    "R5 nonneg": 228.17842343868688
   },
   "results": {
     "R5_marg0": {
@@ -212,6 +213,56 @@
           "model_std_mean": 0.19897768614186576,
           "std_ratio_mean": 0.9705821181565529,
           "std_ratio_min": 0.9532953680683256
+        }
+      ]
+    },
+    "R5 nonneg": {
+      "label": "R5 nonneg",
+      "per_layer": [
+        {
+          "layer": 0,
+          "joint_ll": 22.69296305143478,
+          "nonpos_rate": 0.03652777777777778,
+          "gt_std_mean": 0.1855888119389263,
+          "model_std_mean": 0.18559073803900636,
+          "std_ratio_mean": 1.000747469426058,
+          "std_ratio_min": 0.9562558333062432
+        },
+        {
+          "layer": 1,
+          "joint_ll": 3.2236579817046294,
+          "nonpos_rate": 0.0,
+          "gt_std_mean": 0.21487321844752555,
+          "model_std_mean": 0.21155405379484832,
+          "std_ratio_mean": 0.9849216790271453,
+          "std_ratio_min": 0.9356125206633856
+        },
+        {
+          "layer": 2,
+          "joint_ll": 3.3261357052557914,
+          "nonpos_rate": 0.0,
+          "gt_std_mean": 0.20922501024035317,
+          "model_std_mean": 0.18759185542474843,
+          "std_ratio_mean": 0.8985129581547792,
+          "std_ratio_min": 0.8492631662944607
+        },
+        {
+          "layer": 3,
+          "joint_ll": 3.0892099529773387,
+          "nonpos_rate": 0.0,
+          "gt_std_mean": 0.2079256908984391,
+          "model_std_mean": 0.17197041348678782,
+          "std_ratio_mean": 0.8346920055043388,
+          "std_ratio_min": 0.7501695918122794
+        },
+        {
+          "layer": 4,
+          "joint_ll": 2.448229418559048,
+          "nonpos_rate": 0.0,
+          "gt_std_mean": 0.2051602754545399,
+          "model_std_mean": 0.18509511147366584,
+          "std_ratio_mean": 0.9177733089964246,
+          "std_ratio_min": 0.7085533898480728
         }
       ]
     }
