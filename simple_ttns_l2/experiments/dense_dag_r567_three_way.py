@@ -330,6 +330,8 @@ def write_report_md(cfg, results, agg, params, timings, seeds, out_path):
     L.append(f"- **示意图**: `simple_ttns_l2/reports/dense_dag_r567_schematic.png`")
     L.append(f"- **结果图**: `simple_ttns_l2/reports/dense_dag_r567_results.png` "
              f"(逐层 LL/corr_fro，R5 vs R7；用 `plot_dense_dag_results` 生成)")
+    L.append(f"- **切片图**: `simple_ttns_l2/reports/dense_dag_r567_slices.png` "
+             f"(逐层逐节点边缘密度 GT vs R5 vs R7；用 `plot_dense_dag_slices` 生成)")
     L.append("")
 
     def table(metric, title, arrow):
