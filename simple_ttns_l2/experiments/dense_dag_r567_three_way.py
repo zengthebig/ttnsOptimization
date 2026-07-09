@@ -44,7 +44,7 @@ from ttde.score.models.opt_for_tree_data import chain_parent  # noqa: E402
 
 from simple_ttns_l2.train_l2 import build_bases  # noqa: E402
 from simple_ttns_l2.chow_liu import estimate_chow_liu_tree  # noqa: E402
-from simple_ttns_l2.dag_pipeline import build_clustered_spec, sample_joint  # noqa: E402
+from simple_ttns_l2.dag_pipeline import build_clustered_spec, build_crossed_spec, sample_joint  # noqa: E402
 from simple_ttns_l2.maxplus_pipeline import DelayParams, ground_truth_samplers  # noqa: E402
 from simple_ttns_l2.maxplus_cdf_forest import UpperForest  # noqa: E402
 from simple_ttns_l2.layered_forest import (  # noqa: E402
@@ -73,6 +73,7 @@ def fit_analytic_chain_joint(
     n_s: int = 100, n_s_pair: int = 80, n_s_joint: int = 22,
     lr: float = 3e-3, steps: int = 700, init_noise: float = 0.0,
     joint_kmax: int = 4, log_every: int = 0, use_mi: bool = True,
+    block_mode: str = "source",
 ) -> Dict[int, list]:
     """R6 链：与 `fit_analytic_chain`(R5) 结构完全一致(同 DAG 结构分块、同 s_max 递推、同上层森林传播)，
     **唯一区别**是块目标从"树投影 p_tree"升级为块的完整 K 维联合 p_Y。
@@ -87,7 +88,7 @@ def fit_analytic_chain_joint(
         s_max = s_max + (params.edge_hi + params.node_hi) + 0.3
         upper = UpperForest(forests[li - 1], q_grid=400)
         layer_nodes = list(spec.layers[li])
-        blocks = structural_blocks(spec, li)
+        blocks = structural_blocks(spec, li, mode=block_mode)
         forest: List[BlockModel] = []
         for bi, blk in enumerate(blocks):
             gids = [layer_nodes[i] for i in blk]
@@ -144,7 +145,10 @@ def corr_fro_sampler(sample_fn, tev, key, n, n_rep=3):
 # --------------------------------------------------------------- 单 seed 全流程
 def run_one_seed(cfg: dict, seed: int):
     key = jax.random.PRNGKey(seed)
-    spec = build_clustered_spec(cfg["n_layers"], cfg["clusters"], fanin=cfg["fanin"], wrap=True)
+    spec = build_crossed_spec(cfg["n_layers"], cfg["clusters"], fanin=cfg["fanin"],
+                              cross_pairs=cfg.get("cross_pairs"),
+                              cross_fanin=cfg.get("cross_fanin", 1),
+                              rotate_cross=cfg.get("rotate_cross", False), wrap=True)
     params = DelayParams(**cfg["delay"])
     layers = [list(l) for l in spec.layers]
 
@@ -172,7 +176,8 @@ def run_one_seed(cfg: dict, seed: int):
         forest0, spec, params, k_an, s_max0,
         q=cfg["q"], m=cfg["m"], rank=cfg["rank"],
         n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"],
-        lr=cfg["an_lr"], steps=cfg["an_steps"], init_noise=cfg["init_noise"], log_every=0)
+        lr=cfg["an_lr"], steps=cfg["an_steps"], init_noise=cfg["init_noise"], log_every=0,
+        block_mode=cfg["block_mode"])
     timings["R5_tree"] = time.perf_counter() - t0
 
     # ---- R6：全解析链-完整联合(大块回退 R5)。默认关闭：交叉项在完整 K 维网格上
@@ -186,7 +191,7 @@ def run_one_seed(cfg: dict, seed: int):
             q=cfg["q"], m=cfg["m"], rank=cfg["rank"],
             n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"], n_s_joint=cfg["n_s_joint"],
             lr=cfg["an_lr"], steps=cfg["an_steps"], init_noise=cfg["init_noise"],
-            joint_kmax=cfg["joint_kmax"], log_every=0)
+            joint_kmax=cfg["joint_kmax"], log_every=0, block_mode=cfg["block_mode"])
         timings["R6_joint"] = time.perf_counter() - t0
 
     # ---- R7：采样求 L2 链 ----
@@ -309,10 +314,51 @@ def print_report(results: List[dict], agg, params, fj, timings, seeds):
     print("=" * 100)
 
 
+def write_report_md(cfg, results, agg, params, timings, seeds, out_path):
+    """跑完/每 seed 落盘时写一份中文 markdown 报告(自包含，集群上跑完即有)。"""
+    spec = results[0]["spec"]
+    methods = ALL_METHODS
+    n_layers = spec["n_layers"]
+    L = ["# dense_dag_r567 跨簇 DAG × 分层 TTNS(R5/R7)结果报告", ""]
+    L.append(f"- **图**: {spec['n_nodes']} 节点 · {n_layers} 层 · {spec['layer_dim']} 维/层 · "
+             f"簇={spec['clusters']} · fanin={spec['fanin']} · 边={spec['n_edges']}")
+    L.append(f"- **跨簇**: rotate_cross={cfg.get('rotate_cross')} · cross_fanin={cfg.get('cross_fanin')} "
+             f"(逐层旋转桥接，制造真实跨簇相关)")
+    L.append(f"- **分块口径(模型)**: block_mode=`{cfg.get('block_mode')}` "
+             f"(下一层节点是否同 TTNS 只看上一层直接父，不追祖先源 → 每层块有界)")
+    L.append(f"- **方法**: {', '.join(methods)}(R6/global 关闭) · seeds={seeds} · init_noise={cfg['init_noise']}")
+    L.append(f"- **示意图**: `simple_ttns_l2/reports/dense_dag_r567_schematic.png`")
+    L.append("")
+
+    def table(metric, title, arrow):
+        L.append(f"## {title} {arrow}"); L.append("")
+        L.append("| 层 K | " + " | ".join(methods) + " |")
+        L.append("|" + "---|" * (len(methods) + 1))
+        for li in range(n_layers):
+            K = results[0]["rows"][li]["K"]
+            cells = " | ".join(f"{agg[metric][m][li][0]:+.3f}±{agg[metric][m][li][1]:.3f}"
+                               for m in methods)
+            L.append(f"| L{li} (K={K}) | {cells} |")
+        L.append("")
+
+    table("ll", "逐层 joint_LL@truth", "(↑ 越高越好)")
+    table("fro", "逐层 corr_fro vs truth", "(↓ 越低越好)")
+    L.append("## 学习参数量 / 平均单 seed 用时"); L.append("")
+    L.append("| 方法 | 参数量 | 用时(s) |"); L.append("|---|---|---|")
+    for m in methods:
+        L.append(f"| {m} | {params[m]:,} | {timings[m]:.1f} |")
+    L.append("")
+    out_path.write_text("\n".join(L))
+
+
 # --------------------------------------------------------------- 配置
 CFG = dict(
-    # 更密 / 多父 + 更多节点 / 更深层：6 层、簇[3,3,4,4,4]=18维/层=108 节点、fanin=3(簇内近全连接)
-    n_layers=6, clusters=[3, 3, 4, 4, 4], fanin=3,
+    # 跨簇交叉 + immediate 分块：5 层、簇[4,4,4,4,4]=20维/层=100 节点、fanin=3(簇内密连)。
+    # cross_pairs=None → 默认成对 [(0,1),(2,3)](末簇4独立)；每子节点额外连 cross_fanin 个
+    # 跨簇父 → 两簇共享上层父。block_mode="immediate":一层节点是否同 TTNS 只看上一层直接父
+    # (不再追祖先源) → 每层块 {c0∪c1}=8, {c2∪c3}=8, {c4}=4(跨簇但有界)。
+    n_layers=5, clusters=[4, 4, 4, 4, 4], fanin=3,
+    cross_pairs=None, cross_fanin=2, rotate_cross=True, block_mode="immediate",
     delay=dict(src_lo=0.0, src_hi=1.0, edge_lo=0.0, edge_hi=0.3, node_lo=0.0, node_hi=0.3),
     n_total=24000, n_sample=8000, n_fit=20000, q=2, m=24, rank=8,
     src_sigma=0.03, budget=400000, rmax=48,
@@ -349,7 +395,8 @@ def main():
                    n_fit=6000, steps=120, an_steps=120, budget=80000, n_s_joint=16, joint_kmax=3)
 
     print(f"运行配置: seeds={seeds}, with_global={args.with_global}, with_r6={args.with_r6}, "
-          f"methods={ALL_METHODS}, init_noise={cfg['init_noise']}, "
+          f"methods={ALL_METHODS}, block_mode={cfg['block_mode']}, cross_fanin={cfg['cross_fanin']}, "
+          f"init_noise={cfg['init_noise']}, "
           f"n_layers={cfg['n_layers']}, clusters={cfg['clusters']}, fanin={cfg['fanin']}", flush=True)
 
     REPORTS.mkdir(parents=True, exist_ok=True)
@@ -367,6 +414,8 @@ def main():
                               "params": params, "full_joint_ll": fj, "timings": timings},
                 "per_seed": results}
         out.write_text(json.dumps(dump, indent=2, ensure_ascii=False))
+        write_report_md(cfg, results, agg, params, timings, done_seeds,
+                        REPORTS / "dense_dag_r567_report_zh.md")
         print(f"\nsaved({len(done_seeds)} seed): {out}", flush=True)
 
     t_all = time.perf_counter()

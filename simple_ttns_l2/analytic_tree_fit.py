@@ -72,14 +72,15 @@ def _ancestor_sources(spec) -> Dict[int, frozenset]:
     return anc
 
 
-def structural_blocks(spec, li: int) -> List[List[int]]:
-    """第 li 层按 **共享祖先源** 并查集分块(纯 DAG 结构, 无需数据/统计)。
+def structural_blocks(spec, li: int, mode: str = "source") -> List[List[int]]:
+    """第 li 层分块(纯 DAG 结构, 无需数据/统计)。返回层内**局部索引**分组。
 
-    两节点共享任一祖先源 → 边际相关 → 同块。返回层内**局部索引**分组。
+    mode="source"    : 按**共享祖先源**并查集(默认，一路追到源头)。
+    mode="immediate" : 按**共享直接父**(只看上一层)并查集——两节点在上一层有共同父 → 同块。
+                       体现"下一层节点是否属于同一 TTNS 只由上一层决定, 不再向上追溯"。
     """
     nodes = list(spec.layers[li])
     K = len(nodes)
-    anc = _ancestor_sources(spec)
     par = list(range(K))
 
     def find(a: int) -> int:
@@ -91,11 +92,19 @@ def structural_blocks(spec, li: int) -> List[List[int]]:
     def union(a: int, b: int) -> None:
         par[find(a)] = find(b)
 
-    src2idx: Dict[int, List[int]] = {}
-    for i, v in enumerate(nodes):
-        for s in anc[v]:
-            src2idx.setdefault(s, []).append(i)
-    for idxs in src2idx.values():
+    if mode == "immediate":
+        key_of = {i: frozenset(spec.parents(v)) for i, v in enumerate(nodes)}
+    elif mode == "source":
+        anc = _ancestor_sources(spec)
+        key_of = {i: anc[v] for i, v in enumerate(nodes)}
+    else:
+        raise ValueError(f"unknown block mode {mode!r}")
+
+    key2idx: Dict[object, List[int]] = {}
+    for i in range(K):
+        for s in key_of[i]:
+            key2idx.setdefault(s, []).append(i)
+    for idxs in key2idx.values():
         for k in range(1, len(idxs)):
             union(idxs[0], idxs[k])
     comps: Dict[int, List[int]] = {}
@@ -488,14 +497,14 @@ def fit_next_layer_forest(
     s_max: float, q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80,
     lr: float = 3e-3, steps: int = 1500, init_noise: float = 0.01,
-    log_every: int = 0, use_mi: bool = True,
+    log_every: int = 0, use_mi: bool = True, block_mode: str = "source",
 ) -> List[BlockModel]:
-    """全解析拟合第 li 层为 **TTNS 森林**：按 DAG 结构(共享祖先)分块，每块解析拟合成一棵树。
+    """全解析拟合第 li 层为 **TTNS 森林**：按 DAG 结构分块(block_mode)，每块解析拟合成一棵树。
 
-    块间(不共祖先)边际独立 → 层密度 = 块密度乘积 → 各块独立拟合即精确。返回 BlockModel 列表。
+    块间边际独立 → 层密度 = 块密度乘积 → 各块独立拟合即精确。返回 BlockModel 列表。
     """
     layer_nodes = list(spec.layers[li])
-    blocks = structural_blocks(spec, li)  # 层内局部索引分组
+    blocks = structural_blocks(spec, li, mode=block_mode)  # 层内局部索引分组
     forest: List[BlockModel] = []
     for bi, blk in enumerate(blocks):
         gids = [layer_nodes[i] for i in blk]
@@ -527,10 +536,11 @@ def fit_analytic_chain(
     q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80, lr: float = 3e-3, steps: int = 1500,
     init_noise: float = 0.01, log_every: int = 0, use_mi: bool = True,
+    block_mode: str = "source",
 ) -> Dict[int, list]:
     """clarify.md 全解析链：L0(数据森林) → L1 → ... 逐层解析拟合 **TTNS 森林**，**全程无采样**。
 
-    每层按 DAG 结构(共享祖先)分块，块内解析拟合成树；整层森林作为下一层的上层
+    每层按 DAG 结构分块(block_mode)，块内解析拟合成树；整层森林作为下一层的上层
     `UpperForest`。s_max 逐层按 max-plus 上界增长(每跳 +edge_hi+node_hi)。返回 {li: forest}。
     """
     forests: Dict[int, list] = {0: forest0}
@@ -542,7 +552,8 @@ def fit_analytic_chain(
         forests[li] = fit_next_layer_forest(
             upper, spec, li, params, k_l, s_max=s_max,
             q=q, m=m, rank=rank, n_s=n_s, n_s_pair=n_s_pair,
-            lr=lr, steps=steps, init_noise=init_noise, log_every=log_every, use_mi=use_mi,
+            lr=lr, steps=steps, init_noise=init_noise, log_every=log_every,
+            use_mi=use_mi, block_mode=block_mode,
         )
     return forests
 
@@ -566,7 +577,7 @@ def fit_sampled_chain(forest0, spec, params: DelayParams, key, cfg: dict) -> Dic
         rng = np.random.default_rng(int(jax.random.randint(key, (), 0, 2**31 - 1)))
         s_layer = propagate_layer(spec, li, s_upper, params, rng)  # [n, layer_size]
         layer_nodes = list(spec.layers[li])
-        blocks = structural_blocks(spec, li)
+        blocks = structural_blocks(spec, li, mode=cfg.get("block_mode", "source"))
         forest: List[BlockModel] = []
         for bi, blk in enumerate(blocks):
             gids = [layer_nodes[i] for i in blk]

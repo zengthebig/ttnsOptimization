@@ -102,6 +102,56 @@ def build_clustered_spec(
     return MultiLayerSpec(tuple(layers), tuple(sorted(edges)))
 
 
+def build_crossed_spec(
+    n_layers: int, clusters: Sequence[int], fanin: int = 3,
+    cross_pairs: Sequence[Tuple[int, int]] | None = None, cross_fanin: int = 1,
+    wrap: bool = True, rotate_cross: bool = False,
+) -> MultiLayerSpec:
+    """簇内密连 + **跨簇交叉**的多层 DAG（每层大小 = sum(clusters)）。
+
+    在 `build_clustered_spec` 的簇内边基础上，为每对 (a,b) 增加跨簇边：cluster b 的每个子节点
+    额外连 cluster a(上一层) 里 `cross_fanin` 个父 → a、b 两簇**共享上一层的父**、簇间不再独立。
+
+    跨簇配对来源：
+    - `rotate_cross=True`：**逐层旋转桥接** [(li-1) % nc, li % nc]（nc=簇数）。于是 `mode="immediate"`
+      分块每层只合并当层桥接的两簇(有界)，而 `mode="source"` 追祖先会随深度把桥接链上的簇
+      **越滚越大 → 最终整层合并成一个大块(退回不可解的全局)**——这正是"只看上一层"的意义。
+    - 否则用 `cross_pairs`（None → 相邻簇两两配对 [(0,1),(2,3),...]，各层相同）。
+    """
+    sz = sum(clusters)
+    nc = len(clusters)
+    offs: List[int] = []
+    off = 0
+    for csz in clusters:
+        offs.append(off)
+        off += csz
+    layers = [tuple(range(li * sz, li * sz + sz)) for li in range(n_layers)]
+    fixed_pairs = cross_pairs if cross_pairs is not None else \
+        [(c, c + 1) for c in range(0, nc - 1, 2)]
+
+    edges = set()
+    for li in range(1, n_layers):
+        prev, cur = layers[li - 1], layers[li]
+        # 簇内边（同 build_clustered_spec：每子节点连同簇上一层 fanin 个相邻父，wrap）
+        for ci, csz in enumerate(clusters):
+            o = offs[ci]
+            pcl, ccl = prev[o:o + csz], cur[o:o + csz]
+            for j, node in enumerate(ccl):
+                for f in range(min(fanin, csz)):
+                    pos = (j + f) % csz if wrap else min(j + f, csz - 1)
+                    edges.add((pcl[pos], node))
+        # 跨簇边：cluster b 的子节点 ← cluster a(上一层) 的父（→ 两簇共享上层父）
+        pairs_li = [((li - 1) % nc, li % nc)] if (rotate_cross and nc > 1) else fixed_pairs
+        for (a, b) in pairs_li:
+            oa, csa = offs[a], clusters[a]
+            ob, csb = offs[b], clusters[b]
+            pcl_a, ccl_b = prev[oa:oa + csa], cur[ob:ob + csb]
+            for j, node in enumerate(ccl_b):
+                for f in range(min(cross_fanin, csa)):
+                    edges.add((pcl_a[(j + f) % csa], node))
+    return MultiLayerSpec(tuple(layers), tuple(sorted(edges)))
+
+
 def build_graph_from_spec(spec: MultiLayerSpec, basis_dim: int) -> DAGGraph:
     """全联合图 = 所有层间边的无向并集；每个物理维取 `basis_dim`。"""
     spec.validate()
