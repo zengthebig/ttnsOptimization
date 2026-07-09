@@ -73,6 +73,8 @@ def train_tree_l2(
     grad_clip: float = 1.0,
     train_noise: float = 0.0,
     early_stop_patience: int = 4,
+    max_train_l2: float = float("inf"),
+    max_val_l2_increase: float = float("inf"),
 ) -> Tuple[TTNSOpt, Dict]:
     optimizer = (
         optax.chain(optax.clip_by_global_norm(grad_clip), optax.adam(lr))
@@ -95,11 +97,12 @@ def train_tree_l2(
         return integral_q2_ttns(curr, gram, parent) - 2.0 * mc_expectation_q_ttns(curr, val_basis, parent)
 
     history: List[Dict] = []
-    best_val = float("inf")
+    best_val = float(eval_val(ttns))
     best = ttns
     bad_logs = 0
     t0 = time.perf_counter()
     print(f"\n=== [{label}] init integral={float(z0):.6e} ===", flush=True)
+    print(f"init_val_l2={best_val:.6f}", flush=True)
     print("step,train_l2,val_l2,total_sec", flush=True)
     for s in range(1, train_steps + 1):
         key, k_idx, k_noise = jax.random.split(key, 3)
@@ -108,6 +111,12 @@ def train_tree_l2(
         if train_noise > 0:
             batch = batch + jax.random.normal(k_noise, batch.shape) * train_noise
         ttns, opt_state, loss = step(ttns, opt_state, batch)
+        if np.isfinite(max_train_l2):
+            loss_f = float(loss)
+            if (not np.isfinite(loss_f)) or loss_f > max_train_l2:
+                print(f"early_stop at step={s} (diverged train_l2={loss_f:.6f}; "
+                      f"best_val_l2={best_val:.4f})", flush=True)
+                break
         if normalize_every > 0 and s % normalize_every == 0:
             ttns, _ = normalize_ttns_by_integral(ttns, basis_integrals, parent)
         if s % log_every == 0 or s == train_steps:
@@ -115,6 +124,10 @@ def train_tree_l2(
             history.append({"step": s, "train_l2": float(loss), "val_l2": vl,
                             "total_sec": time.perf_counter() - t0})
             print(f"{s},{float(loss):.6f},{vl:.6f},{time.perf_counter()-t0:.3f}", flush=True)
+            if (not np.isfinite(vl)) or vl > best_val + max_val_l2_increase:
+                print(f"early_stop at step={s} (diverged val_l2={vl:.6f}; "
+                      f"best_val_l2={best_val:.4f})", flush=True)
+                break
             if vl < best_val:
                 best_val, best = vl, ttns
                 bad_logs = 0

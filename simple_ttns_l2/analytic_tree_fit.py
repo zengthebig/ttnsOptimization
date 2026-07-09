@@ -638,9 +638,16 @@ def fit_sampled_chain(forest0, spec, params: DelayParams, key, cfg: dict) -> Dic
             t0 = init_ttns_from_rank1(k_i, bases, tr, parent, cfg["rank"], cfg["init_noise"])
             best, _ = train_tree_l2(
                 t0, parent, bases, tr, val, gram, basis_int,
-                key=k_i, lr=cfg["lr"], train_steps=cfg["steps"], batch_sz=cfg["batch_sz"],
-                normalize_every=1, log_every=cfg["log_every"], label=f"samp_L{li}.b{bi}",
-                train_noise=cfg["train_noise"], early_stop_patience=cfg["early_stop_patience"],
+                key=k_i, lr=cfg.get("r7_lr", cfg["lr"]),
+                train_steps=cfg.get("r7_steps", cfg["steps"]),
+                batch_sz=cfg.get("r7_batch_sz", cfg["batch_sz"]),
+                normalize_every=1, log_every=cfg.get("r7_log_every", cfg["log_every"]),
+                label=f"samp_L{li}.b{bi}",
+                grad_clip=cfg.get("r7_grad_clip", 1.0),
+                train_noise=cfg.get("r7_train_noise", cfg["train_noise"]),
+                early_stop_patience=cfg.get("r7_early_stop_patience", cfg["early_stop_patience"]),
+                max_train_l2=cfg.get("r7_max_train_l2", float("inf")),
+                max_val_l2_increase=cfg.get("r7_max_val_l2_increase", float("inf")),
             )
             best, _ = normalize_ttns_by_integral(best, basis_int, parent)
             forest.append(BlockModel(tuple(blk), tuple(int(g) for g in gids),

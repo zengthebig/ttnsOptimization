@@ -16,7 +16,7 @@
 评测(逐层、逐 seed)：
   - joint_LL@truth (↑)：该层联合密度在留出 test_x[:,layer] 上平均对数密度；
   - corr_fro vs truth (↓)：模型采样层内相关矩阵 vs 真值 Frobenius 误差(3 次采样均值)。
-≥3 seed → 每方法每层报 mean±std。**init_noise=0**(所有拟合的 rank-1 初始化均不加噪)。
+≥3 seed → 每方法每层报 mean±std。`init_noise` 由配置控制。
 
 用法见文件末 __main__；默认 --seeds 0,1,2。先出 spec 概览，再逐 seed 逐方法拟合评测。
 """
@@ -284,7 +284,7 @@ def print_report(results: List[dict], agg, params, fj, timings, seeds):
     spec = results[0]["spec"]
     n_layers = spec["n_layers"]
     print("\n" + "=" * 100)
-    print(f"更密/多父·更深 DAG 三方×R5/R6/R7  ——  {len(seeds)} seeds={seeds}, init_noise=0")
+    print(f"更密/多父·更深 DAG 三方×R5/R6/R7  ——  {len(seeds)} seeds={seeds}")
     print(f"[spec] 节点={spec['n_nodes']}  层数={spec['n_layers']}  每层={spec['layer_dim']}维  "
           f"簇={spec['clusters']}  fanin={spec['fanin']}(多父/更密)  边数={spec['n_edges']}")
     print("=" * 100)
@@ -372,6 +372,10 @@ CFG = dict(
     lr=2e-3, steps=700, batch_sz=512, init_noise=1e-3, train_noise=1e-3,
     log_every=350, early_stop_patience=8, mi_threshold=0.02,
     n_s=100, n_s_pair=80, n_s_joint=22, joint_kmax=4, an_lr=3e-5, an_steps=5000,
+    # R7 sampled L2 的 MC cross-term 噪声更大，使用独立的保守优化配置与发散熔断。
+    r7_lr=3e-4, r7_steps=700, r7_batch_sz=2048, r7_log_every=100,
+    r7_grad_clip=0.5, r7_train_noise=0.0, r7_early_stop_patience=2,
+    r7_max_train_l2=1000.0, r7_max_val_l2_increase=50.0,
     monitor_val_sz=2000,
 )
 
