@@ -16,4 +16,6 @@
 
 | 002 | 2026-07-10 | nonneg light corr penalty | nonneg_corr | 2.23 | 0.00 | 1.56 | `autoresearch(r5): 002 nonneg light corr penalty` | ❌ LL/nonpos 达标但方差过宽，相关更差 |
 
+| 003 | 2026-07-10 | nonneg source blocks | nonneg | 1.58 | 0.00 | 1.41 | `autoresearch(r5): 003 nonneg source blocks` | ❌ source 分块仍过宽，相关误差更差 |
+
 <!-- 新 attempt 行插入此处上方 -->

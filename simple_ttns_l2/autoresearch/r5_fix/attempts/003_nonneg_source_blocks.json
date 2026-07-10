@@ -1,0 +1,12 @@
+{
+  "attempt_id": "003",
+  "name": "nonneg source blocks",
+  "variant": "nonneg",
+  "seed": 0,
+  "notes": "假设：immediate 分块造成块间独立，相关结构无法恢复；改用 source 分块并保持 R5 nonneg 解析传播。",
+  "cfg_overrides": {
+    "block_mode": "source"
+  },
+  "fit_kwargs": {},
+  "conclusion": "待评估"
+}
