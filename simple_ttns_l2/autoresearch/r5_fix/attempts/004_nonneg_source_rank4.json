@@ -1,0 +1,13 @@
+{
+  "attempt_id": "004",
+  "name": "nonneg source rank4",
+  "variant": "nonneg",
+  "seed": 0,
+  "notes": "假设：003 的 source 大块过宽来自 rank=8 容量过高；降到 rank=4 抑制方差膨胀，保留非负解析传播。",
+  "cfg_overrides": {
+    "block_mode": "source",
+    "rank": 4
+  },
+  "fit_kwargs": {},
+  "conclusion": "待评估"
+}

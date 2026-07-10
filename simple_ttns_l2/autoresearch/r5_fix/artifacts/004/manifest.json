@@ -1,0 +1,13 @@
+{
+  "attempt_id": "004",
+  "name": "nonneg source rank4",
+  "variant": "nonneg",
+  "description": "R5 非负 core + 解析 L2",
+  "seed": 0,
+  "cfg_overrides": {
+    "block_mode": "source",
+    "rank": 4
+  },
+  "fit_kwargs": {},
+  "started_at": "2026-07-10T02:57:24.105485+00:00"
+}

@@ -18,4 +18,6 @@
 
 | 003 | 2026-07-10 | nonneg source blocks | nonneg | 1.58 | 0.00 | 1.41 | `autoresearch(r5): 003 nonneg source blocks` | ❌ source 分块仍过宽，相关误差更差 |
 
+| 004 | 2026-07-10 | nonneg source rank4 | nonneg | 2.53 | 0.00 | 1.11 | `autoresearch(r5): 004 nonneg source rank4` | ❌ 主指标达标，但 L4 最强相关对塌缩 |
+
 <!-- 新 attempt 行插入此处上方 -->
