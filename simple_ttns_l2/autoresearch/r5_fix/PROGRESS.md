@@ -22,4 +22,6 @@
 
 | 005 | 2026-07-10 | nonneg joint block k4 | joint_block | -4.65 | 0.00 | 1.70 | `autoresearch(r5): 005 nonneg joint block k4` | ❌ 低网格 joint 目标破坏边缘，相关仍塌缩 |
 
+| 006 | 2026-07-10 | nonneg immediate rank16 short | nonneg | 1.82 | 0.00 | 0.95 | `autoresearch(r5): 006 nonneg immediate rank16 short` | ❌ 主指标达标，但 L4 最强相关对仍塌缩 |
+
 <!-- 新 attempt 行插入此处上方 -->
