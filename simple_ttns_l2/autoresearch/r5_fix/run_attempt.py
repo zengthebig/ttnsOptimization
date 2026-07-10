@@ -39,6 +39,7 @@ from simple_ttns_l2.experiments.dense_dag_r567_remedy_tests import (  # noqa: E4
     prepare_data,
     eval_chain,
     fit_analytic_chain_nonneg,
+    fit_analytic_chain_nonneg_chain,
     fit_analytic_chain_nonneg_joint_blocks,
     fit_analytic_chain_nonneg_mle_targets,
     fit_layer_forest_nonneg,
@@ -80,6 +81,10 @@ def _fit_baseline(forest0, spec, params, key, s_max0, cfg, **kw):
 
 def _fit_nonneg(forest0, spec, params, key, s_max0, cfg, **kw):
     return fit_analytic_chain_nonneg(forest0, spec, params, key, s_max0, cfg)
+
+
+def _fit_nonneg_chain(forest0, spec, params, key, s_max0, cfg, **kw):
+    return fit_analytic_chain_nonneg_chain(forest0, spec, params, key, s_max0, cfg)
 
 
 def _fit_nonneg_corr(forest0, spec, params, key, s_max0, cfg, **kw):
@@ -145,6 +150,7 @@ def _fit_rank16(forest0, spec, params, key, s_max0, cfg, **kw):
 VARIANTS: Dict[str, FitSpec] = {
     "baseline": FitSpec(_fit_baseline, "#d62728", "R5 全解析链 λ=0（复现基线）"),
     "nonneg": FitSpec(_fit_nonneg, "#9467bd", "R5 非负 core + 解析 L2"),
+    "nonneg_chain": FitSpec(_fit_nonneg_chain, "#7f7f7f", "R5 非负 core + 解析 L2 + 块内 chain"),
     "nonneg_corr": FitSpec(_fit_nonneg_corr, "#2ca02c", "R5 非负 core + 解析 L2 + 相关矩惩罚"),
     "joint_block": FitSpec(_fit_joint_block, "#1f77b4", "K≤4 小块完整联合解析目标 + 非负 core"),
     "hybrid_sample_prop": FitSpec(_fit_hybrid_sample_prop, "#2ca02c", "hybrid: 非负 MLE + sampled propagation"),

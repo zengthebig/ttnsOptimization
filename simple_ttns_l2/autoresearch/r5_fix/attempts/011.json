@@ -1,0 +1,13 @@
+{
+  "attempt_id": "011",
+  "name": "nonneg analytic L2 chain topology",
+  "variant": "nonneg_chain",
+  "seed": 0,
+  "notes": "对照 010：保持 an_lr=1e-3/an_steps=3000，只把块内解析树投影拓扑固定为局部 chain。",
+  "cfg_overrides": {
+    "an_lr": 0.001,
+    "an_steps": 3000
+  },
+  "fit_kwargs": {},
+  "conclusion": "待评估：对照 010，检验块内 Chow-Liu/MI 树是否优于固定 chain"
+}

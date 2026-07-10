@@ -34,4 +34,8 @@
 
 | 010 | 2026-07-10 | nonneg analytic L2 fast lr longer | nonneg | 6.23 | 0.00 | 0.95 | `autoresearch(r5): 010 nonneg analytic L2 fast lr longer` | ✅ 最终推荐：3000 步较 009 小幅提升，L4 r=+0.534 vs GT +0.758，LL/corr/std 均达标且后段 loss 已平台化 |
 
+| 011 | 2026-07-10 | nonneg analytic L2 chain topology | nonneg_chain | 5.95 | 0.00 | 0.94 | `autoresearch(r5): 011 nonneg analytic L2 chain topology` | ✅ 达标但弱于 010：固定 chain 也能学对，说明主因仍是 L2 优化预算；Chow-Liu/MI 树在 LL 与 corr 上小幅更优 |
+
+| 012 | 2026-07-10 | nonneg analytic L2 chain rank13 | nonneg_chain | 6.15 | 0.00 | 0.94 | `autoresearch(r5): 012 nonneg analytic L2 chain rank13` | ✅ 近参数量对齐后仍略弱于 010：rank13 chain 参数约 205k，L4 LL 接近 010 但 corr/std 仍小幅落后 |
+
 <!-- 新 attempt 行插入此处上方 -->

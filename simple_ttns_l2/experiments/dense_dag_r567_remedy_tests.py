@@ -52,6 +52,7 @@ from simple_ttns_l2.analytic_tree_fit import (  # noqa: E402
     fit_analytic_chain, fit_sampled_chain, structural_blocks,
     analytic_block_target, analytic_block_target_joint,
     _init_rank1, _build_layer_bases, _cross_term_fn, _cross_term_fn_joint,
+    _pair_density,
 )
 from simple_ttns_l2.maxplus_cdf_forest import UpperForest  # noqa: E402
 from simple_ttns_l2.maxplus_cdf_forest import _cond_sample, _inv_cdf  # noqa: E402
@@ -361,6 +362,62 @@ def fit_analytic_chain_nonneg(
             ))
         forests[li] = forest
         print(f"[R5 nonneg] layer {li} done", flush=True)
+    return forests
+
+
+def _chain_block_target(upper, spec, gids, params, s_max, cfg):
+    """构造同一解析 target，但把块内 TTNS 拓扑固定为局部 chain。"""
+    target = analytic_block_target(
+        upper, spec, gids, params, s_max,
+        n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"], use_mi=True,
+    )
+    K = len(target.nodes)
+    if K <= 1:
+        return target
+
+    parent = [-1] + [i - 1 for i in range(1, K)]
+    pcond = {}
+    parents = {v: list(spec.parents(v)) for v in target.nodes}
+    for v in range(1, K):
+        u = parent[v]
+        Fvu = upper.pair_cdf(
+            parents[target.nodes[v]], parents[target.nodes[u]],
+            target.s_grid, target.s_grid, params,
+        )
+        p_vu = _pair_density(Fvu, target.s_grid)
+        col = np.trapz(p_vu, target.s_grid, axis=0)
+        pcond[v] = p_vu / np.clip(col[None, :], 1e-12, None)
+    return target.__class__(
+        list(target.nodes), parent, target.s_grid, target.p_marg, target.corr, pcond,
+    )
+
+
+def fit_analytic_chain_nonneg_chain(
+    forest0, spec, params, key, s_max0, cfg,
+) -> Dict[int, list]:
+    """R5 全解析链 + 非负解析 L2；块内 TTNS 拓扑固定为局部 chain。"""
+    forests: Dict[int, list] = {0: forest0}
+    s_max = s_max0
+    for li in range(1, len(spec.layers)):
+        s_max = s_max + (params.edge_hi + params.node_hi) + 0.3
+        upper = UpperForest(forests[li - 1], q_grid=400)
+        layer_nodes = list(spec.layers[li])
+        blocks = structural_blocks(spec, li, mode=cfg.get("block_mode", "source"))
+        forest: List[BlockModel] = []
+        for bi, blk in enumerate(blocks):
+            gids = [layer_nodes[i] for i in blk]
+            target = _chain_block_target(upper, spec, gids, params, s_max, cfg)
+            k_b, key = jax.random.split(key)
+            ttns, bases = _fit_analytic_ttns_nonneg(
+                target, k_b, cfg["q"], cfg["m"], cfg["rank"],
+                cfg["an_lr"], cfg["an_steps"], cfg["init_noise"],
+                label=f"chain_L{li}.b{bi}",
+            )
+            forest.append(BlockModel(
+                tuple(blk), tuple(int(g) for g in gids), tuple(target.parent), ttns, bases,
+            ))
+        forests[li] = forest
+        print(f"[R5 nonneg chain] layer {li} done", flush=True)
     return forests
 
 

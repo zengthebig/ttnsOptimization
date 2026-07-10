@@ -1,0 +1,65 @@
+{
+  "attempt_id": "012",
+  "name": "nonneg analytic L2 chain rank13",
+  "variant": "nonneg_chain",
+  "seed": 0,
+  "fit_seconds": 226.0010226983577,
+  "total_seconds": 342.17883628606796,
+  "per_layer": [
+    {
+      "layer": 0,
+      "joint_ll": 22.69296305143478,
+      "nonpos_rate": 0.03652777777777778,
+      "gt_std_mean": 0.1855888119389263,
+      "model_std_mean": 0.18532357941446392,
+      "std_ratio_mean": 0.9990070674024741,
+      "std_ratio_min": 0.9054426042689476
+    },
+    {
+      "layer": 1,
+      "joint_ll": 5.907661764398514,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.21487321844752555,
+      "model_std_mean": 0.21640848132104087,
+      "std_ratio_mean": 1.0072906346613113,
+      "std_ratio_min": 0.989482594808671
+    },
+    {
+      "layer": 2,
+      "joint_ll": 6.766547244069165,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.20922501024035317,
+      "model_std_mean": 0.20322594038041486,
+      "std_ratio_mean": 0.9723036663939759,
+      "std_ratio_min": 0.9287709351991089
+    },
+    {
+      "layer": 3,
+      "joint_ll": 6.758785026011084,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.2079256908984391,
+      "model_std_mean": 0.19667483493344137,
+      "std_ratio_mean": 0.9492617176077014,
+      "std_ratio_min": 0.8938037677464783
+    },
+    {
+      "layer": 4,
+      "joint_ll": 6.15163986390889,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.2051602754545399,
+      "model_std_mean": 0.19240008189336089,
+      "std_ratio_mean": 0.9424125820477054,
+      "std_ratio_min": 0.8855701447519266
+    }
+  ],
+  "corr_fro_norm_by_layer": {
+    "1": 0.10425311856665262,
+    "2": 0.16752703345541237,
+    "3": 0.2085180508241908,
+    "4": 0.23785402100223582
+  },
+  "artifacts": {
+    "marginal_slices": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/012/marginal_slices.png",
+    "slice_refined": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/012/slice_refined.png"
+  }
+}
