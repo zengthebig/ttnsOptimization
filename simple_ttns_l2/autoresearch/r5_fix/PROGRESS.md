@@ -30,4 +30,6 @@
 
 | 008 | 2026-07-10 | analytic target sampled MLE | analytic_mle | 5.96 | 0.00 | 0.97 | `autoresearch(r5): 008 analytic target sampled MLE` | ✅ 达标：解析 UpperForest target + 非负 MLE 保住相关，L4 r=+0.567 vs GT +0.758，说明 sample 的作用是修复块内拟合器而非替代解析传播 |
 
+| 009 | 2026-07-10 | nonneg analytic L2 fast lr | nonneg | 5.89 | 0.00 | 0.94 | `autoresearch(r5): 009 nonneg analytic L2 fast lr` | ✅ 达标：纯解析 UpperForest + 非负解析 L2；L4 r=+0.513 vs GT +0.758。定位根因是 `an_lr=3e-5` 对 `raw**2` 参数化过小，相关通道增长太慢 |
+
 <!-- 新 attempt 行插入此处上方 -->

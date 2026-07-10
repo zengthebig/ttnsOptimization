@@ -45,10 +45,24 @@ L4 逐层链尾检查（`an_steps=800` 的诊断链）：
 - `analytic_block_target(..., use_mi=True)` 中返回的 `layer.corr` 实际是树边权矩阵 `W`，默认存放 MI 权重，不是 Pearson 相关矩阵。因此早先 `nonneg_corr` 变体里的 `_corr_penalty_from_moments(..., target_corr=layer.corr)` 并没有惩罚到真实 Pearson 相关，001/002 不能作为“相关矩惩罚无效”的强证据。
 - 007 `hybrid_sample_prop` 成功的关键不是 TTNS 树结构不同，而是训练口径不同：它用非负 MLE 在采样传播数据上拟合，能够保住层内相关。
 
+## L2 拟合器定位更新
+
+后续 `debug_l2_fit.py` 对 L1 block0 做了最小化诊断，产物为：
+
+- `artifacts/l2_fit_debug_l1_block0.json`
+- `artifacts/l2_fit_debug_lr_sweep_l1_block0.json`
+
+结论更新如下：
+
+- `_cross_term_fn` 的解析交叉项不是主 bug。对 `target_sample_mle` 模型，`cross_analytic=33.018`、`cross_mc=33.016`，二者几乎一致；该模型的解析 L2 loss 为 `-35.94`，显著优于当前低学习率解析 L2 模型的 `-11.46`。
+- 线性解析 L2（允许负密度）在 L1 block0 能学到相关：`sample r≈+0.684`，说明树消息 L2 目标可以提供相关信号。
+- 非负解析 L2 的失败主要来自优化配置：默认 `an_lr=3e-5` 时 L1 block0 只有 `r≈+0.025`；提高到 `lr=1e-3/2e-3` 后，1500 步即可达到 `r≈+0.641/+0.663`。
+- 009 全链验证了这个定位：仅把非负解析 L2 的 `an_lr` 提高到 `1e-3`、`an_steps` 降到 `1500`，L4 达到 `joint_LL=5.89`、`nonpos=0`、`std_ratio=0.94`，最强相关 `r=+0.513` vs GT `+0.758`。
+
 ## 下一步建议
 
-若继续保留“解析 UpperForest 传播”原则，优先修正的是拟合器，而不是 target 构造：
+若继续保留“解析 UpperForest 传播”原则，当前推荐收敛到 009 的纯解析 L2 修复：
 
-1. 给解析非负 L2 加真正的 Pearson 相关惩罚，目标相关应从 `UpperForest.pair_cdf` 的 Hoeffding 协方差单独保存，而不是复用 MI 权重。
-2. 或者改用解析 target 生成的树 CDF 条件采样样本，再用现有非负 MLE 拟合 TTNS。这样仍保留 UpperForest 解析传播生成 target，但绕开当前解析 L2 cross-term/平方参数化组合的相关塌缩。
-3. 007 已满足项目指标，可作为当前 R5-fix 的成功收敛方案；若要求“全解析 L2 无采样训练”也达标，则需要新一轮针对 `_fit_analytic_ttns_nonneg` 的拟合器修复。
+1. 将 dense R5-fix 的非负解析 L2 默认配置改为 `an_lr≈1e-3`、`an_steps≈1500`，并保留 008 的 `analytic_mle` 作为拟合器对照。
+2. 如果后续跨 seed 或更大图不稳定，再考虑为 `_fit_analytic_ttns_nonneg` 加梯度裁剪或 warmup；目前证据不支持修改 `UpperForest.pair_cdf` 或 `analytic_block_target`。
+3. 相关惩罚若继续保留，需要先修正目标口径：不能复用 `layer.corr` 的 MI 权重，应单独保存 Pearson 相关矩阵。

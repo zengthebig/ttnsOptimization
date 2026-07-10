@@ -106,7 +106,7 @@ ls simple_ttns_l2/autoresearch/r5_fix/artifacts/001/
 |---|---|---|---|
 | — | **基线复现** R5 λ=0（对齐 audit） | `baseline` | ⬜ 待跑 |
 | A1 | L0 改为 nonneg MLE，L1+ 仍解析 L2 | `l0_nonneg` | ⬜ |
-| A2 | 全链 nonneg + 解析 L2（已 preliminary：相关仍差） | `nonneg` | ✅ 见 remedy |
+| A2 | 全链 nonneg + 解析 L2（提高 `an_lr` 后） | `nonneg` | ✅ 009 达标 |
 | A3 | `marginal_l2_weight` ∈ {0.3, 1.0} | `marginal_l2` | ✅ 否定 |
 | A4 | 块内改 **joint 解析目标**（R6 口径，K≤4 块） | `joint_block` | ⬜ |
 | A5 | `block_mode=source`（更大块，测 immediate 是否过碎） | `block_source` | ⬜ |

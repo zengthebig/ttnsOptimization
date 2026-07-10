@@ -1,0 +1,12 @@
+{
+  "attempt_id": "009",
+  "name": "nonneg analytic L2 fast lr",
+  "variant": "nonneg",
+  "seed": 0,
+  "cfg_overrides": {
+    "an_lr": 0.001,
+    "an_steps": 1500
+  },
+  "fit_kwargs": {},
+  "conclusion": "待判定：L1 block 诊断显示当前 an_lr=3e-5 过小导致相关通道长不起来，本 attempt 验证提高解析非负 L2 学习率是否修复全链"
+}
