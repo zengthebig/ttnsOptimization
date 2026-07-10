@@ -45,7 +45,7 @@ from simple_ttns_l2.chow_liu import estimate_chow_liu_tree  # noqa: E402
 from simple_ttns_l2.train_l2 import build_bases, init_ttns_from_rank1  # noqa: E402
 from simple_ttns_l2.objective import (  # noqa: E402
     batch_basis_vectors_from_samples, batch_eval_q_ttns, integral_q_ttns,
-    normalize_ttns_by_integral,
+    normalize_ttns_by_integral, eval_q_ttns,
 )
 from simple_ttns_l2.ttns_sampler import _basis_eval_dim  # noqa: E402
 from simple_ttns_l2.analytic_tree_fit import (  # noqa: E402
@@ -71,7 +71,60 @@ def _sq_cores(raw):
     return [r ** 2 for r in raw]
 
 
-def _fit_analytic_ttns_nonneg(layer, key, q, m, rank, lr, steps, init_noise, label=""):
+def _basis_moment_vectors(Bg, s_grid):
+    r"""用解析目标同一网格近似 $\int x b_i(x)dx$ 与 $\int x^2 b_i(x)dx$。"""
+    s = jnp.asarray(s_grid)
+    if len(s_grid) <= 1:
+        w = jnp.ones_like(s)
+    else:
+        delta = float(s_grid[1] - s_grid[0])
+        w = jnp.ones_like(s) * delta
+        w = w.at[0].set(0.5 * delta)
+        w = w.at[-1].set(0.5 * delta)
+    m1 = []
+    m2 = []
+    for B in Bg:
+        Bj = jnp.asarray(B)
+        m1.append(Bj.T @ (s * w))
+        m2.append(Bj.T @ ((s ** 2) * w))
+    return jnp.stack(m1), jnp.stack(m2)
+
+
+def _corr_penalty_from_moments(cores, parent, basis_int, moment1, moment2, target_corr):
+    """解析计算模型相关矩阵并惩罚与目标 pair-CDF 相关矩阵的偏差。"""
+    K = basis_int.shape[0]
+    if K <= 1:
+        return jnp.array(0.0, dtype=basis_int.dtype)
+    T = TTNSOpt(tuple(cores))
+    par = list(parent)
+    z = jnp.clip(eval_q_ttns(T, basis_int, par), 1e-12, None)
+
+    means = []
+    variances = []
+    for dim in range(K):
+        V1 = basis_int.at[dim].set(moment1[dim])
+        V2 = basis_int.at[dim].set(moment2[dim])
+        e1 = eval_q_ttns(T, V1, par) / z
+        e2 = eval_q_ttns(T, V2, par) / z
+        means.append(e1)
+        variances.append(jnp.maximum(e2 - e1 * e1, 1e-10))
+    means = jnp.stack(means)
+    variances = jnp.stack(variances)
+
+    errs = []
+    for a in range(K):
+        for b in range(a + 1, K):
+            Vab = basis_int.at[a].set(moment1[a]).at[b].set(moment1[b])
+            eab = eval_q_ttns(T, Vab, par) / z
+            cov = eab - means[a] * means[b]
+            corr = cov / jnp.sqrt(variances[a] * variances[b])
+            errs.append((corr - target_corr[a, b]) ** 2)
+    return jnp.mean(jnp.stack(errs))
+
+
+def _fit_analytic_ttns_nonneg(
+    layer, key, q, m, rank, lr, steps, init_noise, label="", corr_weight: float = 0.0,
+):
     """R5 非负：core=raw²，仍用解析 L2 目标（∫q²−2E[q]），保证 q≥0。"""
     from simple_ttns_l2.analytic_tree_fit import _root_from_parent
 
@@ -80,6 +133,8 @@ def _fit_analytic_ttns_nonneg(layer, key, q, m, rank, lr, steps, init_noise, lab
     gram = vmap(type(bases).l2_integral)(bases)
     basis_int = vmap(type(bases).integral)(bases)
     Bg = [_basis_eval_dim(bases, v, jnp.asarray(layer.s_grid)) for v in range(K)]
+    moment1, moment2 = _basis_moment_vectors(Bg, layer.s_grid)
+    target_corr = jnp.asarray(layer.corr)
     delta = float(layer.s_grid[1] - layer.s_grid[0]) if len(layer.s_grid) > 1 else 1.0
     pcond_j = {v: jnp.asarray(layer.pcond[v]) for v in layer.pcond}
     root = _root_from_parent(layer.parent)
@@ -100,7 +155,12 @@ def _fit_analytic_ttns_nonneg(layer, key, q, m, rank, lr, steps, init_noise, lab
     def loss_fn(raw_cores):
         sq = _sq_cores(raw_cores)
         T = TTNSOpt(tuple(sq))
-        return quadratic_form_ttns(T, gram, layer.parent) - 2.0 * cross(sq)
+        loss = quadratic_form_ttns(T, gram, layer.parent) - 2.0 * cross(sq)
+        if corr_weight > 0:
+            loss = loss + corr_weight * _corr_penalty_from_moments(
+                sq, layer.parent, basis_int, moment1, moment2, target_corr,
+            )
+        return loss
 
     @jax.jit
     def step_fn(raw_cores, opt_state):
@@ -124,8 +184,10 @@ def _fit_analytic_ttns_nonneg(layer, key, q, m, rank, lr, steps, init_noise, lab
     return ttns, bases
 
 
-def fit_analytic_chain_nonneg(forest0, spec, params, key, s_max0, cfg) -> Dict[int, list]:
-    """R5 全解析链 + 非负 core（square），块内解析 L2。"""
+def fit_analytic_chain_nonneg(
+    forest0, spec, params, key, s_max0, cfg, corr_weight: float = 0.0,
+) -> Dict[int, list]:
+    """R5 全解析链 + 非负 core（square），块内解析 L2，可选解析相关矩惩罚。"""
     forests: Dict[int, list] = {0: forest0}
     s_max = s_max0
     for li in range(1, len(spec.layers)):
@@ -144,7 +206,7 @@ def fit_analytic_chain_nonneg(forest0, spec, params, key, s_max0, cfg) -> Dict[i
             ttns, bases = _fit_analytic_ttns_nonneg(
                 target, k_b, cfg["q"], cfg["m"], cfg["rank"],
                 cfg["an_lr"], cfg["an_steps"], cfg["init_noise"],
-                label=f"L{li}.b{bi}",
+                label=f"L{li}.b{bi}", corr_weight=corr_weight,
             )
             forest.append(BlockModel(
                 tuple(blk), tuple(int(g) for g in gids), tuple(target.parent), ttns, bases,

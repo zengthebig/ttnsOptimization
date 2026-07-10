@@ -78,6 +78,13 @@ def _fit_nonneg(forest0, spec, params, key, s_max0, cfg, **kw):
     return fit_analytic_chain_nonneg(forest0, spec, params, key, s_max0, cfg)
 
 
+def _fit_nonneg_corr(forest0, spec, params, key, s_max0, cfg, **kw):
+    return fit_analytic_chain_nonneg(
+        forest0, spec, params, key, s_max0, cfg,
+        corr_weight=float(kw.get("corr_weight", 5.0)),
+    )
+
+
 def _fit_marginal_l2(forest0, spec, params, key, s_max0, cfg, **kw):
     w = float(kw.get("marginal_l2_weight", 0.3))
     return _fit_baseline(forest0, spec, params, key, s_max0, cfg, marginal_l2_weight=w)
@@ -106,6 +113,7 @@ def _fit_rank16(forest0, spec, params, key, s_max0, cfg, **kw):
 VARIANTS: Dict[str, FitSpec] = {
     "baseline": FitSpec(_fit_baseline, "#d62728", "R5 全解析链 λ=0（复现基线）"),
     "nonneg": FitSpec(_fit_nonneg, "#9467bd", "R5 非负 core + 解析 L2"),
+    "nonneg_corr": FitSpec(_fit_nonneg_corr, "#2ca02c", "R5 非负 core + 解析 L2 + 相关矩惩罚"),
     "marginal_l2": FitSpec(_fit_marginal_l2, "#ff7f0e", "R5 + marginal_l2_weight"),
     "block_source": FitSpec(_fit_block_source, "#8c564b", "block_mode=source"),
     "finer_grid": FitSpec(_fit_finer_grid, "#17becf", "增大解析网格/步数"),

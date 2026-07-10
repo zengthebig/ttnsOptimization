@@ -12,4 +12,6 @@
 
 | 000 | 2026-07-10 | baseline R5 analytic chain | baseline | -11.30 | 0.55 | 0.95 | `autoresearch(r5): 000 baseline R5 analytic chain` | ✅ 复现失效：L4 负密度高、LL 崩溃 |
 
+| 001 | 2026-07-10 | nonneg analytic corr penalty | nonneg_corr | 0.38 | 0.00 | 2.51 | `autoresearch(r5): 001 nonneg analytic corr penalty` | ❌ 权重过强：方差膨胀、LL 未达标、相关未改善 |
+
 <!-- 新 attempt 行插入此处上方 -->

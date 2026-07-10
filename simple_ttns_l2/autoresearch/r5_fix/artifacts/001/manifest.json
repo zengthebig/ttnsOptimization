@@ -1,0 +1,12 @@
+{
+  "attempt_id": "001",
+  "name": "nonneg analytic corr penalty",
+  "variant": "nonneg_corr",
+  "description": "R5 非负 core + 解析 L2 + 相关矩惩罚",
+  "seed": 0,
+  "cfg_overrides": {},
+  "fit_kwargs": {
+    "corr_weight": 5.0
+  },
+  "started_at": "2026-07-10T02:32:40.134545+00:00"
+}
