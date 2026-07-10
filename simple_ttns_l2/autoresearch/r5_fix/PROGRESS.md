@@ -14,4 +14,6 @@
 
 | 001 | 2026-07-10 | nonneg analytic corr penalty | nonneg_corr | 0.38 | 0.00 | 2.51 | `autoresearch(r5): 001 nonneg analytic corr penalty` | ❌ 权重过强：方差膨胀、LL 未达标、相关未改善 |
 
+| 002 | 2026-07-10 | nonneg light corr penalty | nonneg_corr | 2.23 | 0.00 | 1.56 | `autoresearch(r5): 002 nonneg light corr penalty` | ❌ LL/nonpos 达标但方差过宽，相关更差 |
+
 <!-- 新 attempt 行插入此处上方 -->

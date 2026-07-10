@@ -1,0 +1,12 @@
+{
+  "attempt_id": "002",
+  "name": "nonneg light corr penalty",
+  "variant": "nonneg_corr",
+  "seed": 0,
+  "notes": "假设：001 的 corr_weight=5.0 过强导致方差膨胀；降低到 0.5，尝试保住 R5 nonneg 的 LL/std，同时轻量约束相关。",
+  "cfg_overrides": {},
+  "fit_kwargs": {
+    "corr_weight": 0.5
+  },
+  "conclusion": "待评估"
+}
