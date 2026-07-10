@@ -20,4 +20,6 @@
 
 | 004 | 2026-07-10 | nonneg source rank4 | nonneg | 2.53 | 0.00 | 1.11 | `autoresearch(r5): 004 nonneg source rank4` | ❌ 主指标达标，但 L4 最强相关对塌缩 |
 
+| 005 | 2026-07-10 | nonneg joint block k4 | joint_block | -4.65 | 0.00 | 1.70 | `autoresearch(r5): 005 nonneg joint block k4` | ❌ 低网格 joint 目标破坏边缘，相关仍塌缩 |
+
 <!-- 新 attempt 行插入此处上方 -->

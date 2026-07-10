@@ -1,0 +1,19 @@
+{
+  "attempt_id": "005",
+  "name": "nonneg joint block k4",
+  "variant": "joint_block",
+  "description": "K≤4 小块完整联合解析目标 + 非负 core",
+  "seed": 0,
+  "cfg_overrides": {
+    "n_s_joint": 8,
+    "an_steps": 2500,
+    "joint_steps": 800
+  },
+  "fit_kwargs": {
+    "joint_kmax": 4,
+    "joint_layers": [
+      4
+    ]
+  },
+  "started_at": "2026-07-10T03:35:13.234878+00:00"
+}

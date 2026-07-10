@@ -50,7 +50,8 @@ from simple_ttns_l2.objective import (  # noqa: E402
 from simple_ttns_l2.ttns_sampler import _basis_eval_dim  # noqa: E402
 from simple_ttns_l2.analytic_tree_fit import (  # noqa: E402
     fit_analytic_chain, fit_sampled_chain, structural_blocks,
-    analytic_block_target, _init_rank1, _build_layer_bases, _cross_term_fn,
+    analytic_block_target, analytic_block_target_joint,
+    _init_rank1, _build_layer_bases, _cross_term_fn, _cross_term_fn_joint,
 )
 from simple_ttns_l2.maxplus_cdf_forest import UpperForest  # noqa: E402
 from ttde.ttns.ttns_opt import TTNSOpt, quadratic_form_ttns  # noqa: E402
@@ -184,6 +185,56 @@ def _fit_analytic_ttns_nonneg(
     return ttns, bases
 
 
+def _fit_analytic_ttns_nonneg_joint(target, key, q, m, rank, lr, steps, init_noise, label=""):
+    """K<=4 完整联合目标的非负解析 L2 拟合。"""
+    from simple_ttns_l2.analytic_tree_fit import _root_from_parent
+
+    K = len(target.nodes)
+    bases = _build_layer_bases(target.s_grid, K, q, m)
+    gram = vmap(type(bases).l2_integral)(bases)
+    basis_int = vmap(type(bases).integral)(bases)
+    Bg = [_basis_eval_dim(bases, v, jnp.asarray(target.s_grid)) for v in range(K)]
+    delta = float(target.s_grid[1] - target.s_grid[0]) if len(target.s_grid) > 1 else 1.0
+    cross = _cross_term_fn_joint(target.parent, Bg, target.p_joint, delta)
+    root = _root_from_parent(target.parent)
+
+    k_init, key = jax.random.split(key)
+    t0 = _init_rank1(target, bases, gram, Bg, rank, k_init, init_noise)
+    raw = [jnp.sqrt(jnp.abs(c) + 1e-4) for c in t0.cores]
+    ttns0 = TTNSOpt(tuple(_sq_cores(raw)))
+    ttns0, z0 = normalize_ttns_by_integral(ttns0, basis_int, target.parent)
+    raw[root] = raw[root] / jnp.sqrt(jnp.clip(z0, 1e-12, None))
+
+    optimizer = optax.adam(lr)
+    opt_state = optimizer.init(raw)
+
+    def loss_fn(raw_cores):
+        sq = _sq_cores(raw_cores)
+        T = TTNSOpt(tuple(sq))
+        return quadratic_form_ttns(T, gram, target.parent) - 2.0 * cross(sq)
+
+    @jax.jit
+    def step_fn(raw_cores, opt_state):
+        loss, grads = jax.value_and_grad(loss_fn)(raw_cores)
+        upd, opt_state = optimizer.update(grads, opt_state, raw_cores)
+        raw_cores = optax.apply_updates(raw_cores, upd)
+        return raw_cores, opt_state, loss
+
+    for st in range(steps):
+        raw, opt_state, loss = step_fn(raw, opt_state)
+        if (st + 1) % 50 == 0 or st + 1 == steps:
+            sq = _sq_cores(raw)
+            ttns_step = TTNSOpt(tuple(sq))
+            ttns_step, z = normalize_ttns_by_integral(ttns_step, basis_int, target.parent)
+            raw[root] = raw[root] / jnp.sqrt(jnp.clip(z, 1e-12, None))
+        if st == 0 or (st + 1) % max(steps // 5, 1) == 0:
+            print(f"  [analytic-nonneg-joint {label}] step {st+1}/{steps} L2={float(loss):.4f}", flush=True)
+
+    ttns = TTNSOpt(tuple(_sq_cores(raw)))
+    ttns, _ = normalize_ttns_by_integral(ttns, basis_int, target.parent)
+    return ttns, bases
+
+
 def fit_analytic_chain_nonneg(
     forest0, spec, params, key, s_max0, cfg, corr_weight: float = 0.0,
 ) -> Dict[int, list]:
@@ -213,6 +264,60 @@ def fit_analytic_chain_nonneg(
             ))
         forests[li] = forest
         print(f"[R5 nonneg] layer {li} done", flush=True)
+    return forests
+
+
+def fit_analytic_chain_nonneg_joint_blocks(
+    forest0, spec, params, key, s_max0, cfg, joint_kmax: int = 4,
+    joint_layers: Sequence[int] | None = None,
+) -> Dict[int, list]:
+    """R5 nonneg：小块用完整联合解析目标，大块回退树目标。"""
+    forests: Dict[int, list] = {0: forest0}
+    s_max = s_max0
+    joint_layer_set = None if joint_layers is None else {int(li) for li in joint_layers}
+    for li in range(1, len(spec.layers)):
+        s_max = s_max + (params.edge_hi + params.node_hi) + 0.3
+        upper = UpperForest(forests[li - 1], q_grid=400)
+        layer_nodes = list(spec.layers[li])
+        blocks = structural_blocks(spec, li, mode=cfg.get("block_mode", "source"))
+        forest: List[BlockModel] = []
+        for bi, blk in enumerate(blocks):
+            gids = [layer_nodes[i] for i in blk]
+            k_b, key = jax.random.split(key)
+            use_joint = len(gids) <= joint_kmax and (joint_layer_set is None or li in joint_layer_set)
+            if use_joint:
+                target = analytic_block_target_joint(
+                    upper, spec, gids, params, s_max,
+                    n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"],
+                    n_s_joint=cfg.get("n_s_joint", 12), use_mi=True,
+                )
+                ttns, bases = _fit_analytic_ttns_nonneg_joint(
+                    target, k_b, cfg["q"], cfg["m"], cfg["rank"],
+                    cfg["an_lr"], int(cfg.get("joint_steps", cfg["an_steps"])), cfg["init_noise"],
+                    label=f"L{li}.b{bi}",
+                )
+                parent = target.parent
+            else:
+                if len(gids) > joint_kmax:
+                    reason = f"K={len(gids)}>joint_kmax={joint_kmax}"
+                else:
+                    reason = f"L{li} not in joint_layers={sorted(joint_layer_set)}"
+                print(f"  [nonneg-joint fallback] L{li}.b{bi} {reason} -> tree", flush=True)
+                target = analytic_block_target(
+                    upper, spec, gids, params, s_max,
+                    n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"], use_mi=True,
+                )
+                ttns, bases = _fit_analytic_ttns_nonneg(
+                    target, k_b, cfg["q"], cfg["m"], cfg["rank"],
+                    cfg["an_lr"], cfg["an_steps"], cfg["init_noise"],
+                    label=f"L{li}.b{bi}",
+                )
+                parent = target.parent
+            forest.append(BlockModel(
+                tuple(blk), tuple(int(g) for g in gids), tuple(parent), ttns, bases,
+            ))
+        forests[li] = forest
+        print(f"[R5 nonneg joint-block] layer {li} done", flush=True)
     return forests
 
 
