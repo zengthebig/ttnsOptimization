@@ -24,4 +24,6 @@
 
 | 006 | 2026-07-10 | nonneg immediate rank16 short | nonneg | 1.82 | 0.00 | 0.95 | `autoresearch(r5): 006 nonneg immediate rank16 short` | ❌ 主指标达标，但 L4 最强相关对仍塌缩 |
 
+| 007 | 2026-07-10 | hybrid sampled propagation | hybrid_sample_prop | 7.07 | 0.00 | 0.97 | `autoresearch(r5): 007 hybrid sampled propagation` | ✅ hybrid 达标：L4 相关同号且 \|Δr\|≈0.095 |
+
 <!-- 新 attempt 行插入此处上方 -->

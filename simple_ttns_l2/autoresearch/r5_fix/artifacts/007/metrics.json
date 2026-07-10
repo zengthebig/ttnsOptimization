@@ -1,0 +1,65 @@
+{
+  "attempt_id": "007",
+  "name": "hybrid sampled propagation",
+  "variant": "hybrid_sample_prop",
+  "seed": 0,
+  "fit_seconds": 286.00617556786165,
+  "total_seconds": 397.3263161871582,
+  "per_layer": [
+    {
+      "layer": 0,
+      "joint_ll": 23.285691621902455,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.1855888119389263,
+      "model_std_mean": 0.1857168278659787,
+      "std_ratio_mean": 1.0032579081911583,
+      "std_ratio_min": 0.9518363047523617
+    },
+    {
+      "layer": 1,
+      "joint_ll": 7.072930323306545,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.21487321844752555,
+      "model_std_mean": 0.21544033961264777,
+      "std_ratio_mean": 1.0015930711841612,
+      "std_ratio_min": 0.9582063391302515
+    },
+    {
+      "layer": 2,
+      "joint_ll": 7.478848880841531,
+      "nonpos_rate": 0.0002777777777777778,
+      "gt_std_mean": 0.20922501024035317,
+      "model_std_mean": 0.2089006463544715,
+      "std_ratio_mean": 0.9984113900091327,
+      "std_ratio_min": 0.9820499127059387
+    },
+    {
+      "layer": 3,
+      "joint_ll": 7.145992702768206,
+      "nonpos_rate": 0.0001388888888888889,
+      "gt_std_mean": 0.2079256908984391,
+      "model_std_mean": 0.20451742866550263,
+      "std_ratio_mean": 0.9839183976041553,
+      "std_ratio_min": 0.954183631263927
+    },
+    {
+      "layer": 4,
+      "joint_ll": 7.068834355945289,
+      "nonpos_rate": 0.0005555555555555556,
+      "gt_std_mean": 0.2051602754545399,
+      "model_std_mean": 0.1989608942287172,
+      "std_ratio_mean": 0.9705826936852233,
+      "std_ratio_min": 0.9384334900354419
+    }
+  ],
+  "corr_fro_norm_by_layer": {
+    "1": 0.04729553904021505,
+    "2": 0.1086808934725091,
+    "3": 0.16435773650912366,
+    "4": 0.19324812672601718
+  },
+  "artifacts": {
+    "marginal_slices": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/007/marginal_slices.png",
+    "slice_refined": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/007/slice_refined.png"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "attempt_id": "007",
+  "name": "hybrid sampled propagation",
+  "variant": "hybrid_sample_prop",
+  "description": "hybrid: 非负 MLE + sampled propagation",
+  "seed": 0,
+  "cfg_overrides": {
+    "nn_steps": 400,
+    "nn_batch_sz": 512,
+    "nn_patience": 6,
+    "nn_lr": 0.002
+  },
+  "fit_kwargs": {},
+  "started_at": "2026-07-10T04:04:17.393237+00:00"
+}

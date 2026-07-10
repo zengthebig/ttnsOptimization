@@ -1,0 +1,15 @@
+{
+  "attempt_id": "007",
+  "name": "hybrid sampled propagation",
+  "variant": "hybrid_sample_prop",
+  "seed": 0,
+  "notes": "诊断假设：若 sampled propagation + nonneg MLE 能恢复 L4 相关，则 R5 解析链剩余失败主要来自解析传播/树投影闭包，而非评测或非负表示。",
+  "cfg_overrides": {
+    "nn_steps": 400,
+    "nn_batch_sz": 512,
+    "nn_patience": 6,
+    "nn_lr": 0.002
+  },
+  "fit_kwargs": {},
+  "conclusion": "待评估"
+}

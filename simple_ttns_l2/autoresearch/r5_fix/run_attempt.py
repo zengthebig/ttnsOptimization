@@ -40,6 +40,8 @@ from simple_ttns_l2.experiments.dense_dag_r567_remedy_tests import (  # noqa: E4
     eval_chain,
     fit_analytic_chain_nonneg,
     fit_analytic_chain_nonneg_joint_blocks,
+    fit_layer_forest_nonneg,
+    fit_sampled_chain_nonneg,
 )
 from simple_ttns_l2.experiments.plot_dense_dag_nonneg_slices import (  # noqa: E402
     plot_marginal_slices,
@@ -94,6 +96,19 @@ def _fit_joint_block(forest0, spec, params, key, s_max0, cfg, **kw):
     )
 
 
+def _fit_hybrid_sample_prop(forest0, spec, params, key, s_max0, cfg, **kw):
+    del forest0, s_max0
+    train_x = kw["train_x"]
+    layers = kw["layers"]
+    k_l0, key = jax.random.split(key)
+    forest0_nn = fit_layer_forest_nonneg(
+        train_x[:, layers[0]], layers[0], cfg, k_l0,
+        label="L0_nn", mi_threshold=cfg["mi_threshold"],
+    )
+    k_chain, key = jax.random.split(key)
+    return fit_sampled_chain_nonneg(forest0_nn, spec, params, k_chain, cfg)
+
+
 def _fit_marginal_l2(forest0, spec, params, key, s_max0, cfg, **kw):
     w = float(kw.get("marginal_l2_weight", 0.3))
     return _fit_baseline(forest0, spec, params, key, s_max0, cfg, marginal_l2_weight=w)
@@ -124,6 +139,7 @@ VARIANTS: Dict[str, FitSpec] = {
     "nonneg": FitSpec(_fit_nonneg, "#9467bd", "R5 非负 core + 解析 L2"),
     "nonneg_corr": FitSpec(_fit_nonneg_corr, "#2ca02c", "R5 非负 core + 解析 L2 + 相关矩惩罚"),
     "joint_block": FitSpec(_fit_joint_block, "#1f77b4", "K≤4 小块完整联合解析目标 + 非负 core"),
+    "hybrid_sample_prop": FitSpec(_fit_hybrid_sample_prop, "#2ca02c", "hybrid: 非负 MLE + sampled propagation"),
     "marginal_l2": FitSpec(_fit_marginal_l2, "#ff7f0e", "R5 + marginal_l2_weight"),
     "block_source": FitSpec(_fit_block_source, "#8c564b", "block_mode=source"),
     "finer_grid": FitSpec(_fit_finer_grid, "#17becf", "增大解析网格/步数"),
@@ -216,7 +232,8 @@ def run_attempt(
 
     t_fit = time.perf_counter()
     chain = spec_entry.fit_fn(
-        forest0, spec, params, key, s_max0, cfg, **(fit_kwargs or {})
+        forest0, spec, params, key, s_max0, cfg,
+        train_x=train_x, layers=layers, **(fit_kwargs or {})
     )
     fit_seconds = time.perf_counter() - t_fit
 
