@@ -1,0 +1,65 @@
+{
+  "attempt_id": "000",
+  "name": "baseline R5 analytic chain",
+  "variant": "baseline",
+  "seed": 0,
+  "fit_seconds": 352.9582790960558,
+  "total_seconds": 463.39768603490666,
+  "per_layer": [
+    {
+      "layer": 0,
+      "joint_ll": 22.69296305143478,
+      "nonpos_rate": 0.03652777777777778,
+      "gt_std_mean": 0.1855888119389263,
+      "model_std_mean": 0.18532357941446392,
+      "std_ratio_mean": 0.9990070674024741,
+      "std_ratio_min": 0.9054426042689476
+    },
+    {
+      "layer": 1,
+      "joint_ll": 5.2787925349959774,
+      "nonpos_rate": 0.009166666666666667,
+      "gt_std_mean": 0.21487321844752555,
+      "model_std_mean": 0.219103476582648,
+      "std_ratio_mean": 1.0208805811868547,
+      "std_ratio_min": 0.979560015627814
+    },
+    {
+      "layer": 2,
+      "joint_ll": 5.194524077505274,
+      "nonpos_rate": 0.03333333333333333,
+      "gt_std_mean": 0.20922501024035317,
+      "model_std_mean": 0.19072330149451147,
+      "std_ratio_mean": 0.9119869857090842,
+      "std_ratio_min": 0.8296626293206011
+    },
+    {
+      "layer": 3,
+      "joint_ll": 2.7541163574366054,
+      "nonpos_rate": 0.11083333333333334,
+      "gt_std_mean": 0.2079256908984391,
+      "model_std_mean": 0.17330506384958172,
+      "std_ratio_mean": 0.8375275503254007,
+      "std_ratio_min": 0.7313064982845956
+    },
+    {
+      "layer": 4,
+      "joint_ll": -11.295355310487789,
+      "nonpos_rate": 0.5461111111111111,
+      "gt_std_mean": 0.2051602754545399,
+      "model_std_mean": 0.19059362206841374,
+      "std_ratio_mean": 0.9489619309401005,
+      "std_ratio_min": 0.7111072647394536
+    }
+  ],
+  "corr_fro_norm_by_layer": {
+    "1": 0.11160976043306459,
+    "2": 0.207843133130707,
+    "3": 0.26036856333803715,
+    "4": 0.2925259261669959
+  },
+  "artifacts": {
+    "marginal_slices": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/000/marginal_slices.png",
+    "slice_refined": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/000/slice_refined.png"
+  }
+}
