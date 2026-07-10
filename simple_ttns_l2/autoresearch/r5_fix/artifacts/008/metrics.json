@@ -1,0 +1,65 @@
+{
+  "attempt_id": "008",
+  "name": "analytic target sampled MLE",
+  "variant": "analytic_mle",
+  "seed": 0,
+  "fit_seconds": 180.08471134817228,
+  "total_seconds": 293.1746822530404,
+  "per_layer": [
+    {
+      "layer": 0,
+      "joint_ll": 22.69296305143478,
+      "nonpos_rate": 0.03652777777777778,
+      "gt_std_mean": 0.1855888119389263,
+      "model_std_mean": 0.18532357941446392,
+      "std_ratio_mean": 0.9990070674024741,
+      "std_ratio_min": 0.9054426042689476
+    },
+    {
+      "layer": 1,
+      "joint_ll": 6.640582571706968,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.21487321844752555,
+      "model_std_mean": 0.21651298347703704,
+      "std_ratio_mean": 1.0078095567749392,
+      "std_ratio_min": 0.9757714642162829
+    },
+    {
+      "layer": 2,
+      "joint_ll": 6.66743826798697,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.20922501024035317,
+      "model_std_mean": 0.2090109026784836,
+      "std_ratio_mean": 0.9987440813420548,
+      "std_ratio_min": 0.9489956440696633
+    },
+    {
+      "layer": 3,
+      "joint_ll": 6.131384385633723,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.2079256908984391,
+      "model_std_mean": 0.20258013050629628,
+      "std_ratio_mean": 0.9761520369709297,
+      "std_ratio_min": 0.9101156375654248
+    },
+    {
+      "layer": 4,
+      "joint_ll": 5.958317928918435,
+      "nonpos_rate": 0.0001388888888888889,
+      "gt_std_mean": 0.2051602754545399,
+      "model_std_mean": 0.19764651011933881,
+      "std_ratio_mean": 0.9666314851031277,
+      "std_ratio_min": 0.8903782615761545
+    }
+  ],
+  "corr_fro_norm_by_layer": {
+    "1": 0.06187158878467308,
+    "2": 0.15843274156073864,
+    "3": 0.2139994595260983,
+    "4": 0.2399577630067397
+  },
+  "artifacts": {
+    "marginal_slices": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/008/marginal_slices.png",
+    "slice_refined": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/008/slice_refined.png"
+  }
+}

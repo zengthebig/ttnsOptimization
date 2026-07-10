@@ -40,6 +40,7 @@ from simple_ttns_l2.experiments.dense_dag_r567_remedy_tests import (  # noqa: E4
     eval_chain,
     fit_analytic_chain_nonneg,
     fit_analytic_chain_nonneg_joint_blocks,
+    fit_analytic_chain_nonneg_mle_targets,
     fit_layer_forest_nonneg,
     fit_sampled_chain_nonneg,
 )
@@ -109,6 +110,13 @@ def _fit_hybrid_sample_prop(forest0, spec, params, key, s_max0, cfg, **kw):
     return fit_sampled_chain_nonneg(forest0_nn, spec, params, k_chain, cfg)
 
 
+def _fit_analytic_mle(forest0, spec, params, key, s_max0, cfg, **kw):
+    cfg2 = dict(cfg)
+    if "n_target_mle" in kw:
+        cfg2["n_target_mle"] = int(kw["n_target_mle"])
+    return fit_analytic_chain_nonneg_mle_targets(forest0, spec, params, key, s_max0, cfg2)
+
+
 def _fit_marginal_l2(forest0, spec, params, key, s_max0, cfg, **kw):
     w = float(kw.get("marginal_l2_weight", 0.3))
     return _fit_baseline(forest0, spec, params, key, s_max0, cfg, marginal_l2_weight=w)
@@ -140,6 +148,7 @@ VARIANTS: Dict[str, FitSpec] = {
     "nonneg_corr": FitSpec(_fit_nonneg_corr, "#2ca02c", "R5 非负 core + 解析 L2 + 相关矩惩罚"),
     "joint_block": FitSpec(_fit_joint_block, "#1f77b4", "K≤4 小块完整联合解析目标 + 非负 core"),
     "hybrid_sample_prop": FitSpec(_fit_hybrid_sample_prop, "#2ca02c", "hybrid: 非负 MLE + sampled propagation"),
+    "analytic_mle": FitSpec(_fit_analytic_mle, "#1f77b4", "解析 UpperForest target 采样 + 非负 MLE"),
     "marginal_l2": FitSpec(_fit_marginal_l2, "#ff7f0e", "R5 + marginal_l2_weight"),
     "block_source": FitSpec(_fit_block_source, "#8c564b", "block_mode=source"),
     "finer_grid": FitSpec(_fit_finer_grid, "#17becf", "增大解析网格/步数"),

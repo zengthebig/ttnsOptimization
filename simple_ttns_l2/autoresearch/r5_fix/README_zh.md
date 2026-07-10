@@ -111,8 +111,8 @@ ls simple_ttns_l2/autoresearch/r5_fix/artifacts/001/
 | A4 | 块内改 **joint 解析目标**（R6 口径，K≤4 块） | `joint_block` | ⬜ |
 | A5 | `block_mode=source`（更大块，测 immediate 是否过碎） | `block_source` | ⬜ |
 | A6 | 增大 `n_s, n_s_pair, an_steps` | `finer_grid` | ⬜ |
-| A7 | 块内 **MLE**（nonneg）+ 解析 UpperForest 传播 | `nonneg_mle` | ⬜ |
-| A8 | hybrid：L1+ 用 R7 采样传播，但评测仍称 R5-fix 对照 | `hybrid_sample_prop` | ⬜ 低优 |
+| A7 | 块内 **MLE**（nonneg）+ 解析 UpperForest 传播 | `analytic_mle` | ✅ 008 达标 |
+| A8 | hybrid：L1+ 用 R7 采样传播，但评测仍称 R5-fix 对照 | `hybrid_sample_prop` | ✅ 007 达标（对照） |
 | A9 | 块内 Chow-Liu 改 **最大生成森林** / 更高 rank | `rank16` / `forest_cl` | ⬜ |
 
 > 新假设：复制 `attempts/_template.json` → `attempts/<id>.json`，在 `run_attempt.py` 注册或传 `--params`。

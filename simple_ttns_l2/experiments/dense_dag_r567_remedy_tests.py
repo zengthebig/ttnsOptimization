@@ -54,6 +54,7 @@ from simple_ttns_l2.analytic_tree_fit import (  # noqa: E402
     _init_rank1, _build_layer_bases, _cross_term_fn, _cross_term_fn_joint,
 )
 from simple_ttns_l2.maxplus_cdf_forest import UpperForest  # noqa: E402
+from simple_ttns_l2.maxplus_cdf_forest import _cond_sample, _inv_cdf  # noqa: E402
 from ttde.ttns.ttns_opt import TTNSOpt, quadratic_form_ttns  # noqa: E402
 from simple_ttns_l2.experiments.dense_dag_r567_three_way import CFG, complex_sources  # noqa: E402
 
@@ -233,6 +234,102 @@ def _fit_analytic_ttns_nonneg_joint(target, key, q, m, rank, lr, steps, init_noi
     ttns = TTNSOpt(tuple(_sq_cores(raw)))
     ttns, _ = normalize_ttns_by_integral(ttns, basis_int, target.parent)
     return ttns, bases
+
+
+def _cdf_from_density(p: np.ndarray, grid: np.ndarray) -> np.ndarray:
+    """网格密度转单调 CDF，用于从解析树 target 采样。"""
+    if len(grid) <= 1:
+        return np.ones_like(p)
+    delta = float(grid[1] - grid[0])
+    w = np.ones_like(p) * delta
+    w[0] *= 0.5
+    w[-1] *= 0.5
+    cdf = np.cumsum(np.clip(p, 0.0, None) * w)
+    total = cdf[-1]
+    if total <= 0:
+        return np.linspace(0.0, 1.0, len(p))
+    cdf = np.maximum.accumulate(cdf / total)
+    cdf[-1] = 1.0
+    return cdf
+
+
+def _sample_analytic_tree_target(target, key, n: int) -> np.ndarray:
+    """从 `analytic_block_target` 的树投影 $p_tree$ 采样，作为 MLE 的训练数据。"""
+    import jax as _jax
+    from simple_ttns_l2.analytic_tree_fit import _root_from_parent, _preorder_tree
+
+    K = len(target.nodes)
+    grid = np.asarray(target.s_grid)
+    out = np.zeros((n, K), dtype=float)
+    if K == 1:
+        key, k_u = _jax.random.split(key)
+        u = np.asarray(_jax.random.uniform(k_u, (n,)))
+        out[:, 0] = _inv_cdf(_cdf_from_density(np.asarray(target.p_marg[0]), grid), grid, u)
+        return out
+
+    root = _root_from_parent(target.parent)
+    order = _preorder_tree(list(target.parent))
+    for v in order:
+        key, k_u = _jax.random.split(key)
+        u = np.asarray(_jax.random.uniform(k_u, (n,)))
+        pa = int(target.parent[v])
+        if v == root or pa == -1:
+            out[:, v] = _inv_cdf(_cdf_from_density(np.asarray(target.p_marg[v]), grid), grid, u)
+            continue
+
+        pcond = np.clip(np.asarray(target.pcond[v]), 0.0, None)
+        if len(grid) > 1:
+            delta = float(grid[1] - grid[0])
+            G = np.cumsum(pcond, axis=0) * delta
+        else:
+            G = np.ones_like(pcond)
+        last = G[-1:, :]
+        G = G / np.where(last <= 0, 1.0, last)
+        G = np.maximum.accumulate(np.clip(G, 0.0, 1.0), axis=0)
+        G[-1, :] = 1.0
+        out[:, v] = _cond_sample(G, grid, out[:, pa], u)
+    return out
+
+
+def fit_analytic_chain_nonneg_mle_targets(
+    forest0, spec, params, key, s_max0, cfg,
+) -> Dict[int, list]:
+    """R5 解析 UpperForest target + target 采样 + 非负 MLE。
+
+    传播仍由 `UpperForest` 的解析 marginal/pair CDF 构造 target；只把块内拟合器
+    从解析 L2 换成 MLE，以验证 sample 为什么能保住相关。
+    """
+    forests: Dict[int, list] = {0: forest0}
+    s_max = s_max0
+    n_target = int(cfg.get("n_target_mle", cfg.get("n_fit", 20000)))
+    for li in range(1, len(spec.layers)):
+        s_max = s_max + (params.edge_hi + params.node_hi) + 0.3
+        upper = UpperForest(forests[li - 1], q_grid=400)
+        layer_nodes = list(spec.layers[li])
+        blocks = structural_blocks(spec, li, mode=cfg.get("block_mode", "source"))
+        forest: List[BlockModel] = []
+        for bi, blk in enumerate(blocks):
+            gids = [layer_nodes[i] for i in blk]
+            target = analytic_block_target(
+                upper, spec, gids, params, s_max,
+                n_s=cfg["n_s"], n_s_pair=cfg["n_s_pair"], use_mi=True,
+            )
+            k_s, key = jax.random.split(key)
+            xb = _sample_analytic_tree_target(target, k_s, n_target)
+            bases = build_bases(jnp.asarray(xb), cfg["q"], cfg["m"])
+            split = int(0.85 * xb.shape[0])
+            tr, val = jnp.asarray(xb[:split]), jnp.asarray(xb[split:])
+            k_b, key = jax.random.split(key)
+            ttns, bases = train_tree_nonneg_mle(
+                tr, val, bases, target.parent, cfg["rank"], cfg, k_b,
+                label=f"analytic_mle_L{li}.b{bi}",
+            )
+            forest.append(BlockModel(
+                tuple(blk), tuple(int(g) for g in gids), tuple(target.parent), ttns, bases,
+            ))
+        forests[li] = forest
+        print(f"[analytic-target MLE] layer {li} done", flush=True)
+    return forests
 
 
 def fit_analytic_chain_nonneg(

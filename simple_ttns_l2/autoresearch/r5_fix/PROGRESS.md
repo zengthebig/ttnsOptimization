@@ -26,4 +26,8 @@
 
 | 007 | 2026-07-10 | hybrid sampled propagation | hybrid_sample_prop | 7.07 | 0.00 | 0.97 | `autoresearch(r5): 007 hybrid sampled propagation` | ✅ hybrid 达标：L4 相关同号且 \|Δr\|≈0.095 |
 
+| — | 2026-07-10 | target/fit-quality audit | diagnostic | — | — | — | `artifacts/target_audit_summary_zh.md` | ✅ L1 解析 target 正确（truth/sampled/analytic r≈0.69），但解析非负 L2 fit 后 r≈0.02–0.05；失效点在拟合器而非 `UpperForest.pair_cdf` |
+
+| 008 | 2026-07-10 | analytic target sampled MLE | analytic_mle | 5.96 | 0.00 | 0.97 | `autoresearch(r5): 008 analytic target sampled MLE` | ✅ 达标：解析 UpperForest target + 非负 MLE 保住相关，L4 r=+0.567 vs GT +0.758，说明 sample 的作用是修复块内拟合器而非替代解析传播 |
+
 <!-- 新 attempt 行插入此处上方 -->
