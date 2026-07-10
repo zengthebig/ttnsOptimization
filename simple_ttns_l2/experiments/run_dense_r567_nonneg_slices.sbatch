@@ -21,5 +21,5 @@ unset PYTHONPATH
 cd "${REPO:-$SLURM_SUBMIT_DIR}"
 mkdir -p logs
 echo "[nonneg_slices] start=$(date)"
-python3 -m simple_ttns_l2.experiments.plot_dense_dag_nonneg_slices --seed 0
+python3 -m simple_ttns_l2.experiments.plot_dense_dag_nonneg_slices --seed 0 --refined-only
 echo "[nonneg_slices] done=$(date)"
