@@ -32,4 +32,6 @@
 
 | 009 | 2026-07-10 | nonneg analytic L2 fast lr | nonneg | 5.89 | 0.00 | 0.94 | `autoresearch(r5): 009 nonneg analytic L2 fast lr` | ✅ 达标：纯解析 UpperForest + 非负解析 L2；L4 r=+0.513 vs GT +0.758。定位根因是 `an_lr=3e-5` 对 `raw**2` 参数化过小，相关通道增长太慢 |
 
+| 010 | 2026-07-10 | nonneg analytic L2 fast lr longer | nonneg | 6.23 | 0.00 | 0.95 | `autoresearch(r5): 010 nonneg analytic L2 fast lr longer` | ✅ 最终推荐：3000 步较 009 小幅提升，L4 r=+0.534 vs GT +0.758，LL/corr/std 均达标且后段 loss 已平台化 |
+
 <!-- 新 attempt 行插入此处上方 -->

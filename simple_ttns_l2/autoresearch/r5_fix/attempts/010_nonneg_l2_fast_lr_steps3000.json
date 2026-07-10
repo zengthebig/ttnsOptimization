@@ -1,0 +1,12 @@
+{
+  "attempt_id": "010",
+  "name": "nonneg analytic L2 fast lr longer",
+  "variant": "nonneg",
+  "seed": 0,
+  "cfg_overrides": {
+    "an_lr": 0.001,
+    "an_steps": 3000
+  },
+  "fit_kwargs": {},
+  "conclusion": "待判定：在 009 达标配置上把解析非负 L2 预算从 1500 步增至 3000 步，检查是否继续提升 LL/相关或已进入平台期"
+}
