@@ -124,13 +124,13 @@
 
 | 数据集 | 维度 | 本地可用 | 状态 |
 |---|---|---|---|
-| **POWER** | 6 | ✅ `data/data/power/data.npy`（125M） | ✅ 已跑 TTDE/线性TTNS/平方TTNS 三方基准 |
-| **GAS** | 8 | ✅ `data/data/gas/ethylene_CO.pickle`（168M） | ✅ 已跑三方基准 |
-| **HEPMASS** | 21 | ✅ `data/data/hepmass/{1000_train,1000_test}.csv` | ✅ 已跑三方基准（§5.2.3） |
-| MINIBOONE | 43 | ❌ 未下载 | — |
-| BSDS300 | 64 | ❌ 未下载 | — |
+| **POWER** | 6 | ✅ `/home/sbzeng/2_1/research/datasets/data/power/` | ✅ 已跑小/中配置；**论文级 Table 3 五数据集单 seed 任务见 §5.2.5** |
+| **GAS** | 8 | ✅ `.../gas/` | 同上 |
+| **HEPMASS** | 21 | ✅ `.../hepmass/` | 同上 |
+| MINIBOONE | 43 | ✅ `.../miniboone/` | 论文级任务已编排（§5.2.5），结果待回填 |
+| BSDS300 | 64 | ✅ `.../BSDS300/` | 论文级任务已编排（§5.2.5），结果待回填 |
 
-> `data/data/` 下 `mnist`（空）、`cifar10`（仅 2 个 batch）不完整，非当前主线。**POWER/GAS 已完成 TTNS MLE 真实数据三方基准**（`uci_ttde_vs_ttns.py`）。数据根目录传 `--data-dir data/data`，加载器按 `root/<name>/...` 取文件。
+> 正式数据根目录：`/home/sbzeng/2_1/research/datasets/data`（`--data-dir`）。仓库内 `data/data/` 可能不完整，以该绝对路径为准。
 
 #### 5.2.1 UCI 三方基准结果（2026-07-03 更新，B-spline q=2 **m=96**，等参数量对齐 match_params，**2000 步**，单 seed=0）
 
@@ -206,6 +206,15 @@
 
 2026-07-06 补充：已实现 `n_comps>1` 的 mixture 2D 切片图（按各分量归一化常数 $Z_c$ 加权，TTDE 分量处理随机排列，TTNSDE 分量使用恒等排列 MI 树），并保存参数快照：`uci_power_ttde_vs_ttns_params_ncomps8fix_slices.pkl`、`uci_gas_ttde_vs_ttns_params_ncomps8fix_slices.pkl`。第一版 raw 全范围粗网格图在 GAS 强相关切片上出现网格积分 2.3–2.9，debug 后确认是尖峰密度 + 粗网格 aliasing，而非模型归一化错误：将切片窗口改为逐维 0.5%–99.5% quantile、网格加密，并对有限窗口内密度做 display-normalization 后，raw window integral 恢复正常。最终展示图：`uci_power_ttde_vs_ttns_slices_ncomps8fix_displaynorm.png`（raw win∫：0.971/0.965、0.972/0.970、0.979/0.977），`uci_gas_ttde_vs_ttns_slices_ncomps8fix_displaynorm.png`（raw win∫：0.946/0.942、0.996/0.996、0.971/0.969）。旧 `*_slices_ncomps8fix_slices.png` 仅保留作 raw/debug，不作为最终展示。
 
+#### 5.2.5 论文级五数据集单 seed 基准（编排中，2026-07-23）
+
+**证据标签**：单 seed 初证（任务提交后填结果）。协议与产物见 [`simple_ttns_l2/reports/uci_paper_benchmark_report_zh.md`](simple_ttns_l2/reports/uci_paper_benchmark_report_zh.md)。
+
+- 入口：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --preset paper --dataset <ds> --data-dir /home/sbzeng/2_1/research/datasets/data --seed 0`
+- 提交：`sbatch simple_ttns_l2/experiments/run_uci_paper.sbatch`（阵列 0–4 对应 POWER/GAS/HEPMASS/MINIBOONE/BSDS300）
+- 口径：TTDE 用 README Table 3 的 m/rank/n_comps/batch/steps；TTNSDE 同超参但独立 `r_ttns`；关闭 `match_params` 与 early stop；全量训练数据。
+- 勿与 §5.2.4 的 `m=128,n_comps=8` 数字混读。
+
 ### 5.3 评测指标
 
 | 指标 | 含义 | 用途 |
@@ -241,7 +250,7 @@
 
 - [ ] **R6 矩张量版**：确定性传播 + 完整联合，无 MC 累积、$O(m^K)$（≤15× 加速），在小块上同时拿到 R5 的深层 LL 稳 + R7 的 corr 好。
 - [ ] **平方 / 非负分层全链对照**：dense 非负解析 L2 已打通；待系统对比平方 MLE 全链 + 树采样器。
-- [ ] **真实 UCI 多 seed 系统基准**：✅ 单 seed 已跑 **POWER/GAS/HEPMASS** 多档容量。最新关键更新见 §5.2.4：修复混合 TTNSDE 的随机排列问题与 HEPMASS finite-val 监控问题后，`n_comps=8,m=128` 等参数量下 MI 树混合分别优于链式 TTDE：POWER **+0.0708**、GAS **+0.2622**、HEPMASS **+1.0577**。当前结论：**修复后的树混合在三个 UCI 数据集上均有正收益**。绝对 LL 仍未复现论文 TTDE 报告值（POWER 0.46、GAS 8.93、HEPMASS −21.34），待补 ≥3 seed 均值/方差 + 论文级 m(256/512)/rank/n_comps=32/步数配置。
+- [ ] **真实 UCI 多 seed / 论文级容量**：✅ §5.2.4 中配单 seed；§5.2.5 论文 Table 3 五数据集单 seed 已编排（结果待回填）。其后补 ≥3 seed。
 - [ ] **全因子 study 实际运行**：`run_full_scale_study.sh` 已入库，结果待回填。
 - [ ] **大图稳定性**：30+ 维多块层方案 A 链多 seed 统计；深层 refit 不发散。
 
@@ -346,7 +355,7 @@ Program.md / ALGORITHM_zh.md / clarify.md / squared_ttns_theory_zh.md  # 交接/
 
 1. **R6 矩张量 $O(m^K)$ 交叉项**（高优先）：确定性 + 完整联合 + 无 MC 累积，小块两头都占。实现见 `ALGORITHM_zh.md` §3.5（把 `_cross_term_fn_joint` 网格换基索引）。
 2. **非负/平方分层全链对照**：以 dense 最终非负解析配置为锚，补平方 TTNS 树采样器与 `UpperForest` 二次型传播，系统对比解析 L2 vs 平方 MLE。
-3. **真实 UCI 基准升级**：§5.2.4 单 seed 已正；待补 ① ≥3 seed 均值/方差 ② 论文级 m=256/512、rank/n_comps、步数以逼近官方 TTDE test_LL ③ 度数受限树。
+3. **真实 UCI 基准升级**：§5.2.4 单 seed 已正；§5.2.5 论文级五数据集单 seed 已编排（`run_uci_paper.sbatch`）。待回填结果后，再补 ≥3 seed。
 4. **运行全因子 study**（`run_full_scale_study.sh`）并回填证据标签。
 5. **大图稳定性**：30+ 维多块层方案 A 链多 seed；深层 refit 退火/正则防发散。
 

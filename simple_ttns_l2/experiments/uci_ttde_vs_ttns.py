@@ -1,4 +1,4 @@
-"""真实 UCI (POWER / GAS) 三方对比：全局 TTDE vs 全局线性 TTNS vs 全局平方 TTNS。
+"""真实 UCI 对比：全局 TTDE vs 全局线性 TTNS vs 全局平方 TTNS。
 
 约束（prompt_benchmark.md）：不创建新模型，只用已实现模型；确认数学正确性。
 
@@ -7,15 +7,15 @@
   2. global_TTNS   : 线性 TTNS (MI 树)   q, L2=∫q²-2E[q], 归一化 ∫q=1 — fit_flat
   3. global_TTNSDE : 平方 TTNS (MI 树)   p=q^2/Z  MLE   — fit_ttde_ttns
 
-公平性：
-  - 基 (q,m) 与 knots 全部由同一份 train_x 决定 → 三模型基完全相同
-    (create_space_uniform_knots 对 (xs,m,q) 确定性，三模型都用 train_x 建基)。
+公平性（默认 preset）：
+  - 基 (q,m) 与 knots 全部由同一份 train_x 决定 → 三模型基完全相同。
   - Chow–Liu 树从 train_x 估一次，线性 TTNS 与平方 TTNS 共用。
-  - 线性/平方 TTNS 同树同 rank；平方 TT(链) 用 match_params 把 rank 反解到与 TTNS 等参数量。
-  - test_LL：平方模型 log_p=2log|q|-logZ (合法归一化对数密度)；线性模型 log(clip(q,1e-12))
-    (q 已 ∫=1，q>0 处即合法密度)，并单独报 nonpos_rate (q≤0 占比) —— 这是线性参数化的固有缺陷。
+  - 线性/平方 TTNS 同树同 rank；平方 TT(链) 可用 match_params 反解等参数量。
 
-为控时，q/m/rank/steps 为"降低预算"配置（远小于论文 m=256），仅用于三模型横向对比。
+论文 preset（`--preset paper`，README Table 3）：
+  - TTDE 用论文 m / rank / n_comps / batch / steps / lr / em / noise；
+  - TTNSDE 同超参但树 rank 独立（`r_ttns`），关闭 match_params 与 early stop，全量训练数据；
+  - n_comps>1 时跳过线性 TTNS 与切片图。
 """
 from __future__ import annotations
 
@@ -44,6 +44,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 from ttde.datasets.power import _POWER  # noqa: E402
 from ttde.datasets.gas import _GAS  # noqa: E402
 from ttde.datasets.hepmass import _HEPMASS  # noqa: E402
+from ttde.datasets.miniboone import MINIBOONE  # noqa: E402
+from ttde.datasets.bsds300 import BSDS300  # noqa: E402
 from ttde.score.models.opt_for_tree_data import chain_parent  # noqa: E402
 from ttde.ttns.ttns_opt import (  # noqa: E402
     TTNSOpt, quadratic_form_ttns,
@@ -94,17 +96,55 @@ def _tt_envs_from_cores_and_bases(cores, bases):
 
 # ------------------------------------------------------------------ 数据
 
+UCI_DATASETS = ("power", "gas", "hepmass", "miniboone", "bsds300")
+
+# README Table 3 复现命令；paper_ll 为原文 Squared TTDE 报告值
+PAPER_CFG = {
+    "power": dict(
+        m=256, r_tt=16, n_comps=32, batch_sz=8192, steps=10000, train_noise=0.01,
+        paper_ll=0.46, r_ttns=6,
+    ),
+    "gas": dict(
+        m=512, r_tt=32, n_comps=32, batch_sz=1024, steps=100000, train_noise=0.01,
+        paper_ll=8.93, r_ttns=4,
+    ),
+    "hepmass": dict(
+        m=128, r_tt=32, n_comps=32, batch_sz=2048, steps=10000, train_noise=0.01,
+        paper_ll=-21.34, r_ttns=3,
+    ),
+    "miniboone": dict(
+        m=64, r_tt=32, n_comps=32, batch_sz=1024, steps=10000, train_noise=0.08,
+        paper_ll=-28.77, r_ttns=2,
+    ),
+    "bsds300": dict(
+        m=256, r_tt=16, n_comps=32, batch_sz=512, steps=100000, train_noise=0.01,
+        paper_ll=143.30, r_ttns=2,
+    ),
+}
+
+PAPER_COMMON = dict(
+    q=2, lr=1e-3, ttde_em_steps=10, init_noise=1e-2, ttde_init_noise=1e-2,
+    match_params=False, ttde_patience=0, train_cap=10**12, ttde_n_train=10**12,
+    ttns_init="canonical", log_every=500,
+)
+
+
 def load_uci(name: str, data_dir: Path):
-    """返回 (train_x, val_x, test_x) float64 numpy。直接用 _POWER/_GAS/_HEPMASS 拿 test 划分。"""
+    """返回 (train_x, val_x, test_x) float64 numpy。"""
     root = Path(data_dir)
-    if name.lower() == "power":
+    key = name.lower()
+    if key == "power":
         d = _POWER(root)
-    elif name.lower() == "gas":
+    elif key == "gas":
         d = _GAS(root)
-    elif name.lower() == "hepmass":
+    elif key == "hepmass":
         d = _HEPMASS(root)
+    elif key == "miniboone":
+        d = MINIBOONE(root / "miniboone" / "data.npy")
+    elif key == "bsds300":
+        d = BSDS300(root / "BSDS300" / "BSDS300.hdf5")
     else:
-        raise ValueError(name)
+        raise ValueError(f"unknown dataset {name!r}; choose from {UCI_DATASETS}")
     trn = np.asarray(d.trn.x, dtype=np.float64)
     val = np.asarray(d.val.x, dtype=np.float64)
     tst = np.asarray(d.tst.x, dtype=np.float64)
@@ -379,7 +419,10 @@ def run(name: str, cfg: dict, data_dir: Path):
 
     r_ttns = cfg["r_ttns"]
     p_ttns = ttns_params(mi_tree, m, r_ttns)
-    r_tt = tt_rank_for_params(p_ttns, n_dims, m) if cfg["match_params"] else (cfg.get("r_tt") or r_ttns)
+    if cfg["match_params"]:
+        r_tt = tt_rank_for_params(p_ttns, n_dims, m)
+    else:
+        r_tt = int(cfg["r_tt"] if cfg.get("r_tt") is not None else r_ttns)
     p_tt = tt_params(n_dims, m, r_tt)
     nc = cfg.get("n_comps", 1)
     print(f"[params/comp] TTNS(r={r_ttns})={p_ttns}  TT(r={r_tt})={p_tt}  "
@@ -392,10 +435,10 @@ def run(name: str, cfg: dict, data_dir: Path):
     results = {}  # name -> dict
     tr_j = jnp.asarray(tr_fit)
     val_j = jnp.asarray(tr_val)
-    # n_comps>1(mixture) 时线性 TTNS(L2, 无混合)与切片边缘 helper(设 n_comps=1)不适用 → 跳过，聚焦两平方 MLE
+    # n_comps>1(mixture) 或 skip_slices：跳过线性 TTNS 与昂贵切片
     n_comps = cfg.get("n_comps", 1)
-    run_linear = n_comps == 1
-    run_slices = n_comps == 1
+    run_linear = n_comps == 1 and not cfg.get("skip_linear", False)
+    run_slices = n_comps == 1 and not cfg.get("skip_slices", False)
 
     # ---- 1) global_TTDE : 平方 TT(链) MLE ----
     print("\n=== [1/3] global_TTDE (squared TT chain, MLE) ===", flush=True)
@@ -435,7 +478,8 @@ def run(name: str, cfg: dict, data_dir: Path):
         print(f"  test_LL={ll_test_lin:.4f} train_LL={ll_train_lin:.4f} "
               f"params={p_lin} nonpos_rate={nonpos:.3f} sec={dt:.1f}", flush=True)
     else:
-        print(f"\n=== [2/3] global_TTNS 跳过 (n_comps={n_comps}>1，线性 L2 无混合) ===", flush=True)
+        why = f"n_comps={n_comps}>1" if n_comps > 1 else "skip_linear"
+        print(f"\n=== [2/3] global_TTNS 跳过 ({why}) ===", flush=True)
 
     # ---- 3) global_TTNSDE : 平方 TTNS(MI 树) MLE ----
     print("\n=== [3/3] global_TTNSDE (squared TTNS, MI tree, MLE) ===", flush=True)
@@ -470,62 +514,66 @@ def run(name: str, cfg: dict, data_dir: Path):
         )
     print(f"saved params: {param_path}", flush=True)
 
-    print("\n=== 计算切片密度 ===", flush=True)
-    pairs = _pick_slice_pairs(mi_tree, trn, n_pairs=cfg["n_slice_pairs"])
-    print(f"slice_pairs={pairs}", flush=True)
-
     grids = []
     dens = {"global_TTDE": [], "global_TTNSDE": []}
-    if run_linear:
-        dens["global_TTNS"] = []
-        from simple_ttns_l2.experiments.per_layer_compare import build_ttde_envs
-        cores_tt, gram_tt, env_tt, lenv_tt, Z_tt = build_ttde_envs(p_tt_p, m_tt.bases)
-        sq_ttns = TTNSOpt(tuple(c[0] for c in p_sq_p["ttns"]["ttns"].cores))
-        sq_parent = list(int(x) for x in np.asarray(m_sq.tree_parent))
-        sq_gram = np.asarray(jax.vmap(type(m_sq.bases).l2_integral)(m_sq.bases))
-    for (di, dj) in pairs:
-        xi, xj = _grid_for_pair(trn, tst, di, dj, n=cfg["grid_n"])
-        grids.append((xi, xj, di, dj))
-        if run_linear:
-            d_tt = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
-                                                     m_tt.bases, di, dj, xi, xj)
-            d_lin = _eval_pair_marginal_linear_ttns_on_grid(lin_ttns, bases, list(mi_tree), di, dj, xi, xj)
-            d_sq = _eval_pair_marginal_sq_ttns_on_grid(sq_ttns, sq_parent, m_sq.bases, sq_gram,
-                                                        di, dj, xi, xj)
-        else:
-            d_tt = _eval_pair_marginal_sq_tt_mixture_on_grid(p_tt_p, m_tt, di, dj, xi, xj)
-            d_sq = _eval_pair_marginal_sq_ttns_mixture_on_grid(
-                p_sq_p, m_sq, list(mi_tree), di, dj, xi, xj)
-        dens["global_TTDE"].append(d_tt)
-        dens["global_TTNSDE"].append(d_sq)
-        if run_linear:
-            dens["global_TTNS"].append(d_lin)
-        # 必要条件：2D 边缘在网格上的梯形积分应 ≈ 1（归一化密度的边缘）
-        integ = []
-        items = [("TTDE", d_tt)]
-        if run_linear:
-            items.append(("TTNS", d_lin))
-        items.append(("TTNSDE", d_sq))
-        for nm, Zg in items:
-            trap = float(np.trapz(np.trapz(Zg, xj, axis=1), xi, axis=0))
-            integ.append(f"{nm}∫={trap:.3f}")
-        print(f"  pair({di},{dj}) done  {integ}", flush=True)
+    pairs = []
+    if not run_slices:
+        print("\n=== 跳过切片密度 (n_comps>1 或 skip_slices) ===", flush=True)
+    else:
+        print("\n=== 计算切片密度 ===", flush=True)
+        pairs = _pick_slice_pairs(mi_tree, trn, n_pairs=cfg["n_slice_pairs"])
+        print(f"slice_pairs={pairs}", flush=True)
 
-    # ---- 正确性 cross-check: 平方 TT 的 (i,i+1) 连续对边缘 vs ttde_block_logp ----
-    if run_linear:
-        from simple_ttns_l2.experiments.per_layer_compare import ttde_block_logp as _tblp
-        a = 0
-        b = min(1, n_dims - 1)
-        xi_chk = np.linspace(float(trn[:, a].min()), float(trn[:, a].max()), 12)
-        xj_chk = np.linspace(float(trn[:, b].min()), float(trn[:, b].max()), 12)
-        d_chk = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
-                                                  m_tt.bases, a, b, xi_chk, xj_chk)
-        # ttde_block_logp 接受 [n, len(block)]，block=[a,b] 连续
-        gx, gy = np.meshgrid(xi_chk, xj_chk, indexing="ij")
-        pts_chk = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
-        ref = np.exp(_tblp(cores_tt, gram_tt, env_tt, lenv_tt, Z_tt, m_tt.bases, [a, b], pts_chk))
-        max_err = float(np.max(np.abs(d_chk.reshape(-1) - ref)))
-        print(f"[sanity] squared-TT pair({a},{b}) marginal vs ttde_block_logp  max|Δ|={max_err:.2e}", flush=True)
+        if run_linear:
+            dens["global_TTNS"] = []
+            from simple_ttns_l2.experiments.per_layer_compare import build_ttde_envs
+            cores_tt, gram_tt, env_tt, lenv_tt, Z_tt = build_ttde_envs(p_tt_p, m_tt.bases)
+            sq_ttns = TTNSOpt(tuple(c[0] for c in p_sq_p["ttns"]["ttns"].cores))
+            sq_parent = list(int(x) for x in np.asarray(m_sq.tree_parent))
+            sq_gram = np.asarray(jax.vmap(type(m_sq.bases).l2_integral)(m_sq.bases))
+        for (di, dj) in pairs:
+            xi, xj = _grid_for_pair(trn, tst, di, dj, n=cfg["grid_n"])
+            grids.append((xi, xj, di, dj))
+            if run_linear:
+                d_tt = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
+                                                         m_tt.bases, di, dj, xi, xj)
+                d_lin = _eval_pair_marginal_linear_ttns_on_grid(lin_ttns, bases, list(mi_tree), di, dj, xi, xj)
+                d_sq = _eval_pair_marginal_sq_ttns_on_grid(sq_ttns, sq_parent, m_sq.bases, sq_gram,
+                                                            di, dj, xi, xj)
+            else:
+                d_tt = _eval_pair_marginal_sq_tt_mixture_on_grid(p_tt_p, m_tt, di, dj, xi, xj)
+                d_sq = _eval_pair_marginal_sq_ttns_mixture_on_grid(
+                    p_sq_p, m_sq, list(mi_tree), di, dj, xi, xj)
+            dens["global_TTDE"].append(d_tt)
+            dens["global_TTNSDE"].append(d_sq)
+            if run_linear:
+                dens["global_TTNS"].append(d_lin)
+            # 必要条件：2D 边缘在网格上的梯形积分应 ≈ 1（归一化密度的边缘）
+            integ = []
+            items = [("TTDE", d_tt)]
+            if run_linear:
+                items.append(("TTNS", d_lin))
+            items.append(("TTNSDE", d_sq))
+            for nm, Zg in items:
+                trap = float(np.trapz(np.trapz(Zg, xj, axis=1), xi, axis=0))
+                integ.append(f"{nm}∫={trap:.3f}")
+            print(f"  pair({di},{dj}) done  {integ}", flush=True)
+
+        # ---- 正确性 cross-check: 平方 TT 的 (i,i+1) 连续对边缘 vs ttde_block_logp ----
+        if run_linear:
+            from simple_ttns_l2.experiments.per_layer_compare import ttde_block_logp as _tblp
+            a = 0
+            b = min(1, n_dims - 1)
+            xi_chk = np.linspace(float(trn[:, a].min()), float(trn[:, a].max()), 12)
+            xj_chk = np.linspace(float(trn[:, b].min()), float(trn[:, b].max()), 12)
+            d_chk = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
+                                                      m_tt.bases, a, b, xi_chk, xj_chk)
+            # ttde_block_logp 接受 [n, len(block)]，block=[a,b] 连续
+            gx, gy = np.meshgrid(xi_chk, xj_chk, indexing="ij")
+            pts_chk = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
+            ref = np.exp(_tblp(cores_tt, gram_tt, env_tt, lenv_tt, Z_tt, m_tt.bases, [a, b], pts_chk))
+            max_err = float(np.max(np.abs(d_chk.reshape(-1) - ref)))
+            print(f"[sanity] squared-TT pair({a},{b}) marginal vs ttde_block_logp  max|Δ|={max_err:.2e}", flush=True)
 
     return dict(dataset=name, n_dims=n_dims, config=cfg,
                 mi_tree=mi_tree, chain=chain, pairs=pairs,
@@ -625,68 +673,181 @@ DEFAULT_CFG = dict(
     ttde_steps=1200, ttde_em_steps=12, ttde_patience=8, ttde_init_noise=0.03,
     ttde_grad_clip=10.0, monitor_val_sz=2000,
     ttde_n_train=60000, train_cap=80000, n_slice_pairs=3, grid_n=60, seed=0,
+    skip_slices=False, skip_linear=False, n_comps=1, paper_ll=None,
 )
+
+
+def _resolve_data_dir(path_str: str) -> Path:
+    p = Path(path_str).expanduser()
+    if p.is_absolute():
+        return p
+    return (REPO_ROOT / p).resolve()
 
 
 def main():
     import argparse
+    import os
+
     p = argparse.ArgumentParser()
-    p.add_argument("--dataset", choices=["power", "gas", "hepmass", "both", "all"], default="both")
+    p.add_argument("--dataset",
+                   choices=[*UCI_DATASETS, "both", "all"], default="both")
     p.add_argument("--data-dir", default="data/data")
+    p.add_argument("--preset", choices=["default", "paper"], default="default",
+                   help="paper=README Table 3 超参；default=小预算横向对比")
     p.add_argument("--m", type=int, default=None)
     p.add_argument("--r-ttns", type=int, default=None)
+    p.add_argument("--r-tt", type=int, default=None, help="TTDE 链 rank（match_params=False 时生效）")
     p.add_argument("--steps", type=int, default=None)
+    p.add_argument("--batch-sz", type=int, default=None)
+    p.add_argument("--lr", type=float, default=None)
+    p.add_argument("--em-steps", type=int, default=None)
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--train-noise", type=float, default=None)
+    p.add_argument("--init-noise", type=float, default=None)
+    p.add_argument("--patience", type=int, default=None,
+                   help="ttde_patience；0=禁用早停（论文协议）")
     p.add_argument("--train-cap", type=int, default=None)
-    p.add_argument("--n-comps", type=int, default=1, help="mixture 分量数(平方 TT/TTNS 共用);>1 时跳过线性+切片")
+    p.add_argument("--no-train-cap", action="store_true",
+                   help="使用全量训练集（不截断）")
+    p.add_argument("--n-comps", type=int, default=None,
+                   help="mixture 分量数(平方 TT/TTNS 共用);>1 时跳过线性+切片")
     p.add_argument("--no-match", action="store_true",
-                   help="关闭 match_params：TT(链)与 TTNS(树)用同 rank(--r-ttns) 做 rank-matched 对比")
+                   help="关闭 match_params")
+    p.add_argument("--skip-slices", action="store_true")
     p.add_argument("--out-tag", default=None, help="结果文件后缀，避免覆盖旧结果")
-    p.add_argument("--ttns-init", choices=["canonical", "rank1"], default="canonical",
+    p.add_argument("--ttns-init", choices=["canonical", "rank1"], default=None,
                    help="TTNSDE 非链初始化：canonical(新,EM) | rank1(旧)")
+    p.add_argument("--quick", action="store_true",
+                   help="冒烟：steps=20、n_comps=1、小 batch（仅验证路径）")
     args = p.parse_args()
 
-    cfg = dict(DEFAULT_CFG)
-    cfg["ttns_init"] = args.ttns_init
-    cfg["n_comps"] = args.n_comps
-    cfg["out_tag"] = args.out_tag
-    if args.no_match:
-        cfg["match_params"] = False
-    if args.m is not None: cfg["m"] = args.m
-    if args.r_ttns is not None: cfg["r_ttns"] = args.r_ttns
-    if args.steps is not None:
-        cfg["steps"] = args.steps; cfg["ttde_steps"] = args.steps
-    if args.train_cap is not None:
-        cfg["train_cap"] = args.train_cap; cfg["ttde_n_train"] = int(0.75 * args.train_cap)
-
-    data_dir = REPO_ROOT / args.data_dir
     if args.dataset == "both":
         datasets = ["power", "gas"]
     elif args.dataset == "all":
-        datasets = ["power", "gas", "hepmass"]
+        datasets = list(UCI_DATASETS)
     else:
         datasets = [args.dataset]
-    tag = f"_{args.out_tag}" if args.out_tag else ""
+
+    data_dir = _resolve_data_dir(args.data_dir)
     REPORTS.mkdir(parents=True, exist_ok=True)
     all_res = {}
+
     for ds in datasets:
-        # 维度越高、MI 树越密 → 默认降 rank 控参数(TTNS 参数 = m·Σ r^deg，hub 度高会爆)
-        if args.r_ttns is None:
-            cfg["r_ttns"] = {"gas": 4, "hepmass": 3}.get(ds, 6)
-        else:
+        cfg = dict(DEFAULT_CFG)
+
+        if args.preset == "paper":
+            paper = PAPER_CFG[ds]
+            cfg.update(PAPER_COMMON)
+            cfg["m"] = paper["m"]
+            cfg["r_tt"] = paper["r_tt"]
+            cfg["r_ttns"] = paper["r_ttns"]
+            cfg["n_comps"] = paper["n_comps"]
+            cfg["batch_sz"] = paper["batch_sz"]
+            cfg["steps"] = paper["steps"]
+            cfg["ttde_steps"] = paper["steps"]
+            cfg["train_noise"] = paper["train_noise"]
+            cfg["paper_ll"] = paper["paper_ll"]
+            cfg["skip_slices"] = True
+            cfg["skip_linear"] = True
+            env_r = os.environ.get(f"R_TTNS_{ds.upper()}") or os.environ.get("R_TTNS")
+            if env_r:
+                cfg["r_ttns"] = int(env_r)
+
+        if args.ttns_init is not None:
+            cfg["ttns_init"] = args.ttns_init
+        elif args.preset != "paper":
+            cfg["ttns_init"] = "canonical"
+        if args.n_comps is not None:
+            cfg["n_comps"] = args.n_comps
+        if args.no_match or args.preset == "paper":
+            cfg["match_params"] = False
+        if args.m is not None:
+            cfg["m"] = args.m
+        if args.r_ttns is not None:
             cfg["r_ttns"] = args.r_ttns
+        elif args.preset != "paper":
+            cfg["r_ttns"] = {"gas": 4, "hepmass": 3, "miniboone": 2, "bsds300": 2}.get(ds, 6)
+        if args.r_tt is not None:
+            cfg["r_tt"] = args.r_tt
+        if args.steps is not None:
+            cfg["steps"] = args.steps
+            cfg["ttde_steps"] = args.steps
+        if args.batch_sz is not None:
+            cfg["batch_sz"] = args.batch_sz
+        if args.lr is not None:
+            cfg["lr"] = args.lr
+        if args.em_steps is not None:
+            cfg["ttde_em_steps"] = args.em_steps
+        if args.seed is not None:
+            cfg["seed"] = args.seed
+        if args.train_noise is not None:
+            cfg["train_noise"] = args.train_noise
+        if args.init_noise is not None:
+            cfg["init_noise"] = args.init_noise
+            cfg["ttde_init_noise"] = args.init_noise
+        if args.patience is not None:
+            cfg["ttde_patience"] = args.patience
+        if args.no_train_cap:
+            cfg["train_cap"] = 10**12
+            cfg["ttde_n_train"] = 10**12
+        elif args.train_cap is not None:
+            cfg["train_cap"] = args.train_cap
+            cfg["ttde_n_train"] = int(0.75 * args.train_cap)
+        if args.skip_slices:
+            cfg["skip_slices"] = True
+
+        if args.quick:
+            cfg["steps"] = 20
+            cfg["ttde_steps"] = 20
+            cfg["n_comps"] = 1
+            cfg["batch_sz"] = min(int(cfg["batch_sz"]), 128)
+            cfg["m"] = min(int(cfg["m"]), 32)
+            cfg["r_tt"] = min(int(cfg.get("r_tt") or 4), 4)
+            cfg["r_ttns"] = min(int(cfg["r_ttns"]), 3)
+            cfg["ttde_em_steps"] = min(int(cfg["ttde_em_steps"]), 2)
+            cfg["log_every"] = 10
+            cfg["skip_slices"] = True
+            cfg["train_cap"] = min(int(cfg["train_cap"]), 2000)
+            cfg["ttde_n_train"] = min(int(cfg["ttde_n_train"]), 1500)
+
+        cfg["ttde_steps"] = cfg["steps"]
+
+        out_tag = args.out_tag
+        if out_tag is None and args.preset == "paper":
+            out_tag = f"paper_{ds}_seed{cfg['seed']}"
+        cfg["out_tag"] = out_tag
+        tag = f"_{out_tag}" if out_tag else ""
+
+        print(f"\n[cfg:{ds}] preset={args.preset} m={cfg['m']} r_tt={cfg.get('r_tt')} "
+              f"r_ttns={cfg['r_ttns']} n_comps={cfg['n_comps']} steps={cfg['steps']} "
+              f"batch={cfg['batch_sz']} lr={cfg['lr']} patience={cfg['ttde_patience']} "
+              f"match={cfg['match_params']} data_dir={data_dir}", flush=True)
+
         res = run(ds, cfg, data_dir)
+        if cfg.get("paper_ll") is not None and "global_TTDE" in res["results"]:
+            gap = res["results"]["global_TTDE"]["ll_test"] - float(cfg["paper_ll"])
+            res["paper_ll_ttde"] = float(cfg["paper_ll"])
+            res["gap_ttde_vs_paper"] = float(gap)
+            print(f"[paper] TTDE test_LL − paper({cfg['paper_ll']}) = {gap:+.4f}", flush=True)
         print_table(res)
         plot_bars(res, REPORTS / f"uci_{ds}_ttde_vs_ttns_bars{tag}.png")
         if res["pairs"]:
             plot_slices(res, REPORTS / f"uci_{ds}_ttde_vs_ttns_slices{tag}.png")
-        # 存不含大数组的部分
         dump = {k: v for k, v in res.items() if k not in ("grids", "dens", "test_x", "train_x")}
+        if "config" in dump and isinstance(dump["config"], dict):
+            dump["config"] = {k: v for k, v in dump["config"].items()
+                              if isinstance(v, (int, float, str, bool, type(None), list, dict))}
         all_res[ds] = dump
-        print(f"saved: uci_{ds}_ttde_vs_ttns_bars{tag}.png", flush=True)
+        one_json = REPORTS / f"uci_ttde_vs_ttns_metrics{tag}.json"
+        one_json.write_text(json.dumps({ds: dump}, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8")
+        print(f"saved: {one_json}", flush=True)
 
-    out_json = REPORTS / f"uci_ttde_vs_ttns_metrics{tag}.json"
-    out_json.write_text(json.dumps(all_res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"saved: {out_json}")
+    if len(datasets) > 1:
+        tag_all = f"_{args.out_tag}" if args.out_tag else ("_paper_all" if args.preset == "paper" else "")
+        out_json = REPORTS / f"uci_ttde_vs_ttns_metrics{tag_all}.json"
+        out_json.write_text(json.dumps(all_res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"saved: {out_json}")
 
 
 if __name__ == "__main__":

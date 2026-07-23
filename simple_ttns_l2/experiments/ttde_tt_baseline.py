@@ -71,7 +71,9 @@ def _train_mle(model, params, train_x, val_x, cfg: dict, k_iter, label: str) -> 
                 best_val, best_params, bad = vn, params, 0
             else:
                 bad += 1
-                if bad >= cfg.get("ttde_patience", 8):
+                # ttde_patience<=0：禁用早停（对齐原 ttde.train 固定跑满 train_steps）
+                patience = int(cfg.get("ttde_patience", 8))
+                if patience > 0 and bad >= patience:
                     print(f"early_stop at {s}", flush=True)
                     break
     if not np.isfinite(best_val):
