@@ -30,7 +30,7 @@
 
 ## 2. 提交命令
 
-**首次提交** `785452` 因 `QOSMaxCpuMinutesPerJobLimit`（7天×16核）被挂起已取消。脚本已改为 `2天×8核×64G`。
+**运行中**：`785458` array 0–2（POWER/GAS/HEPMASS）；`785459` array 3–4（MINIBOONE/BSDS300，若排队）。首次 `785452/785453` 因 QOS/路径问题已取消或失败。脚本现为 `2天×8核×64G` + `SLURM_SUBMIT_DIR`。
 
 ```bash
 cd /home/sbzeng/2_1/research/TTDE-dev
