@@ -44,10 +44,6 @@ DS="${DATASETS[${SLURM_ARRAY_TASK_ID}]}"
 # 默认 2天×8核×64G；GAS/BSDS 若超时需提高 time 或续跑（见报告）。
 echo "[resource] dataset=${DS} cpus=8 mem=64G time=2-00:00:00"
 
-# ---- 1. 环境 --------------------------------------------------------
-source ~/conda_start.sh
-conda activate ttns
-
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-8}"
 export OPENBLAS_NUM_THREADS="${OMP_NUM_THREADS}"
 export MKL_NUM_THREADS="${OMP_NUM_THREADS}"
@@ -55,12 +51,13 @@ export XLA_FLAGS="--xla_cpu_multi_thread_eigen=true"
 export JAX_ENABLE_X64=1
 unset PYTHONPATH
 
-# ---- 2. 仓库 --------------------------------------------------------
-# 默认：本脚本所在仓库（TTDE-dev）；可用 REPO=... 覆盖
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_REPO="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-cd "${REPO:-${DEFAULT_REPO}}"
+# ---- 仓库 --------------------------------------------------------
+# sbatch 会把脚本拷到 spool，不可用 BASH_SOURCE 反推仓库根。
+# 必须在仓库根目录提交：cd /path/to/TTDE-dev && sbatch ...
+cd "${REPO:-${SLURM_SUBMIT_DIR}}"
 mkdir -p logs simple_ttns_l2/reports
+pwd
+ls -la simple_ttns_l2/experiments/uci_ttde_vs_ttns.py
 
 DATA_DIR="${DATA_DIR:-/home/sbzeng/2_1/research/datasets/data}"
 SEED="${SEED:-0}"
@@ -69,9 +66,11 @@ OUT_TAG="paper_${DS}_seed${SEED}"
 echo "[uci-paper] repo=$(pwd) dataset=${DS} seed=${SEED} data_dir=${DATA_DIR}"
 echo "[uci-paper] hostname=$(hostname) date=$(date -Is)"
 
-PY="${PYTHON:-python}"
-# conda env 的 python
-if command -v python >/dev/null 2>&1; then
+# 优先用 conda env 绝对路径，避免计算节点 module/conda.sh 异常
+PY="${PYTHON:-/home/sbzeng/.conda/envs/ttns/bin/python}"
+if [[ ! -x "${PY}" ]]; then
+  source ~/conda_start.sh || true
+  conda activate ttns || true
   PY=python
 fi
 
