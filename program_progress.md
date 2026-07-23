@@ -3,6 +3,7 @@
 > **定位**：这是"指给一个 agent 就能开干"的基线文档。整合项目目标、可选模型、baseline、benchmark、成功标准、允许修改范围与当前进度。
 > **维护**：由人类编辑迭代。深度细节查 `Program.md`（人维护，单层 TTNS 算子/测试/早期实验）与 `ALGORITHM_zh.md`（多层 DAG × TTNS 算法总纲，含 R1–R9 路线表、公式、已验证结论与负结果）。
 > **语言/公式**：正文中文；公式用 `$` 定界；标识符/命令/路径保持英文。
+> **Dev 汇总入口**：跨 worktree 的有效实验证据与结论统一见 [`simple_ttns_l2/reports/dev_experiment_summary_zh.md`](simple_ttns_l2/reports/dev_experiment_summary_zh.md)（含「已验证 / 单 seed 初证 / 未运行脚本 / 已淘汰路线」四级标签）。**勿把不同配置下的数字混为同一实验。**
 
 ---
 
@@ -36,12 +37,17 @@
 - **五模型逐层对比**（`per_layer_all_methods.py`）：全联合 28 维，分层 joint_LL **23.10** vs TTDE 19.35 vs global_TTNS 7.34 vs global_TT 3.75。
 - **全局 TTDE：TT(链) vs TTNS(MI 树)**：同 rank MI 树 ↑似然（test_LL 12.52→14.34）；**等参数量下 MI 树 TTNS 仍胜 +1.87**（TT 提到 rank=64 纯过拟合）。
 - **加速**：hub 边降 rank（速度 ∝ rank^(fanout+1)）：hub_rank=12 → 3.5× 几乎无损；rank=8 → 12×。3-child 融合 einsum → junction 训练 3.2×。
+- **UCI 混合 TTNSDE 排列修复**（§5.2.4）：`n_comps=8,m=128` 单 seed 下 POWER/GAS/HEPMASS 相对等参 TTDE 分别为 **+0.0708 / +0.2622 / +1.0577**（绝对 LL 未达论文配置）。
+- **Dense R5/R6/R7 + 非负解析修复**：100 节点密连接 DAG 上，非负 core→raw² + 快 lr 使 L4 平均 LL≈**6.23**、`nonpos=0`；项目报告见 `ttns_multilayer_dag_project_report_zh.md`。
+- **Budget 阶梯 + delay 泛化**：R5/R7 预算扫描与 R6 小块参照已落地；层间 delay 支持任意分布（log-skew）；全因子编排脚本已入库但**尚未运行**。
+- **Theta 重参数化负结果**：线性 L2 下 θ→θ²/exp 正确但效果变差（已淘汰，见 `reparam_theta_report_zh.md`）。
 
 ### 2.2 尚未系统完成
 
 - **R6 矩张量 $O(m^K)$ 交叉项**（高优先，待实现）：把 $\mathbb E_{p_Y}[q]=\langle C,T\rangle$ 一次性预计算矩张量，每步 $O(m^K)$（约快 15×），确定性传播 + 完整联合两头都占（仅限小块）。
-- **每块改平方（非负）参数化** $p=\psi^2/Z$（最大改进杠杆）：理论已备（`squared_ttns_theory_zh.md`），待在单 3 节点块验证 + 打通全链；平方 TTNS 树采样器待补。
-- **TTNS MLE 在真实 UCI 数据上的多 seed 系统基准**（POWER/GAS 已本地可用，见 §5）。
+- **平方 TTNS 全链传播** $p=\psi^2/Z$：dense 上非负解析 L2 块已打通；理论见 `squared_ttns_theory_zh.md`。待补平方 TTNS 树采样器，并系统对比「非负解析 L2」vs「平方 MLE」全链。
+- **TTNS MLE 在真实 UCI 数据上的多 seed 系统基准**（POWER/GAS/HEPMASS 单 seed 已有，见 §5.2.4；待 ≥3 seed + 论文级容量）。
+- **全因子大规模 study**（`run_full_scale_study.sh`）：脚本已入库，结果未跑。
 - **更大规模**（30+ 维、多块层）纯逐层森林链（方案 A）多 seed 统计；深层多块重拟合稳定化（偶发 val_l2 发散）。
 - 旧笔记中 `TTNSDE/scripts/smoke_train_ttns.py` 若缺失需重建。
 
@@ -78,7 +84,9 @@
 ### 3.3 参数化变体
 
 - **线性 TTNS**（$q_\theta$，L2 目标 $L=\int q^2-2\mathbb E[q]$）：当前 R2/R5/R7/R8 用。
-- **平方 TTNS**（$p=\psi^2/Z$，MLE）：`PAsTTNSSqrOpt`（R9 TTDE 用）；理论已证仍是张量网络，Scheme B 传播化为二次型树收缩（闭式、无采样）。**最大改进杠杆，待落地**。
+- **非负解析 L2 块**（core→raw²，仍用解析 L2）：dense R5 修复主方案；深层负区可清零（见项目报告）。**不是**在线性 L2 上对 θ 做 square/exp 变换。
+- **平方 TTNS**（$p=\psi^2/Z$，MLE）：`PAsTTNSSqrOpt`（R9 TTDE / UCI mixture 用）；理论已证仍是张量网络。UCI 侧已用于混合基准；分层全链平方传播仍待系统化。
+- **已淘汰**：线性 L2 框架内 θ→θ²/exp 重参数化（正确性 PASS，val_l2 变差；`reparam_theta_report_zh.md`）。
 
 ---
 
@@ -175,7 +183,7 @@
 
 **初始化数值稳定性（重要）**：TTNSDE 用 `rank1` 初始化在 HEPMASS 上**直接发散为 NaN**（step 300 起 train_nll=nan，nonpos=1.000）；换 `canonical`(EM 预热) 后正常收敛（nonpos=0）。这与 POWER/GAS（rank1 够用、canonical 无优势甚至略慢）相反——**21 维平方参数化更易崩，canonical 的 EM 预热在此成为必需**。故 §5.2.2「canonical 无用」的结论仅限低维 POWER/GAS，不可外推到更高维。
 
-**HEPMASS 结论**：与 POWER/GAS 完全一致，**真实 UCI 数据上 MI 树拓扑不能让平方 TTNSDE 超过 TTDE 链**（反而 −0.46 nat）。唯一有 LL 优势的是线性 L2 版 TTNS（+0.36），但代价是 **3.4× 参数**（68k vs 20k）且 **2% 留出点密度为负**（非合法密度）——等参数量、合法密度这两个约束下，链 > 树。局限同前：单 seed、受控欠训练（1000 步、30k 训练样本，绝对 LL 远未到位）。
+**HEPMASS 结论（本小节小容量/单分量口径，已被 §5.2.4 部分覆盖）**：在该配置下，**单分量**平方 TTNSDE 未超过 TTDE 链（−0.46 nat）。唯一有 LL 优势的是线性 L2 版 TTNS（+0.36），但代价是 **3.4× 参数**（68k vs 20k）且 **2% 留出点密度为负**。**混合** TTNSDE（`n_comps=8`）修复后的最新结论见 §5.2.4，勿与本表数字混读。
 
 #### 5.2.4 修复混合 TTNSDE 排列后的 UCI 基准（2026-07-05，m=128，n_comps=8，单 seed=0）
 
@@ -232,8 +240,9 @@
 ### 6.3 待达成（下一步成功标准）
 
 - [ ] **R6 矩张量版**：确定性传播 + 完整联合，无 MC 累积、$O(m^K)$（≤15× 加速），在小块上同时拿到 R5 的深层 LL 稳 + R7 的 corr 好。
-- [ ] **平方 TTNS 块**：单 3 节点块平方 LL 推向 TTDE 水平 → 扩 `UpperForest` 二次型传播打通全链。
+- [ ] **平方 / 非负分层全链对照**：dense 非负解析 L2 已打通；待系统对比平方 MLE 全链 + 树采样器。
 - [ ] **真实 UCI 多 seed 系统基准**：✅ 单 seed 已跑 **POWER/GAS/HEPMASS** 多档容量。最新关键更新见 §5.2.4：修复混合 TTNSDE 的随机排列问题与 HEPMASS finite-val 监控问题后，`n_comps=8,m=128` 等参数量下 MI 树混合分别优于链式 TTDE：POWER **+0.0708**、GAS **+0.2622**、HEPMASS **+1.0577**。当前结论：**修复后的树混合在三个 UCI 数据集上均有正收益**。绝对 LL 仍未复现论文 TTDE 报告值（POWER 0.46、GAS 8.93、HEPMASS −21.34），待补 ≥3 seed 均值/方差 + 论文级 m(256/512)/rank/n_comps=32/步数配置。
+- [ ] **全因子 study 实际运行**：`run_full_scale_study.sh` 已入库，结果待回填。
 - [ ] **大图稳定性**：30+ 维多块层方案 A 链多 seed 统计；深层 refit 不发散。
 
 ---
@@ -336,11 +345,14 @@ Program.md / ALGORITHM_zh.md / clarify.md / squared_ttns_theory_zh.md  # 交接/
 ## 10. 下一步优先级
 
 1. **R6 矩张量 $O(m^K)$ 交叉项**（高优先）：确定性 + 完整联合 + 无 MC 累积，小块两头都占。实现见 `ALGORITHM_zh.md` §3.5（把 `_cross_term_fn_joint` 网格换基索引）。
-2. **平方 TTNS 单块验证**：在 3 节点块验证平方 LL 是否推向 TTDE，再扩 `UpperForest` 二次型传播。补平方 TTNS 树采样器。
-3. **真实 UCI 基准升级**：POWER/GAS 单 seed 三方已跑（§5.2.1）；待补 ① ≥3 seed 均值/方差 ② 论文级 m=256/512、rank=16/32 全配置复现 TTDE 报告 test_LL(POWER 0.46 / GAS 8.93) ③ 度数受限树验证 UCI 上树拓扑是否真能持平/胜链。
-4. **大图稳定性**：30+ 维多块层方案 A 链多 seed；深层 refit 退火/正则防发散。
-5. **TTDE TTNS 度数受限树**：限制 hub 孩子数压参数量，看拓扑收益是否保持。
+2. **非负/平方分层全链对照**：以 dense 最终非负解析配置为锚，补平方 TTNS 树采样器与 `UpperForest` 二次型传播，系统对比解析 L2 vs 平方 MLE。
+3. **真实 UCI 基准升级**：§5.2.4 单 seed 已正；待补 ① ≥3 seed 均值/方差 ② 论文级 m=256/512、rank/n_comps、步数以逼近官方 TTDE test_LL ③ 度数受限树。
+4. **运行全因子 study**（`run_full_scale_study.sh`）并回填证据标签。
+5. **大图稳定性**：30+ 维多块层方案 A 链多 seed；深层 refit 退火/正则防发散。
+
+跨实验证据总表与产物链接：[`simple_ttns_l2/reports/dev_experiment_summary_zh.md`](simple_ttns_l2/reports/dev_experiment_summary_zh.md)。
 
 ---
 
 *创建：2026-07-03 — 整合 `Program.md` + `ALGORITHM_zh.md` + `prompt_phase1/2.md` + `README.md` 为单 agent 基线交接文档。*
+*更新：2026-07-23 — `dev` 分支汇总 UCI / dense / budget / theta；见 `dev_experiment_summary_zh.md`。*
