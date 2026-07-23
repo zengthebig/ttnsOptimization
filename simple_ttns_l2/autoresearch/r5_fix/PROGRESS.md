@@ -1,6 +1,6 @@
 # R5 Autoresearch 进度
 
-> 本表由 `run_attempt.py` 追加行；人工可补充「结论」列。  
+> 本表由 `run_attempt.py` 追加行；人工可补充「结论」列。
 > 图路径均相对于 `simple_ttns_l2/autoresearch/r5_fix/`。
 
 | ID | 日期 | 名称 | variant | L4 LL | L4 nonpos | L4 std_ratio | commit | 结论 |

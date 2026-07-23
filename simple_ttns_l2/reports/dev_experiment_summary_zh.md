@@ -1,7 +1,7 @@
 # Dev 实验汇总：证据与结论
 
-> **分支**：`dev`（独立工作树 `../TTDE-dev`，基于最新 `origin/main`）  
-> **目的**：把各实验 worktree 的**有效代码 + 最终指标/参数快照/展示图 + 结论报告**收拢到同一可审计分支；排除缓存、Slurm raw log、W&B、checkpoint 与失效中间图。  
+> **分支**：`dev`（独立工作树 `../TTDE-dev`，基于最新 `origin/main`）
+> **目的**：把各实验 worktree 的**有效代码 + 最终指标/参数快照/展示图 + 结论报告**收拢到同一可审计分支；排除缓存、Slurm raw log、W&B、checkpoint 与失效中间图。
 > **证据标签**（全文统一）：
 >
 > | 标签 | 含义 |
@@ -138,7 +138,7 @@
 | **源提交** | `dab8f56`（本地 `1eb106e`） |
 | **做法** | 线性 L2 下 core θ → identity / θ² / exp θ（强制有效核非负） |
 
-### 主指标（4D 双峰，3 seed，val_l2↑越好）
+### 主指标（4D 双峰，3 seed，val_l2 越低越好）
 
 | transform | mean val_l2 |
 |---|---|
