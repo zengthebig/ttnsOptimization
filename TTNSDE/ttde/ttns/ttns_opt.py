@@ -287,6 +287,50 @@ class TTNSOpt:
             cores.append(core)
         return cls(tuple(cores))
 
+    @classmethod
+    def from_canonical_vectors(
+        cls,
+        vectors: jnp.ndarray,
+        parent: Sequence[int],
+        rank: int,
+        edge_ranks: Dict[Tuple[int, int], int] | None = None,
+    ):
+        """CP / canonical（外积和）→ TTNS，是 ``TTOpt.from_canonical`` 在任意单父树上的推广。
+
+        输入：
+          vectors shape = [RANK, N_DIMS, DIM]
+            vectors[r, k, :] 是第 r 个 CP 分量在第 k 维的向量 v^(r,k)。
+          该 canonical 张量对应：
+            T[i1,...,id] = Σ_{r=1..R} Π_{k=1..d} vectors[r, k, i_k]
+
+        构造思路（与链式 from_canonical 同构，只是 bond 拓扑换成树）：
+          把 R 个 rank-1 TTNS（每条树边 bond=1）逐个 ``add_ttns`` 叠加。
+          ``_combine_ttns`` 对每条边独立 stack bond 维度（bond 1→2→...→R），
+          且 R 个分量沿各自 bond 的“独立槽位”放置 → contraction 时跨分量
+          cross term 恒为 0，等价于“所有边强制选同一个分量下标 r”，
+          即实现 Σ_r Π_k。最终每条边 bond = R（或 edge_ranks 指定值）。
+
+        输出：TTNSOpt，每条边 bond = rank（root 无父边）。
+        """
+        from functools import reduce
+
+        n_components = int(vectors.shape[0])
+        if n_components == 0:
+            raise ValueError("from_canonical_vectors: need at least 1 component")
+        if n_components == 1:
+            return cls.from_rank1_vectors(vectors[0], parent, rank, edge_ranks=edge_ranks)
+
+        # 每个 CP 分量先做成 rank-1 TTNS（edge_ranks 仅作用于最终叠加体；分量本身 bond=1）。
+        parts = [cls.from_rank1_vectors(vectors[r], parent, 1) for r in range(n_components)]
+        acc = parts[0]
+        for p in parts[1:]:
+            acc = add_ttns(acc, p, parent)
+
+        # add_ttns 后每条边 bond = (已叠加分量数)；R 次叠加后 = R。
+        # 若调用方要求 edge_ranks≠统一 rank（即某些边要降秩），这里不再调整：
+        # canonical init 默认所有边 bond=R，与链式 from_canonical 行为一致。
+        return acc
+
 
 def _combine_ttns(
     lhs: TTNSOpt,
