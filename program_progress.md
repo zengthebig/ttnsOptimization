@@ -208,10 +208,11 @@
 
 #### 5.2.5 论文级五数据集单 seed 基准（编排中，2026-07-23）
 
-**证据标签**：单 seed 初证（任务提交后填结果）。协议与产物见 [`simple_ttns_l2/reports/uci_paper_benchmark_report_zh.md`](simple_ttns_l2/reports/uci_paper_benchmark_report_zh.md)。
+**证据标签**：单 seed 初证（任务已提交，结果待回填）。协议与产物见 [`simple_ttns_l2/reports/uci_paper_benchmark_report_zh.md`](simple_ttns_l2/reports/uci_paper_benchmark_report_zh.md)。
 
 - 入口：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --preset paper --dataset <ds> --data-dir /home/sbzeng/2_1/research/datasets/data --seed 0`
 - 提交：`sbatch simple_ttns_l2/experiments/run_uci_paper.sbatch`（阵列 0–4 对应 POWER/GAS/HEPMASS/MINIBOONE/BSDS300）
+- 活跃 job：`785458`（0 POWER / 2 HEPMASS RUNNING）、`785461`（3 MINIBOONE RUNNING；4 BSDS PENDING）、`785463`（1 GAS 重提，pandas pickle 修复后排队）
 - 口径：TTDE 用 README Table 3 的 m/rank/n_comps/batch/steps；TTNSDE 同超参但独立 `r_ttns`；关闭 `match_params` 与 early stop；全量训练数据。
 - 勿与 §5.2.4 的 `m=128,n_comps=8` 数字混读。
 
