@@ -30,6 +30,8 @@
 
 ## 2. 提交命令
 
+**首次提交** `785452` 因 `QOSMaxCpuMinutesPerJobLimit`（7天×16核）被挂起已取消。脚本已改为 `2天×8核×64G`。
+
 ```bash
 cd /home/sbzeng/2_1/research/TTDE-dev
 mkdir -p logs
@@ -38,7 +40,7 @@ sbatch simple_ttns_l2/experiments/run_uci_paper.sbatch
 QUICK=1 sbatch simple_ttns_l2/experiments/run_uci_paper.sbatch
 ```
 
-阵列映射：`0=power, 1=gas, 2=hepmass, 3=miniboone, 4=bsds300`。
+阵列映射：`0=power, 1=gas, 2=hepmass, 3=miniboone, 4=bsds300`。GAS/BSDS 若 2 天不够，可提高 `#SBATCH --time` 后单独重提。
 
 ## 3. 预期产物
 

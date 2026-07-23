@@ -26,9 +26,9 @@
 #SBATCH --error=logs/uci_paper_%A_%a.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=128G
-#SBATCH --time=7-00:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=2-00:00:00
 #SBATCH --array=0-4
 ### ------- 按集群取消注释并填写 -------
 ### #SBATCH --partition=<你的分区名>
@@ -40,8 +40,9 @@ set -euo pipefail
 DATASETS=(power gas hepmass miniboone bsds300)
 DS="${DATASETS[${SLURM_ARRAY_TASK_ID}]}"
 
-# 统一按 GAS/BSDS 最坏情形申请 7 天 / 128G；短任务会提前结束。
-echo "[resource] dataset=${DS} requested mem=128G time=7-00:00:00"
+# 资源说明：本集群 QOS 有 MaxCpuMinutes 限制，7天×16核会被拒。
+# 默认 2天×8核×64G；GAS/BSDS 若超时需提高 time 或续跑（见报告）。
+echo "[resource] dataset=${DS} cpus=8 mem=64G time=2-00:00:00"
 
 # ---- 1. 环境 --------------------------------------------------------
 source ~/conda_start.sh
