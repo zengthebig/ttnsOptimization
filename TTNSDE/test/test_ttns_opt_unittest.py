@@ -219,6 +219,65 @@ class TTNSOptMathTests(unittest.TestCase):
             msg=f"subtract mismatch: abs_err={abs_err}",
         )
 
+    def test_from_canonical_vectors_matches_dense(self):
+        """from_canonical_vectors(R 个 CP 分量) 应等于 Σ_r ⊗_k v^(r,k) 的稠密张量。
+
+        覆盖：分支树（self.parent，9 节点非链）+ 链树 + 单分量退化（R=1 ≡ rank-1）。
+        """
+        from ttde.ttns.ttns_opt import TTNSOpt
+
+        def dense_canonical(vectors: jnp.ndarray) -> jnp.ndarray:
+            # vectors: [R, n_dims, dim] → dense[n_dims 个 dim] = Σ_r Π_k vectors[r,k,idx_k]
+            vectors_np = np.asarray(vectors)
+            r, n_dims, dim = vectors_np.shape
+            out_shape = (dim,) * n_dims
+            total = np.zeros(out_shape, dtype=np.asarray(vectors).dtype)
+            for multi_idx in product(*[range(dim) for _ in range(n_dims)]):
+                val = 0.0
+                for rr in range(r):
+                    phi = 1.0
+                    for axis, idx in enumerate(multi_idx):
+                        phi *= vectors_np[rr, axis, idx]
+                    val += phi
+                total[multi_idx] = val
+            return jnp.asarray(total)
+
+        # 分支树（self.parent / self.dims），R=4 分量，每维 dim=self.dims[0]
+        n_dims = len(self.parent)
+        dim = int(self.dims[0])
+        rank = 4
+        key = jax.random.PRNGKey(77)
+        vectors = jax.random.normal(key, (rank, n_dims, dim), dtype=jnp.float64)
+
+        t_canon = TTNSOpt.from_canonical_vectors(vectors, self.parent, rank)
+        got = ttns_opt_to_dense(t_canon, self.parent)
+        expected = dense_canonical(vectors)
+        abs_err = float(jnp.max(jnp.abs(got - expected)))
+        print(f"\n[from_canonical_vectors] branch tree: R={rank}, max|Δ|={abs_err:.2e}")
+        self.assertLess(abs_err, 1e-12, msg=f"canonical mismatch (branch): max|Δ|={abs_err}")
+
+        # 链树（chain_parent 等价），统一 dim=4
+        chain_parent = [0, 0, 1, 2, 3]
+        chain_dim = 4
+        key2 = jax.random.PRNGKey(88)
+        v2 = jax.random.normal(key2, (3, len(chain_parent), chain_dim), dtype=jnp.float64)
+
+        t_chain = TTNSOpt.from_canonical_vectors(v2, chain_parent, 3)
+        got_c = ttns_opt_to_dense(t_chain, chain_parent)
+        exp_c = dense_canonical(v2)  # 统一 dim，直接用 dense_canonical
+        abs_err_c = float(jnp.max(jnp.abs(got_c - exp_c)))
+        print(f"[from_canonical_vectors] chain tree: R=3, max|Δ|={abs_err_c:.2e}")
+        self.assertLess(abs_err_c, 1e-12, msg=f"canonical mismatch (chain): max|Δ|={abs_err_c}")
+
+        # R=1 退化：应等价 from_rank1_vectors
+        v1 = vectors[:1]
+        t_one = TTNSOpt.from_canonical_vectors(v1, self.parent, 1)
+        t_rank1 = TTNSOpt.from_rank1_vectors(v1[0], self.parent, 1)
+        err_one = float(jnp.max(jnp.abs(ttns_opt_to_dense(t_one, self.parent)
+                                        - ttns_opt_to_dense(t_rank1, self.parent))))
+        print(f"[from_canonical_vectors] R=1 vs rank1: max|Δ|={err_one:.2e}")
+        self.assertLess(err_one, 1e-12, msg=f"R=1 != rank1: max|Δ|={err_one}")
+
 
 class TTNSTrainSmokeTests(unittest.TestCase):
     def test_ttns_one_batch_five_steps(self):

@@ -32,6 +32,14 @@ def _train_mle(model, params, train_x, val_x, cfg: dict, k_iter, label: str) -> 
     def nll(p, xs):
         return -batched_vmap(lambda x: model.apply(p, x, method=model.log_p), bs)(xs).mean()
 
+    def finite_nll_and_nonfinite_rate(p, xs):
+        logp = batched_vmap(lambda x: model.apply(p, x, method=model.log_p), bs)(xs)
+        finite = jnp.isfinite(logp)
+        n_finite = finite.sum()
+        finite_sum = jnp.where(finite, logp, 0.0).sum()
+        mean_ll = jnp.where(n_finite > 0, finite_sum / n_finite, -jnp.inf)
+        return -mean_ll, 1.0 - n_finite / logp.size
+
     @jax.jit
     def step(p, s, batch):
         loss, g = jax.value_and_grad(lambda pp: nll(pp, batch))(p)
@@ -44,19 +52,21 @@ def _train_mle(model, params, train_x, val_x, cfg: dict, k_iter, label: str) -> 
         s_out = jax.tree_util.tree_map(lambda a, b: jnp.where(ok, b, a), s, s_new)
         return p_out, s_out, loss
 
-    eval_nll = jax.jit(lambda p, xs: nll(p, xs))
+    eval_val = jax.jit(lambda p, xs: finite_nll_and_nonfinite_rate(p, xs))
     val_mon = val_x[: cfg.get("monitor_val_sz", 4000)]
     best_val, best_params, bad = float("inf"), params, 0
     t0 = time.perf_counter()
-    print(f"\n=== [{label}] ===\nstep,train_nll,val_nll,sec", flush=True)
+    print(f"\n=== [{label}] ===\nstep,train_nll,val_nll,val_nonfinite,sec", flush=True)
     for s in range(1, cfg["ttde_steps"] + 1):
         k_iter, k_idx, k_noise = jax.random.split(k_iter, 3)
         idx = jax.random.randint(k_idx, (bs,), 0, train_x.shape[0])
         batch = train_x[idx] + jax.random.normal(k_noise, (bs, train_x.shape[1])) * cfg["train_noise"]
         params, opt_state, loss = step(params, opt_state, batch)
         if s % cfg["log_every"] == 0 or s == cfg["ttde_steps"]:
-            vn = float(eval_nll(params, val_mon))
-            print(f"{s},{float(loss):.4f},{vn:.4f},{time.perf_counter()-t0:.1f}", flush=True)
+            vn, val_nonfinite = eval_val(params, val_mon)
+            vn = float(vn)
+            val_nonfinite = float(val_nonfinite)
+            print(f"{s},{float(loss):.4f},{vn:.4f},{val_nonfinite:.6f},{time.perf_counter()-t0:.1f}", flush=True)
             if np.isfinite(vn) and vn + 1e-4 < best_val:
                 best_val, best_params, bad = vn, params, 0
             else:
@@ -64,6 +74,9 @@ def _train_mle(model, params, train_x, val_x, cfg: dict, k_iter, label: str) -> 
                 if bad >= cfg.get("ttde_patience", 8):
                     print(f"early_stop at {s}", flush=True)
                     break
+    if not np.isfinite(best_val):
+        print("warning: no finite validation NLL observed; returning latest trained params", flush=True)
+        return params, best_val
     return best_params, best_val
 
 
@@ -71,7 +84,8 @@ def fit_ttde_tt(train_x, val_x, cfg: dict, seed: int) -> Tuple[object, dict, dic
     """拟合 TTDE TT（平方 MLE, 链式拓扑）。返回 (model, params, info)。"""
     train_x = jnp.asarray(train_x, dtype=jnp.float64)
     val_x = jnp.asarray(val_x, dtype=jnp.float64)
-    setup = model_setups.PAsTTSqrOpt(q=cfg["q"], m=cfg["m"], rank=cfg["ttde_rank"], n_comps=1)
+    setup = model_setups.PAsTTSqrOpt(q=cfg["q"], m=cfg["m"], rank=cfg["ttde_rank"],
+                                     n_comps=cfg.get("n_comps", 1))
     init = init_setups.CanonicalRankK(em_steps=cfg.get("ttde_em_steps", 50), noise=cfg["init_noise"])
     key = jax.random.PRNGKey(seed + 1201)
     key, k_model, k_init, k_iter = jax.random.split(key, 4)
@@ -88,15 +102,21 @@ def fit_ttde_ttns(train_x, val_x, cfg: dict, seed: int, tree_parent) -> Tuple[ob
     """拟合 TTDE TTNS（平方 MLE, **给定树拓扑** `tree_parent`, 例如 chow-liu MI 树）。
 
     与 `fit_ttde_tt` 同为平方参数化 + MLE, 仅把链式 TT 换成单父 TTNS 树。非链拓扑下
-    `init_canonical` 自动回退到 rank-1 初始化(库内已处理)。返回 (model, params, info)。
+    init 由 cfg["ttns_init"] 控制：``canonical``（默认，新）走 EM 估 R 个逐维边际分量
+    再用 ``from_canonical_vectors`` 叠成 bond-R TTNS；``rank1``（旧）退回 rank-1。
+    返回 (model, params, info)。
     """
     train_x = jnp.asarray(train_x, dtype=jnp.float64)
     val_x = jnp.asarray(val_x, dtype=jnp.float64)
     setup = model_setups.PAsTTNSSqrOpt(
-        q=cfg["q"], m=cfg["m"], rank=cfg["ttde_rank"], n_comps=1,
+        q=cfg["q"], m=cfg["m"], rank=cfg["ttde_rank"], n_comps=cfg.get("n_comps", 1),
         tree_parent=tuple(int(p) for p in tree_parent),
     )
-    init = init_setups.CanonicalRankK(em_steps=cfg.get("ttde_em_steps", 50), noise=cfg["init_noise"])
+    init_mode = cfg.get("ttns_init", "canonical")
+    if init_mode == "rank1":
+        init = init_setups.Rank1Only(noise=cfg["init_noise"])
+    else:
+        init = init_setups.CanonicalRankK(em_steps=cfg.get("ttde_em_steps", 50), noise=cfg["init_noise"])
     key = jax.random.PRNGKey(seed + 1201)
     key, k_model, k_init, k_iter = jax.random.split(key, 4)
     model = setup.create(k_model, train_x)

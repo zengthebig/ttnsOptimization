@@ -118,27 +118,85 @@
 |---|---|---|---|
 | **POWER** | 6 | ✅ `data/data/power/data.npy`（125M） | ✅ 已跑 TTDE/线性TTNS/平方TTNS 三方基准 |
 | **GAS** | 8 | ✅ `data/data/gas/ethylene_CO.pickle`（168M） | ✅ 已跑三方基准 |
-| HEPMASS | 21 | ❌ 未下载 | README 给下载指引 |
+| **HEPMASS** | 21 | ✅ `data/data/hepmass/{1000_train,1000_test}.csv` | ✅ 已跑三方基准（§5.2.3） |
 | MINIBOONE | 43 | ❌ 未下载 | — |
 | BSDS300 | 64 | ❌ 未下载 | — |
 
 > `data/data/` 下 `mnist`（空）、`cifar10`（仅 2 个 batch）不完整，非当前主线。**POWER/GAS 已完成 TTNS MLE 真实数据三方基准**（`uci_ttde_vs_ttns.py`）。数据根目录传 `--data-dir data/data`，加载器按 `root/<name>/...` 取文件。
 
-#### 5.2.1 UCI 三方基准结果（2026-07-03，B-spline q=2 m=48，等参数量对齐 match_params，1000 步）
+#### 5.2.1 UCI 三方基准结果（2026-07-03 更新，B-spline q=2 **m=96**，等参数量对齐 match_params，**2000 步**，单 seed=0）
 
-入口：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --dataset power|gas`。
-同基、同 Chow–Liu 树（`estimate_chow_liu_tree(n_bins=16, root=0)`）、平方 TT(链) 用 `match_params` 反解 rank 与 TTNS 等参数量。test_LL = 留出集平均对数密度；线性模型 `q` 已 $\int q{=}1$，负值点 clip 到 1e-12 并报 `nonpos_rate`（线性参数化固有缺陷）；平方模型 log_p 在密度近零点可下溢为 $-\infty$，取 finite 均值并报非正率。切片密度 2D 积分 ≈1，平方 TT 边缘 vs `ttde_block_logp` 交叉检验 max|Δ|≈1e-16（机器精度）。
+入口：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --dataset both --m 96 --r-ttns 6 --steps 2000 --data-dir <绝对路径>/data/data`。
+同基、同 Chow–Liu 树（`estimate_chow_liu_tree(n_bins=16, root=0)`）、平方 TT(链) 用 `match_params` 反解 rank 与平方 TTNS 等参数量。test_LL = 留出集平均对数密度；线性模型 `q` 已 $\int q{=}1$，负值点 clip 到 1e-12 并报 `nonpos_rate`；平方模型 log_p 在密度近零点可下溢为 $-\infty$，取 finite 均值并报非正率。切片密度 2D 积分 ≈1，平方 TT 边缘 vs `ttde_block_logp` 交叉检验 max|Δ|≈8e-17(POWER)/4e-16(GAS)（机器精度）。
 
-| 数据集 | 模型 | 参数化/拓扑 | test_LL↑ | train_LL | params | nonpos |
+| 数据集 | 模型 | 参数化/拓扑 | test_LL↑ | train_LL | params | rank | nonpos |
+|---|---|---|---|---|---|---|---|
+| POWER(6D) | global_TTDE | 平方TT(链) | **0.051** | 0.272 | 127,872 | 18 | 0.000 |
+| POWER | global_TTNS | 线性TTNS(MI树) | −1.208 | −1.150 | 64,320 | 5 | 0.046 |
+| POWER | global_TTNSDE | 平方TTNS(MI树) | **0.078** | 0.242 | 130,176 | 6 | 0.000 |
+| GAS(8D) | global_TTDE | 平方TT(链) | **−1.283** | −1.278 | 38,400 | 8 | 0.000 |
+| GAS | global_TTNS | 线性TTNS(MI树) | −21.970 | −21.995 | 103,680 | 9 | 0.742 |
+| GAS | global_TTNSDE | 平方TTNS(MI树) | **−1.155** | −1.151 | 36,288 | 6 | 0.000 |
+
+**容量对比（m=48 旧 → m=96 新）**：加大容量后两个数据集的平方模型 test_LL 都大幅上升——POWER TTDE −0.550→**0.051**、TTNSDE −0.526→**0.078**；GAS TTDE −4.435→**−1.283**、TTNSDE −4.453→**−1.155**。这证实了旧结论的主要疑点「欠训练」确实存在：m=48 时模型远未拟合到位。POWER 已接近论文报告值（TTDE ~0.46），**GAS 仍差约 10 nats**（论文 ~8.93），说明 m=96 对 GAS 仍不够，结论解读需谨慎。
+
+**UCI 结论（更新）**：
+
+① **平方参数化在 LL 口径上稳健且大幅领先，但「线性 vs 平方」不是干净的参数化消融**——线性 TTNS 用 L2 目标、平方模型用 MLE，二者训练目标不同；且线性 L2 在此容量下**优化发散**（POWER `train_l2` 冲到千级、GAS 冲到千万级，GAS 留出集 **74% 点密度≤0**）。故 +1.29(POWER)/+20.8(GAS) 的巨大差距主要反映**线性 L2 的不稳定/不可靠**，不能全部归因于参数化本身。可靠表述：**平方+MLE 稳健，线性+L2 在真实高分辨率基上易崩**。
+
+② **等参数量下树拓扑相对链只有微弱且一致的正收益**——平方 TT(链) vs 平方 TTNS(MI 树)：POWER **+0.027**、GAS **+0.128**（注意 GAS 树的参数 36,288 反而**少于**链的 38,400 仍胜）。相比 m=48 旧值（+0.024/−0.018），加大容量后两个数据集都转为树略优，GAS 的边际更明显。但差距仍 <0.13 nat。
+
+③ **总体仍是「树 ≈ 链」**，未见合成 DAG 上那种树结构大幅占优；且以下**局限未消除**，不足以下一般性结论：(a) **单 seed**，±0.13 nat 可能落在种子噪声内；(b) **POWER 的 Chow–Liu 树退化为星形**（`deg=[4,1,1,1,2,1]`，hub 核 $\sim m r^4$ 吃掉绝大多数参数），并非有代表性的树；(c) **GAS 仍欠拟合**（离论文 ~10 nats）。「UCI 去相关预处理导致近树依赖弱」仍只是**推测**，未量化树相对链的 MI 增益。图/数据（rank1 初始化，保留版）：`uci_{power,gas}_ttde_vs_ttns_*_rank1init.png`、`uci_ttde_vs_ttns_metrics_rank1init.json`。
+
+#### 5.2.2 TTNSDE 初始化对比：canonical(EM) vs rank1（2026-07-03，m=96，仅换 TTNSDE 初始化）
+
+新增 `--ttns-init {canonical,rank1}`（`fit_ttde_ttns` 非链拓扑初始化：`canonical` 用 `CanonicalRankK` 走 EM 估 R 个逐维边际分量再叠成 bond-R TTNS；`rank1` 为旧 `Rank1Only`）。同大参数（m=96, r_ttns=6, steps=2000, seed=0），**只改 TTNSDE 的初始化**，TTDE/线性 TTNS 不变。入口：`... uci_ttde_vs_ttns --dataset both --m 96 --r-ttns 6 --steps 2000 --ttns-init canonical --data-dir <abs>/data/data`。
+
+| 数据集 | TTNSDE 初始化 | test_LL↑ | train_LL | init+训练耗时 | vs 同数据集 TTDE(链) |
+|---|---|---|---|---|---|
+| POWER | rank1（原，保留） | **0.078** | 0.242 | 35s | +0.027 |
+| POWER | canonical（新，EM） | **−0.021** | 0.063 | 167s | −0.086 |
+| GAS | rank1（原，保留） | **−1.155** | −1.151 | 20s | +0.128 |
+| GAS | canonical（新，EM） | **−1.163** | −1.159 | 201s | +0.120 |
+
+**初始化结论（诚实负结果）**：在这两个数据集、单 seed、m=96 下，**canonical(EM) 初始化并未提升 TTNSDE 的 test_LL，反而略降**——POWER −0.099（0.078→−0.021，明显）、GAS −0.008（基本持平）；且 EM 初始化使 TTNSDE 训练耗时大增（POWER 35s→167s、GAS 20s→201s）。需注意**存在 run-to-run 方差**：同配置、同 seed 的 TTDE(链) 在两次运行间 test_LL 也有 ~0.013 抖动（POWER 0.051→0.064），故 GAS 的 −0.008 落在噪声内、不可判读；POWER 的 −0.099 超出该噪声，倾向于「canonical 在此设置下没帮助」。要定论仍需 ≥3 seed。文件：默认名（`uci_ttde_vs_ttns_metrics.json`、`uci_{power,gas}_ttde_vs_ttns_*.png`）= canonical 结果；`*_rank1init.*` = 保留的原 rank1 结果。
+
+#### 5.2.3 HEPMASS 三方基准（2026-07-03，21D，m=64，r_ttns=3，1000 步，单 seed=0）
+
+入口：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --dataset hepmass --m 64 --r-ttns 3 --steps 1000 --train-cap 40000 --ttns-init <init> --data-dir <abs>/data/data`。21 维、受控容量（fit_train=30000，monitor_val=2000）以控时长。Chow–Liu/MI 树最大度仅 4（无 hub 爆炸），`match_params` 反解平方 TT(链) rank=4。等参数量对齐：平方 TTNS(MI树) r=3 → 25,152 参数 vs 平方 TT(链) r=4 → 19,968。
+
+| 模型 | 参数化/拓扑 | test_LL↑ | train_LL | params | nonpos | sec |
 |---|---|---|---|---|---|---|
-| POWER(6D) | global_TTDE | 平方TT(链) | **−0.550** | −0.417 | 63,936 | 0.000 |
-| POWER | global_TTNS | 线性TTNS(MI树) | −2.297 | −2.257 | 118,944 | 0.026 |
-| POWER | global_TTNSDE | 平方TTNS(MI树) | **−0.526** | −0.422 | 65,088 | 0.000 |
-| GAS(8D) | global_TTDE | 平方TT(链) | **−4.435** | −4.439 | 7,680 | 0.000 |
-| GAS | global_TTNS | 线性TTNS(MI树) | −7.962 | −8.012 | 112,320 | 0.077 |
-| GAS | global_TTNSDE | 平方TTNS(MI树) | **−4.453** | −4.463 | 6,720 | 0.000 |
+| global_TTDE | 平方TT(链) | **−25.79** | −25.60 | 19,968 | 0.000 | 161 |
+| global_TTNS | 线性TTNS(MI树) | **−25.44** | −25.39 | 68,352 | 0.020 | 41 |
+| global_TTNSDE | 平方TTNS(MI树) | **−26.25** | −26.10 | 25,152 | 0.000 | 119 |
 
-**UCI 结论**：① **平方参数化是决定性杠杆**——线性→平方提升 +1.77(POWER)/+3.51(GAS) nats；线性 TTNS 因 $q$ 可负、2.6%~7.7% 点密度≤0，test_LL 大幅落后。② **树拓扑收益在等参数量下基本消失**——平方 TT(链) vs 平方 TTNS(MI 树) 仅 +0.024(POWER)/−0.018(GAS)，不显著。③ 真实数据上**平方 TTNS(MI 树) ≈ 平方 TT(链)**，不像合成 DAG 那样树结构占优；推测因 UCI 经标准化+去相关预处理后变量间近树依赖弱，且 m=48 控时配置下链式已足够。图：`uci_ttde_vs_ttns_bars.png`、`uci_{power,gas}_ttde_vs_ttns_slices.png`。
+Δtest_LL：TTNS−TTDE **+0.36**、TTNSDE−TTDE **−0.46**、TTNSDE−TTNS −0.82。
+
+**初始化数值稳定性（重要）**：TTNSDE 用 `rank1` 初始化在 HEPMASS 上**直接发散为 NaN**（step 300 起 train_nll=nan，nonpos=1.000）；换 `canonical`(EM 预热) 后正常收敛（nonpos=0）。这与 POWER/GAS（rank1 够用、canonical 无优势甚至略慢）相反——**21 维平方参数化更易崩，canonical 的 EM 预热在此成为必需**。故 §5.2.2「canonical 无用」的结论仅限低维 POWER/GAS，不可外推到更高维。
+
+**HEPMASS 结论**：与 POWER/GAS 完全一致，**真实 UCI 数据上 MI 树拓扑不能让平方 TTNSDE 超过 TTDE 链**（反而 −0.46 nat）。唯一有 LL 优势的是线性 L2 版 TTNS（+0.36），但代价是 **3.4× 参数**（68k vs 20k）且 **2% 留出点密度为负**（非合法密度）——等参数量、合法密度这两个约束下，链 > 树。局限同前：单 seed、受控欠训练（1000 步、30k 训练样本，绝对 LL 远未到位）。
+
+#### 5.2.4 修复混合 TTNSDE 排列后的 UCI 基准（2026-07-05，m=128，n_comps=8，单 seed=0）
+
+背景：原 TTDE mixture 代码会为每个分量生成一个随机变量排列。这个机制对 TT(链)合理，因为随机排列后仍是一条合法链；但对数据估计的 Chow-Liu/MI 树不合理，因为固定的 MI 树边会被套到随机变量对上，导致除第 0 个恒等排列分量外，其余分量退化成随机树。已修复 `PAsTTNSSqrOpt.create`：非链树拓扑在 `n_comps>1` 时强制所有分量使用恒等排列，使每个分量都使用同一棵真 MI 树；混合多样性由初始化噪声和训练动态提供。TTDE 链仍保留随机排列，基线不变。
+
+入口示例：`env -u PYTHONPATH python3 -m simple_ttns_l2.experiments.uci_ttde_vs_ttns --dataset <power|gas|hepmass> --n-comps 8 --m 128 --r-ttns 6 --steps 5000 --train-cap 40000 --out-tag ncomps8fix_<dataset> --data-dir <abs>/data/data`。平方 TT(链) 仍用 `match_params` 反解 rank 与 TTNSDE 近似等参数量；`n_comps>1` 时跳过线性 TTNS 与切片图（当前边缘 helper 仅支持单分量）。
+
+| 数据集 | 模型 | 参数化/拓扑 | test_LL↑ | train_LL | params | rank | 备注 |
+|---|---|---|---|---|---|---|---|
+| POWER(6D) | global_TTDE | 平方TT(链, 随机排列 mixture) | 0.0368 | 0.6328 | 1,363,968 | 18 | 早停 2700 |
+| POWER | global_TTNSDE | 平方TTNS(MI树, 恒等排列 mixture) | **0.1076** | 0.4808 | 1,388,544 | 6 | 早停 3000 |
+| GAS(8D) | global_TTDE | 平方TT(链, 随机排列 mixture) | 1.5898 | 1.9234 | 409,600 | 8 | 跑满 5000 |
+| GAS | global_TTNSDE | 平方TTNS(MI树, 恒等排列 mixture) | **1.8521** | 2.1322 | 387,072 | 6 | 跑满 5000 |
+| HEPMASS(21D) | global_TTDE | 平方TT(链, 随机排列 mixture) | −24.8620 | −17.9986 | 5,013,504 | 16 | finite-val 修复后重跑，早停 2700 |
+| HEPMASS | global_TTNSDE | 平方TTNS(MI树, 恒等排列 mixture) | **−23.8042** | −20.6789 | 4,859,904 | 6 | finite-val 修复后重跑，早停 2700 |
+
+Δtest_LL（TTNSDE − TTDE）：POWER **+0.0708**，GAS **+0.2622**，HEPMASS **+1.0577**。其中 GAS 的修复最关键：修复前同配置下 TTNSDE 为 1.1827、落后链 −0.4069；修复后升到 1.8521、反超链 +0.2622，净改善约 **+0.669 nat**。HEPMASS 的修复同样关键：旧训练监控因 0.05% 验证点 `log_p=-inf` 使 `val_nll=inf`，best params 未更新，旧值无效；改用 finite mean 监控后，TTNSDE 从表观落后变为领先 **+1.0577 nat**。
+
+**当前结论**：真实 UCI 上，修复后的混合 TTNSDE 在 POWER/GAS/HEPMASS 三个数据集上均优于等参数量链式 TTDE。2026-07-06 debug 确认：HEPMASS 的验证集/测试集有极少数点落在由 `tr_fit` 建出的 B-spline 支撑外（测试约 0.032%），导致 `log_p=-inf`；旧 `_train_mle` 用普通均值计算 `val_nll`，因此全程 `val_nll=inf`，best params 从未更新，旧 HEPMASS 负结果无效。已修复训练监控为 finite mean 并打印 `val_nonfinite`，且若全程没有 finite 验证值则返回最后训练参数。修复后 HEPMASS 大配置日志中 `val_nonfinite=0.0005`，`val_nll` 全程 finite，最终 TTNSDE **−23.8042** vs TTDE **−24.8620**。绝对 LL 仍未对齐论文官方 TTDE（POWER 0.46、GAS 8.93、HEPMASS −21.34），但 HEPMASS 距论文 TTDE 的差距已由旧无效链结果约 3.82 nat 缩小到 TTNSDE 约 2.46 nat。
+
+2026-07-06 补充：已实现 `n_comps>1` 的 mixture 2D 切片图（按各分量归一化常数 $Z_c$ 加权，TTDE 分量处理随机排列，TTNSDE 分量使用恒等排列 MI 树），并保存参数快照：`uci_power_ttde_vs_ttns_params_ncomps8fix_slices.pkl`、`uci_gas_ttde_vs_ttns_params_ncomps8fix_slices.pkl`。第一版 raw 全范围粗网格图在 GAS 强相关切片上出现网格积分 2.3–2.9，debug 后确认是尖峰密度 + 粗网格 aliasing，而非模型归一化错误：将切片窗口改为逐维 0.5%–99.5% quantile、网格加密，并对有限窗口内密度做 display-normalization 后，raw window integral 恢复正常。最终展示图：`uci_power_ttde_vs_ttns_slices_ncomps8fix_displaynorm.png`（raw win∫：0.971/0.965、0.972/0.970、0.979/0.977），`uci_gas_ttde_vs_ttns_slices_ncomps8fix_displaynorm.png`（raw win∫：0.946/0.942、0.996/0.996、0.971/0.969）。旧 `*_slices_ncomps8fix_slices.png` 仅保留作 raw/debug，不作为最终展示。
 
 ### 5.3 评测指标
 
@@ -175,7 +233,7 @@
 
 - [ ] **R6 矩张量版**：确定性传播 + 完整联合，无 MC 累积、$O(m^K)$（≤15× 加速），在小块上同时拿到 R5 的深层 LL 稳 + R7 的 corr 好。
 - [ ] **平方 TTNS 块**：单 3 节点块平方 LL 推向 TTDE 水平 → 扩 `UpperForest` 二次型传播打通全链。
-- [ ] **真实 UCI（POWER/GAS）多 seed 系统基准**：✅ 单 seed 三方对比已完成（见 §5.2.1），待补 ≥3 seed 均值/方差 + 论文级 m(256/512)/rank 配置复现 TTDE 报告值。初步结论：平方参数化主导（+1.77/+3.51 nats），树拓扑等参数量下基本持平。
+- [ ] **真实 UCI 多 seed 系统基准**：✅ 单 seed 已跑 **POWER/GAS/HEPMASS** 多档容量。最新关键更新见 §5.2.4：修复混合 TTNSDE 的随机排列问题与 HEPMASS finite-val 监控问题后，`n_comps=8,m=128` 等参数量下 MI 树混合分别优于链式 TTDE：POWER **+0.0708**、GAS **+0.2622**、HEPMASS **+1.0577**。当前结论：**修复后的树混合在三个 UCI 数据集上均有正收益**。绝对 LL 仍未复现论文 TTDE 报告值（POWER 0.46、GAS 8.93、HEPMASS −21.34），待补 ≥3 seed 均值/方差 + 论文级 m(256/512)/rank/n_comps=32/步数配置。
 - [ ] **大图稳定性**：30+ 维多块层方案 A 链多 seed 统计；深层 refit 不发散。
 
 ---

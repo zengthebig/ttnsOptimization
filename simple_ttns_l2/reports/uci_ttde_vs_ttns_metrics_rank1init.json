@@ -1,0 +1,95 @@
+{
+  "power": {
+    "dataset": "power",
+    "n_dims": 6,
+    "config": {
+      "q": 2,
+      "m": 24,
+      "r_ttns": 4,
+      "match_params": true,
+      "r_tt": null,
+      "budget": 120000,
+      "rmax": 40,
+      "lr": 0.002,
+      "steps": 200,
+      "batch_sz": 512,
+      "init_noise": 0.01,
+      "train_noise": 0.001,
+      "log_every": 300,
+      "early_stop_patience": 8,
+      "cl_bins": 16,
+      "ttde_steps": 200,
+      "ttde_em_steps": 12,
+      "ttde_patience": 8,
+      "ttde_init_noise": 0.03,
+      "ttde_grad_clip": 10.0,
+      "monitor_val_sz": 2000,
+      "ttde_n_train": 6000,
+      "train_cap": 8000,
+      "n_slice_pairs": 3,
+      "grid_n": 60,
+      "seed": 0,
+      "ttns_init": "canonical"
+    },
+    "mi_tree": [
+      0,
+      4,
+      0,
+      0,
+      0,
+      0
+    ],
+    "chain": [
+      0,
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "pairs": [
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ]
+    ],
+    "results": {
+      "global_TTDE": {
+        "ll_test": -1.8380412113061737,
+        "ll_train": -1.6571573999442677,
+        "params": 6528,
+        "sec": 6.917283458999999,
+        "nonpos_rate": 2.927857589006871e-05,
+        "rank": 8,
+        "topology": "chain"
+      },
+      "global_TTNS": {
+        "ll_test": -3.9436588212272516,
+        "ll_train": -3.920490975794791,
+        "params": 100608,
+        "sec": 8.118848917,
+        "nonpos_rate": 0.02478431449094316,
+        "rank": 8,
+        "topology": "MI_tree"
+      },
+      "global_TTNSDE": {
+        "ll_test": -1.9637050754851737,
+        "ll_train": -1.8259300823768274,
+        "params": 6912,
+        "sec": 7.898998958999982,
+        "nonpos_rate": 2.927857589006871e-05,
+        "rank": 4,
+        "topology": "MI_tree",
+        "init": "canonical"
+      }
+    }
+  }
+}

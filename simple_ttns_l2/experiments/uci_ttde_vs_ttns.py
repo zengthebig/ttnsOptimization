@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import pickle
 import sys
 import time
 from pathlib import Path
@@ -42,6 +43,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 from ttde.datasets.power import _POWER  # noqa: E402
 from ttde.datasets.gas import _GAS  # noqa: E402
+from ttde.datasets.hepmass import _HEPMASS  # noqa: E402
 from ttde.score.models.opt_for_tree_data import chain_parent  # noqa: E402
 from ttde.ttns.ttns_opt import (  # noqa: E402
     TTNSOpt, quadratic_form_ttns,
@@ -64,15 +66,43 @@ from simple_ttns_l2.experiments.ttde_ttns_vs_tt import (  # noqa: E402
 REPORTS = REPO_ROOT / "simple_ttns_l2" / "reports"
 
 
+def _tree_take_first_axis(tree, idx):
+    return jax.tree_util.tree_map(lambda arr: arr[idx], tree)
+
+
+def _tree_perm_first_axis(tree, perm):
+    perm = np.asarray(perm, dtype=np.int64)
+    return jax.tree_util.tree_map(lambda arr: arr[perm], tree)
+
+
+def _tt_envs_from_cores_and_bases(cores, bases):
+    d = len(cores)
+    gram = np.asarray(jax.vmap(type(bases).l2_integral)(bases))
+    env = [None] * d
+    env[d - 1] = np.ones((1, 1))
+    for t in range(d - 2, -1, -1):
+        G = cores[t + 1]
+        env[t] = np.einsum("ij,ais,sl,bjl->ab", gram[t + 1], G, env[t + 1], G)
+    lenv = [None] * (d + 1)
+    lenv[0] = np.ones((1, 1))
+    for t in range(1, d + 1):
+        G = cores[t - 1]
+        lenv[t] = np.einsum("ac,aib,ij,cjd->bd", lenv[t - 1], G, gram[t - 1], G)
+    Z = float(lenv[d][0, 0])
+    return gram, env, lenv, Z
+
+
 # ------------------------------------------------------------------ 数据
 
 def load_uci(name: str, data_dir: Path):
-    """返回 (train_x, val_x, test_x) float64 numpy。直接用 _POWER/_GAS 拿 test 划分。"""
+    """返回 (train_x, val_x, test_x) float64 numpy。直接用 _POWER/_GAS/_HEPMASS 拿 test 划分。"""
     root = Path(data_dir)
     if name.lower() == "power":
         d = _POWER(root)
     elif name.lower() == "gas":
         d = _GAS(root)
+    elif name.lower() == "hepmass":
+        d = _HEPMASS(root)
     else:
         raise ValueError(name)
     trn = np.asarray(d.trn.x, dtype=np.float64)
@@ -206,6 +236,69 @@ def _eval_pair_marginal_sq_ttns_on_grid(
     return np.asarray(vals).reshape((len(xi_centers), len(xj_centers)))
 
 
+def _eval_pair_marginal_sq_tt_mixture_on_grid(
+    params, model, dim_i, dim_j, xi_centers, xj_centers, chunk_size: int = 128,
+) -> np.ndarray:
+    """平方 TT mixture 在原始维度 (dim_i, dim_j) 上的 2D 边缘。
+
+    TTDE mixture 每个分量有自己的变量排列 perm：core 位置 k 消费原始变量 perm[k]。
+    单分量边缘需要在 permuted 坐标里找 dim_i/dim_j 的位置，并用 permuted bases/Gram
+    保持 core 位置与基函数维度一致。整体密度为 Σ_c ψ_c² / Σ_c Z_c。
+    """
+    tt = params["tt"]["tt"]
+    first = np.asarray(tt.first)    # [C, 1, m, r]
+    inner = np.asarray(tt.inner)    # [C, d-2, r, m, r]
+    last = np.asarray(tt.last)      # [C, r, m, 1]
+    perms = np.asarray(model.permutations)
+    n_comp = first.shape[0]
+    weighted, Zs = [], []
+    for c in range(n_comp):
+        perm = perms[c]
+        pos_i = int(np.where(perm == dim_i)[0][0])
+        pos_j = int(np.where(perm == dim_j)[0][0])
+        bases_c = _tree_perm_first_axis(model.bases, perm)
+        cores = [first[c]] + [inner[c, k] for k in range(inner.shape[1])] + [last[c]]
+        gram_c, env_c, lenv_c, Z_c = _tt_envs_from_cores_and_bases(cores, bases_c)
+        if pos_i < pos_j:
+            d_c = _eval_pair_marginal_sq_tt_on_grid(
+                cores, gram_c, lenv_c, env_c, Z_c, bases_c,
+                pos_i, pos_j, xi_centers, xj_centers, chunk_size=chunk_size,
+            )
+        else:
+            # helper 的第一个 grid 对应较小的位置；反序时先按 (j,i) 算，再转回 (i,j)。
+            d_c = _eval_pair_marginal_sq_tt_on_grid(
+                cores, gram_c, lenv_c, env_c, Z_c, bases_c,
+                pos_j, pos_i, xj_centers, xi_centers, chunk_size=chunk_size,
+            ).T
+        weighted.append(d_c * Z_c)
+        Zs.append(Z_c)
+    return np.sum(weighted, axis=0) / max(float(np.sum(Zs)), 1e-300)
+
+
+def _eval_pair_marginal_sq_ttns_mixture_on_grid(
+    params, model, parent, dim_i, dim_j, xi_centers, xj_centers, chunk_size: int = 128,
+) -> np.ndarray:
+    """平方 TTNS mixture 在原始维度 (dim_i, dim_j) 上的 2D 边缘。
+
+    修复后的非链 TTNSDE mixture 强制所有分量用恒等排列，因此每个分量共享同一棵 MI 树。
+    整体密度同样为 Σ_c ψ_c² / Σ_c Z_c。
+    """
+    all_cores = params["ttns"]["ttns"].cores
+    n_comp = int(np.asarray(all_cores[0]).shape[0])
+    gram = np.asarray(jax.vmap(type(model.bases).l2_integral)(model.bases))
+    weighted, Zs = [], []
+    for c in range(n_comp):
+        ttns_c = TTNSOpt(tuple(np.asarray(core)[c] for core in all_cores))
+        Z_c = float(quadratic_form_ttns(ttns_c, jnp.asarray(gram), parent))
+        d_c = _eval_pair_marginal_sq_ttns_on_grid(
+            ttns_c, parent, model.bases, gram, dim_i, dim_j,
+            xi_centers, xj_centers, chunk_size=chunk_size,
+        )
+        weighted.append(d_c * Z_c)
+        Zs.append(Z_c)
+    return np.sum(weighted, axis=0) / max(float(np.sum(Zs)), 1e-300)
+
+
 def ttde_finite_logp(model, params, X, batch_sz: int = 512):
     """平方模型 log_p：返回 (finite_mean_ll, nonpositive_rate)。
 
@@ -286,10 +379,11 @@ def run(name: str, cfg: dict, data_dir: Path):
 
     r_ttns = cfg["r_ttns"]
     p_ttns = ttns_params(mi_tree, m, r_ttns)
-    r_tt = tt_rank_for_params(p_ttns, n_dims, m) if cfg["match_params"] else cfg.get("r_tt", r_ttns)
+    r_tt = tt_rank_for_params(p_ttns, n_dims, m) if cfg["match_params"] else (cfg.get("r_tt") or r_ttns)
     p_tt = tt_params(n_dims, m, r_tt)
-    print(f"[params] TTNS(r={r_ttns})={p_ttns}  TT(r={r_tt})={p_tt}  "
-          f"(match={cfg['match_params']})", flush=True)
+    nc = cfg.get("n_comps", 1)
+    print(f"[params/comp] TTNS(r={r_ttns})={p_ttns}  TT(r={r_tt})={p_tt}  "
+          f"(match={cfg['match_params']})  n_comps={nc} → total≈TTNS {p_ttns*nc:,} / TT {p_tt*nc:,}", flush=True)
 
     bases = build_bases(jnp.asarray(trn), q, m)
     gram = vmap(type(bases).l2_integral)(bases)
@@ -298,6 +392,10 @@ def run(name: str, cfg: dict, data_dir: Path):
     results = {}  # name -> dict
     tr_j = jnp.asarray(tr_fit)
     val_j = jnp.asarray(tr_val)
+    # n_comps>1(mixture) 时线性 TTNS(L2, 无混合)与切片边缘 helper(设 n_comps=1)不适用 → 跳过，聚焦两平方 MLE
+    n_comps = cfg.get("n_comps", 1)
+    run_linear = n_comps == 1
+    run_slices = n_comps == 1
 
     # ---- 1) global_TTDE : 平方 TT(链) MLE ----
     print("\n=== [1/3] global_TTDE (squared TT chain, MLE) ===", flush=True)
@@ -313,32 +411,37 @@ def run(name: str, cfg: dict, data_dir: Path):
     print(f"  test_LL={ll_test_tt:.4f} train_LL={ll_train_tt:.4f} "
           f"params={info_tt['learned_params']} nonpos={np_tt:.3f} sec={dt:.1f}", flush=True)
 
-    # ---- 2) global_TTNS : 线性 TTNS(MI 树) L2 ----
-    print("\n=== [2/3] global_TTNS (linear TTNS, MI tree, L2) ===", flush=True)
-    t0 = time.perf_counter()
-    k_ff = jax.random.PRNGKey(cfg["seed"] + 1)
-    lin_ttns, _, r_lin, p_lin = fit_flat(
-        mi_tree, "global_TTNS", tr_j, val_j, bases, gram, basis_integrals,
-        cfg["budget"], cfg, k_ff)
-    dt = time.perf_counter() - t0
-    lin_ttns, _ = normalize_ttns_by_integral(lin_ttns, basis_integrals, list(mi_tree))
-    # test_LL: log(clip(q))（q 已 ∫=1）+ 非正率
-    bv = batch_basis_vectors_from_samples(bases, jnp.asarray(tst))
-    q_test = np.asarray(batch_eval_q_ttns(lin_ttns, bv, list(mi_tree)))
-    nonpos = float((q_test <= 0).mean())
-    ll_test_lin = float(np.log(np.clip(q_test, 1e-12, None)).mean())
-    bv_tr = batch_basis_vectors_from_samples(bases, jnp.asarray(tr_fit))
-    q_tr = np.asarray(batch_eval_q_ttns(lin_ttns, bv_tr, list(mi_tree)))
-    ll_train_lin = float(np.log(np.clip(q_tr, 1e-12, None)).mean())
-    results["global_TTNS"] = dict(ll_test=ll_test_lin, ll_train=ll_train_lin,
-                                  params=p_lin, sec=dt, nonpos_rate=nonpos,
-                                  rank=r_lin, topology="MI_tree")
-    print(f"  test_LL={ll_test_lin:.4f} train_LL={ll_train_lin:.4f} "
-          f"params={p_lin} nonpos_rate={nonpos:.3f} sec={dt:.1f}", flush=True)
+    # ---- 2) global_TTNS : 线性 TTNS(MI 树) L2 ----（仅 n_comps=1 时）
+    if run_linear:
+        print("\n=== [2/3] global_TTNS (linear TTNS, MI tree, L2) ===", flush=True)
+        t0 = time.perf_counter()
+        k_ff = jax.random.PRNGKey(cfg["seed"] + 1)
+        lin_ttns, _, r_lin, p_lin = fit_flat(
+            mi_tree, "global_TTNS", tr_j, val_j, bases, gram, basis_integrals,
+            cfg["budget"], cfg, k_ff)
+        dt = time.perf_counter() - t0
+        lin_ttns, _ = normalize_ttns_by_integral(lin_ttns, basis_integrals, list(mi_tree))
+        # test_LL: log(clip(q))（q 已 ∫=1）+ 非正率
+        bv = batch_basis_vectors_from_samples(bases, jnp.asarray(tst))
+        q_test = np.asarray(batch_eval_q_ttns(lin_ttns, bv, list(mi_tree)))
+        nonpos = float((q_test <= 0).mean())
+        ll_test_lin = float(np.log(np.clip(q_test, 1e-12, None)).mean())
+        bv_tr = batch_basis_vectors_from_samples(bases, jnp.asarray(tr_fit))
+        q_tr = np.asarray(batch_eval_q_ttns(lin_ttns, bv_tr, list(mi_tree)))
+        ll_train_lin = float(np.log(np.clip(q_tr, 1e-12, None)).mean())
+        results["global_TTNS"] = dict(ll_test=ll_test_lin, ll_train=ll_train_lin,
+                                      params=p_lin, sec=dt, nonpos_rate=nonpos,
+                                      rank=r_lin, topology="MI_tree")
+        print(f"  test_LL={ll_test_lin:.4f} train_LL={ll_train_lin:.4f} "
+              f"params={p_lin} nonpos_rate={nonpos:.3f} sec={dt:.1f}", flush=True)
+    else:
+        print(f"\n=== [2/3] global_TTNS 跳过 (n_comps={n_comps}>1，线性 L2 无混合) ===", flush=True)
 
     # ---- 3) global_TTNSDE : 平方 TTNS(MI 树) MLE ----
     print("\n=== [3/3] global_TTNSDE (squared TTNS, MI tree, MLE) ===", flush=True)
-    ttnsde_cfg = {**cfg, "q": q, "m": m, "ttde_rank": r_ttns, "init_noise": cfg["ttde_init_noise"]}
+    init_mode = cfg.get("ttns_init", "canonical")  # canonical(新,EM) | rank1(旧)
+    ttnsde_cfg = {**cfg, "q": q, "m": m, "ttde_rank": r_ttns,
+                  "init_noise": cfg["ttde_init_noise"], "ttns_init": init_mode}
     t0 = time.perf_counter()
     m_sq, p_sq_p, info_sq = fit_ttde_ttns(tr_fit, tr_val, ttnsde_cfg, cfg["seed"], mi_tree)
     dt = time.perf_counter() - t0
@@ -346,57 +449,83 @@ def run(name: str, cfg: dict, data_dir: Path):
     ll_train_sq, _ = ttde_finite_logp(m_sq, p_sq_p, tr_fit)
     results["global_TTNSDE"] = dict(ll_test=ll_test_sq, ll_train=ll_train_sq,
                                     params=info_sq["learned_params"], sec=dt,
-                                    nonpos_rate=np_sq, rank=r_ttns, topology="MI_tree")
-    print(f"  test_LL={ll_test_sq:.4f} train_LL={ll_train_sq:.4f} "
+                                    nonpos_rate=np_sq, rank=r_ttns, topology="MI_tree",
+                                    init=init_mode)
+    print(f"  [{init_mode}] test_LL={ll_test_sq:.4f} train_LL={ll_train_sq:.4f} "
           f"params={info_sq['learned_params']} nonpos={np_sq:.3f} sec={dt:.1f}", flush=True)
 
-    # ---- 切片密度图 ----
+    # ---- 保存参数快照：之后可离线补画图/诊断，不再必须重训 ----
+    tag = f"_{cfg.get('out_tag')}" if cfg.get("out_tag") else ""
+    param_path = REPORTS / f"uci_{name}_ttde_vs_ttns_params{tag}.pkl"
+    with param_path.open("wb") as f:
+        pickle.dump(
+            dict(
+                dataset=name, config=cfg, mi_tree=mi_tree, chain=chain,
+                ttde_params=p_tt_p, ttde_bases=m_tt.bases,
+                ttde_permutations=np.asarray(m_tt.permutations),
+                ttnsde_params=p_sq_p, ttnsde_bases=m_sq.bases,
+                ttnsde_tree_parent=np.asarray(m_sq.tree_parent),
+            ),
+            f,
+        )
+    print(f"saved params: {param_path}", flush=True)
+
     print("\n=== 计算切片密度 ===", flush=True)
     pairs = _pick_slice_pairs(mi_tree, trn, n_pairs=cfg["n_slice_pairs"])
     print(f"slice_pairs={pairs}", flush=True)
 
-    # 平方 TT 的 env/lenv
-    from simple_ttns_l2.experiments.per_layer_compare import build_ttde_envs
-    cores_tt, gram_tt, env_tt, lenv_tt, Z_tt = build_ttde_envs(p_tt_p, m_tt.bases)
-    # 平方 TTNS 的单分量 ttns + gram
-    sq_ttns = TTNSOpt(tuple(c[0] for c in p_sq_p["ttns"]["ttns"].cores))
-    sq_parent = list(int(x) for x in np.asarray(m_sq.tree_parent))
-    sq_gram = np.asarray(jax.vmap(type(m_sq.bases).l2_integral)(m_sq.bases))
-
     grids = []
-    dens = {"global_TTDE": [], "global_TTNS": [], "global_TTNSDE": []}
+    dens = {"global_TTDE": [], "global_TTNSDE": []}
+    if run_linear:
+        dens["global_TTNS"] = []
+        from simple_ttns_l2.experiments.per_layer_compare import build_ttde_envs
+        cores_tt, gram_tt, env_tt, lenv_tt, Z_tt = build_ttde_envs(p_tt_p, m_tt.bases)
+        sq_ttns = TTNSOpt(tuple(c[0] for c in p_sq_p["ttns"]["ttns"].cores))
+        sq_parent = list(int(x) for x in np.asarray(m_sq.tree_parent))
+        sq_gram = np.asarray(jax.vmap(type(m_sq.bases).l2_integral)(m_sq.bases))
     for (di, dj) in pairs:
         xi, xj = _grid_for_pair(trn, tst, di, dj, n=cfg["grid_n"])
         grids.append((xi, xj, di, dj))
-        d_tt = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
-                                                 m_tt.bases, di, dj, xi, xj)
-        d_lin = _eval_pair_marginal_linear_ttns_on_grid(lin_ttns, bases, list(mi_tree), di, dj, xi, xj)
-        d_sq = _eval_pair_marginal_sq_ttns_on_grid(sq_ttns, sq_parent, m_sq.bases, sq_gram,
-                                                    di, dj, xi, xj)
+        if run_linear:
+            d_tt = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
+                                                     m_tt.bases, di, dj, xi, xj)
+            d_lin = _eval_pair_marginal_linear_ttns_on_grid(lin_ttns, bases, list(mi_tree), di, dj, xi, xj)
+            d_sq = _eval_pair_marginal_sq_ttns_on_grid(sq_ttns, sq_parent, m_sq.bases, sq_gram,
+                                                        di, dj, xi, xj)
+        else:
+            d_tt = _eval_pair_marginal_sq_tt_mixture_on_grid(p_tt_p, m_tt, di, dj, xi, xj)
+            d_sq = _eval_pair_marginal_sq_ttns_mixture_on_grid(
+                p_sq_p, m_sq, list(mi_tree), di, dj, xi, xj)
         dens["global_TTDE"].append(d_tt)
-        dens["global_TTNS"].append(d_lin)
         dens["global_TTNSDE"].append(d_sq)
+        if run_linear:
+            dens["global_TTNS"].append(d_lin)
         # 必要条件：2D 边缘在网格上的梯形积分应 ≈ 1（归一化密度的边缘）
         integ = []
-        for nm, Zg in (("TTDE", d_tt), ("TTNS", d_lin), ("TTNSDE", d_sq)):
+        items = [("TTDE", d_tt)]
+        if run_linear:
+            items.append(("TTNS", d_lin))
+        items.append(("TTNSDE", d_sq))
+        for nm, Zg in items:
             trap = float(np.trapz(np.trapz(Zg, xj, axis=1), xi, axis=0))
             integ.append(f"{nm}∫={trap:.3f}")
         print(f"  pair({di},{dj}) done  {integ}", flush=True)
 
     # ---- 正确性 cross-check: 平方 TT 的 (i,i+1) 连续对边缘 vs ttde_block_logp ----
-    from simple_ttns_l2.experiments.per_layer_compare import ttde_block_logp as _tblp
-    a = 0
-    b = min(1, n_dims - 1)
-    xi_chk = np.linspace(float(trn[:, a].min()), float(trn[:, a].max()), 12)
-    xj_chk = np.linspace(float(trn[:, b].min()), float(trn[:, b].max()), 12)
-    d_chk = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
-                                              m_tt.bases, a, b, xi_chk, xj_chk)
-    # ttde_block_logp 接受 [n, len(block)]，block=[a,b] 连续
-    gx, gy = np.meshgrid(xi_chk, xj_chk, indexing="ij")
-    pts_chk = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
-    ref = np.exp(_tblp(cores_tt, gram_tt, env_tt, lenv_tt, Z_tt, m_tt.bases, [a, b], pts_chk))
-    max_err = float(np.max(np.abs(d_chk.reshape(-1) - ref)))
-    print(f"[sanity] squared-TT pair({a},{b}) marginal vs ttde_block_logp  max|Δ|={max_err:.2e}", flush=True)
+    if run_linear:
+        from simple_ttns_l2.experiments.per_layer_compare import ttde_block_logp as _tblp
+        a = 0
+        b = min(1, n_dims - 1)
+        xi_chk = np.linspace(float(trn[:, a].min()), float(trn[:, a].max()), 12)
+        xj_chk = np.linspace(float(trn[:, b].min()), float(trn[:, b].max()), 12)
+        d_chk = _eval_pair_marginal_sq_tt_on_grid(cores_tt, gram_tt, lenv_tt, env_tt, Z_tt,
+                                                  m_tt.bases, a, b, xi_chk, xj_chk)
+        # ttde_block_logp 接受 [n, len(block)]，block=[a,b] 连续
+        gx, gy = np.meshgrid(xi_chk, xj_chk, indexing="ij")
+        pts_chk = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
+        ref = np.exp(_tblp(cores_tt, gram_tt, env_tt, lenv_tt, Z_tt, m_tt.bases, [a, b], pts_chk))
+        max_err = float(np.max(np.abs(d_chk.reshape(-1) - ref)))
+        print(f"[sanity] squared-TT pair({a},{b}) marginal vs ttde_block_logp  max|Δ|={max_err:.2e}", flush=True)
 
     return dict(dataset=name, n_dims=n_dims, config=cfg,
                 mi_tree=mi_tree, chain=chain, pairs=pairs,
@@ -411,7 +540,8 @@ def plot_bars(res, out: Path):
     ll_test = [res["results"][k]["ll_test"] for k in labels]
     ll_train = [res["results"][k]["ll_train"] for k in labels]
     params = [res["results"][k]["params"] for k in labels]
-    colors = ["tab:purple", "tab:green", "tab:brown"]
+    cmap = {"global_TTDE": "tab:purple", "global_TTNS": "tab:green", "global_TTNSDE": "tab:brown"}
+    colors = [cmap.get(k, "tab:gray") for k in labels]
     x = np.arange(len(labels))
     fig, ax = plt.subplots(1, 2, figsize=(13, 4.6))
     w = 0.38
@@ -441,9 +571,9 @@ def plot_slices(res, out: Path):
     grids = res["grids"]
     dens = res["dens"]
     test_x = res["test_x"]
-    models = ["global_TTDE", "global_TTNS", "global_TTNSDE"]
+    models = [m for m in ("global_TTDE", "global_TTNS", "global_TTNSDE") if m in dens]
     nP = len(pairs)
-    fig, axes = plt.subplots(nP, 4, figsize=(15, 3.4 * nP), squeeze=False)
+    fig, axes = plt.subplots(nP, 1 + len(models), figsize=(4.0 * (1 + len(models)), 3.4 * nP), squeeze=False)
     for r, (di, dj) in enumerate(pairs):
         xi, xj, _, _ = grids[r]
         # GT 2D hist
@@ -458,7 +588,7 @@ def plot_slices(res, out: Path):
             ax = axes[r][c + 1]
             Z = dens[name][r]
             vmax = max(np.nanmax(Z), 1e-12)
-            ax.pcolormesh(xi, xj, Z.T, cmap="viridis", shading="auto",
+            ax.pcolormesh(xi, xj, Z.T, cmap="Blues", shading="auto",
                           vmin=0, vmax=vmax)
             ax.set_title(name)
             ax.set_xlabel(f"x[{di}]"); ax.set_ylabel(f"x[{dj}]")
@@ -478,9 +608,11 @@ def print_table(res):
         print(f"{name:<16}{r['ll_test']:>12.4f}{r['ll_train']:>12.4f}{r['params']:>12,}{r['sec']:>8.1f}{np_str:>9}")
     # 相对差
     r = res["results"]
-    print(f"\nΔtest_LL (TTNSDE - TTDE)  = {r['global_TTNSDE']['ll_test'] - r['global_TTDE']['ll_test']:+.4f}")
-    print(f"Δtest_LL (TTNSDE - TTNS)  = {r['global_TTNSDE']['ll_test'] - r['global_TTNS']['ll_test']:+.4f}")
-    print(f"Δtest_LL (TTNS  - TTDE)  = {r['global_TTNS']['ll_test'] - r['global_TTDE']['ll_test']:+.4f}")
+    if "global_TTNSDE" in r and "global_TTDE" in r:
+        print(f"\nΔtest_LL (TTNSDE - TTDE)  = {r['global_TTNSDE']['ll_test'] - r['global_TTDE']['ll_test']:+.4f}")
+    if "global_TTNS" in r:
+        print(f"Δtest_LL (TTNSDE - TTNS)  = {r['global_TTNSDE']['ll_test'] - r['global_TTNS']['ll_test']:+.4f}")
+        print(f"Δtest_LL (TTNS  - TTDE)  = {r['global_TTNS']['ll_test'] - r['global_TTDE']['ll_test']:+.4f}")
     print("=========================================================\n")
 
 
@@ -499,15 +631,26 @@ DEFAULT_CFG = dict(
 def main():
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument("--dataset", choices=["power", "gas", "both"], default="both")
+    p.add_argument("--dataset", choices=["power", "gas", "hepmass", "both", "all"], default="both")
     p.add_argument("--data-dir", default="data/data")
     p.add_argument("--m", type=int, default=None)
     p.add_argument("--r-ttns", type=int, default=None)
     p.add_argument("--steps", type=int, default=None)
     p.add_argument("--train-cap", type=int, default=None)
+    p.add_argument("--n-comps", type=int, default=1, help="mixture 分量数(平方 TT/TTNS 共用);>1 时跳过线性+切片")
+    p.add_argument("--no-match", action="store_true",
+                   help="关闭 match_params：TT(链)与 TTNS(树)用同 rank(--r-ttns) 做 rank-matched 对比")
+    p.add_argument("--out-tag", default=None, help="结果文件后缀，避免覆盖旧结果")
+    p.add_argument("--ttns-init", choices=["canonical", "rank1"], default="canonical",
+                   help="TTNSDE 非链初始化：canonical(新,EM) | rank1(旧)")
     args = p.parse_args()
 
     cfg = dict(DEFAULT_CFG)
+    cfg["ttns_init"] = args.ttns_init
+    cfg["n_comps"] = args.n_comps
+    cfg["out_tag"] = args.out_tag
+    if args.no_match:
+        cfg["match_params"] = False
     if args.m is not None: cfg["m"] = args.m
     if args.r_ttns is not None: cfg["r_ttns"] = args.r_ttns
     if args.steps is not None:
@@ -516,25 +659,32 @@ def main():
         cfg["train_cap"] = args.train_cap; cfg["ttde_n_train"] = int(0.75 * args.train_cap)
 
     data_dir = REPO_ROOT / args.data_dir
-    datasets = ["power", "gas"] if args.dataset == "both" else [args.dataset]
+    if args.dataset == "both":
+        datasets = ["power", "gas"]
+    elif args.dataset == "all":
+        datasets = ["power", "gas", "hepmass"]
+    else:
+        datasets = [args.dataset]
+    tag = f"_{args.out_tag}" if args.out_tag else ""
     REPORTS.mkdir(parents=True, exist_ok=True)
     all_res = {}
     for ds in datasets:
-        # GAS 维度更高、MI 树更密 → 默认降 rank 控参数
+        # 维度越高、MI 树越密 → 默认降 rank 控参数(TTNS 参数 = m·Σ r^deg，hub 度高会爆)
         if args.r_ttns is None:
-            cfg["r_ttns"] = 4 if ds == "gas" else 6
+            cfg["r_ttns"] = {"gas": 4, "hepmass": 3}.get(ds, 6)
         else:
             cfg["r_ttns"] = args.r_ttns
         res = run(ds, cfg, data_dir)
         print_table(res)
-        plot_bars(res, REPORTS / f"uci_{ds}_ttde_vs_ttns_bars.png")
-        plot_slices(res, REPORTS / f"uci_{ds}_ttde_vs_ttns_slices.png")
+        plot_bars(res, REPORTS / f"uci_{ds}_ttde_vs_ttns_bars{tag}.png")
+        if res["pairs"]:
+            plot_slices(res, REPORTS / f"uci_{ds}_ttde_vs_ttns_slices{tag}.png")
         # 存不含大数组的部分
         dump = {k: v for k, v in res.items() if k not in ("grids", "dens", "test_x", "train_x")}
         all_res[ds] = dump
-        print(f"saved: uci_{ds}_ttde_vs_ttns_bars.png / _slices.png", flush=True)
+        print(f"saved: uci_{ds}_ttde_vs_ttns_bars{tag}.png", flush=True)
 
-    out_json = REPORTS / "uci_ttde_vs_ttns_metrics.json"
+    out_json = REPORTS / f"uci_ttde_vs_ttns_metrics{tag}.json"
     out_json.write_text(json.dumps(all_res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"saved: {out_json}")
 

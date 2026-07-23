@@ -112,6 +112,15 @@ class PAsTTNSOptBase(MutableModule):
 
         permutations = jnp.array(permutations)
 
+        # 混合分量的随机排列源自 TTDE 的 TT(链)设计：链对排列不变(排列后仍是覆盖全部
+        # 变量的合法链)，故随机排列只是增加多样性。但对数据估计的树(Chow-Liu/MI)而言，
+        # 排列会把最优边移到随机变量对上，摧毁树结构的价值 → 除第 0 个分量外全部退化成随机树。
+        # 因此：仅链拓扑保留随机排列；真实树强制所有分量用恒等排列，使每个分量都用同一棵
+        # 最优 MI 树，混合多样性改由初始化噪声 + 训练动态提供。
+        is_chain = bool(jnp.array_equal(tree_parent, chain_parent(n_dims)))
+        if not is_chain and n_components > 1:
+            permutations = jnp.broadcast_to(jnp.arange(n_dims), (n_components, n_dims))
+
         # Cache basis L2 matrices once. They are constant during training.
         l2_matrices = vmap(type(bases).l2_integral)(bases)
         l2_matrices_permuted = l2_matrices[permutations]
@@ -206,12 +215,42 @@ class PAsTTNSOptBase(MutableModule):
         ttns = vmap(canonical_to_chain_ttns)(tt_opts)
         self.change_ttns(ttns)
 
+    def init_components_from_canonical(self, canonical: jnp.ndarray):
+        """通用版 canonical 初始化（任意单父树拓扑）。
+
+        canonical: [rank, n_dims, basis_dim]
+          第 r 个 CP 分量在第 k 维的向量 v^(r,k) = canonical[r, k, :]。
+        等价于把 R 个 rank-1 TTNS 叠加成 bond-R 的 TTNS（见
+        ``TTNSOpt.from_canonical_vectors``）。链式拓扑下与
+        ``init_components_from_one_canonical`` 等价（且后者更快，故链式仍走老路）。
+        """
+        perms = self.permutations
+        parent = self.tree_parent.tolist()
+
+        def build_one(perm):
+            vectors = canonical[:, perm, :]  # [rank, n_dims, basis_dim]
+            return TTNSOpt.from_canonical_vectors(vectors, parent, self.rank)
+
+        self.change_ttns(vmap(build_one)(perms))
+
     def init_canonical(self, key: jnp.ndarray, samples: jnp.ndarray, n_steps: int):
         if not self.is_chain_topology():
-            # Canonical/EM path is derived from TT-chain parametrization.
-            # For general trees, use rank-1 initialization to avoid invalid mappings.
-            rank1 = continuous_rank_1(self.bases, samples, jnp.ones(len(samples)))
-            self.init_components_from_rank1(rank1)
+            # 旧实现：非链回退到 rank-1（丢失 rank-1..rank 个 CP 分量的表达力）。
+            # 新实现：非链也跑 EM 估 R 个逐维边际分量，再用 from_canonical_vectors
+            # 叠成 bond-R TTNS（与链式 init_canonical 同等的初始化质量）。
+            rank1_probs = continuous_rank_1(self.bases, samples, jnp.ones(len(samples)), 10)
+
+            noise_level = 0.1
+            repeated_probs = jnp.repeat(rank1_probs[None], self.rank, 0)
+            noise_tensor = jax.random.uniform(key, repeated_probs.shape)
+            noised_probs = repeated_probs * (1 - noise_level + noise_tensor * noise_level * 2)
+            noised_probs /= vmap(vmap(int_of_p), in_axes=(0, None))(noised_probs, self.bases)[..., None]
+
+            init_probs = noised_probs
+            init_alphas = jnp.ones(self.rank) / self.rank
+            probs, alphas = em(self.bases, init_probs, init_alphas, samples, n_steps)
+            fused_probs = fuse_canonical_probs_and_alphas(probs, alphas)
+            self.init_components_from_canonical(fused_probs)
             return
 
         rank1_probs = continuous_rank_1(self.bases, samples, jnp.ones(len(samples)), 10)

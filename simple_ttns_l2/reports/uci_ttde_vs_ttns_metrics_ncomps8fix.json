@@ -1,0 +1,78 @@
+{
+  "gas": {
+    "dataset": "gas",
+    "n_dims": 8,
+    "config": {
+      "q": 2,
+      "m": 128,
+      "r_ttns": 6,
+      "match_params": true,
+      "r_tt": null,
+      "budget": 120000,
+      "rmax": 40,
+      "lr": 0.002,
+      "steps": 5000,
+      "batch_sz": 512,
+      "init_noise": 0.01,
+      "train_noise": 0.001,
+      "log_every": 300,
+      "early_stop_patience": 8,
+      "cl_bins": 16,
+      "ttde_steps": 5000,
+      "ttde_em_steps": 12,
+      "ttde_patience": 8,
+      "ttde_init_noise": 0.03,
+      "ttde_grad_clip": 10.0,
+      "monitor_val_sz": 2000,
+      "ttde_n_train": 30000,
+      "train_cap": 40000,
+      "n_slice_pairs": 3,
+      "grid_n": 60,
+      "seed": 0,
+      "ttns_init": "canonical",
+      "n_comps": 8
+    },
+    "mi_tree": [
+      0,
+      3,
+      0,
+      0,
+      5,
+      2,
+      7,
+      2
+    ],
+    "chain": [
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "pairs": [],
+    "results": {
+      "global_TTDE": {
+        "ll_test": 1.5898068981000428,
+        "ll_train": 1.9233529265401137,
+        "params": 409600,
+        "sec": 640.192055417,
+        "nonpos_rate": 0.0,
+        "rank": 8,
+        "topology": "chain"
+      },
+      "global_TTNSDE": {
+        "ll_test": 1.8520560065160103,
+        "ll_train": 2.1322441817254174,
+        "params": 387072,
+        "sec": 373.07600008400004,
+        "nonpos_rate": 0.0,
+        "rank": 6,
+        "topology": "MI_tree",
+        "init": "canonical"
+      }
+    }
+  }
+}
