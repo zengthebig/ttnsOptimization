@@ -72,14 +72,15 @@ def _ancestor_sources(spec) -> Dict[int, frozenset]:
     return anc
 
 
-def structural_blocks(spec, li: int) -> List[List[int]]:
-    """第 li 层按 **共享祖先源** 并查集分块(纯 DAG 结构, 无需数据/统计)。
+def structural_blocks(spec, li: int, mode: str = "source") -> List[List[int]]:
+    """第 li 层分块(纯 DAG 结构, 无需数据/统计)。返回层内**局部索引**分组。
 
-    两节点共享任一祖先源 → 边际相关 → 同块。返回层内**局部索引**分组。
+    mode="source"    : 按**共享祖先源**并查集(默认，一路追到源头)。
+    mode="immediate" : 按**共享直接父**(只看上一层)并查集——两节点在上一层有共同父 → 同块。
+                       体现"下一层节点是否属于同一 TTNS 只由上一层决定, 不再向上追溯"。
     """
     nodes = list(spec.layers[li])
     K = len(nodes)
-    anc = _ancestor_sources(spec)
     par = list(range(K))
 
     def find(a: int) -> int:
@@ -91,11 +92,19 @@ def structural_blocks(spec, li: int) -> List[List[int]]:
     def union(a: int, b: int) -> None:
         par[find(a)] = find(b)
 
-    src2idx: Dict[int, List[int]] = {}
-    for i, v in enumerate(nodes):
-        for s in anc[v]:
-            src2idx.setdefault(s, []).append(i)
-    for idxs in src2idx.values():
+    if mode == "immediate":
+        key_of = {i: frozenset(spec.parents(v)) for i, v in enumerate(nodes)}
+    elif mode == "source":
+        anc = _ancestor_sources(spec)
+        key_of = {i: anc[v] for i, v in enumerate(nodes)}
+    else:
+        raise ValueError(f"unknown block mode {mode!r}")
+
+    key2idx: Dict[object, List[int]] = {}
+    for i in range(K):
+        for s in key_of[i]:
+            key2idx.setdefault(s, []).append(i)
+    for idxs in key2idx.values():
         for k in range(1, len(idxs)):
             union(idxs[0], idxs[k])
     comps: Dict[int, List[int]] = {}
@@ -424,8 +433,16 @@ def _fit_analytic_ttns_joint(
 def _fit_analytic_ttns(
     layer: AnalyticLayer, key, q: int, m: int, rank: int,
     lr: float, steps: int, init_noise: float, log_every: int = 0, label: str = "",
+    marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> Tuple[TTNSOpt, object]:
-    """对给定 AnalyticLayer(树目标)做解析 L2 拟合，返回 (归一化 ttns, bases)。"""
+    """对给定 AnalyticLayer(树目标)做解析 L2 拟合，返回 (归一化 ttns, bases)。
+
+    `marginal_l2_weight>0` 时，额外约束每个一维边缘匹配解析目标边缘，用于诊断
+    块级 L2 投影牺牲边缘的问题；默认 0 保持原实验不变。
+
+    `normalize_every>0` 时，优化过程中定期投影回 $\int q=1$，与 sampled L2
+    训练链保持一致；默认每步归一化。
+    """
     K = len(layer.nodes)
     bases = _build_layer_bases(layer.s_grid, K, q, m)
     gram = vmap(type(bases).l2_integral)(bases)         # [K, m, m]
@@ -437,6 +454,30 @@ def _fit_analytic_ttns(
     root = _root_from_parent(layer.parent)
     p_root = jnp.asarray(layer.p_marg[root])
     cross = _cross_term_fn(layer.parent, Bg, pcond_j, p_root, delta)
+    par = list(layer.parent)
+    eye = jnp.eye(m)
+    p_marg_moments = jnp.stack([
+        Bg[v].T @ jnp.asarray(layer.p_marg[v]) * delta for v in range(K)
+    ])
+
+    def marginal_coeffs_from_cores(cores, dim: int) -> jnp.ndarray:
+        T = TTNSOpt(tuple(cores))
+        V = basis_int[None, :, :]
+
+        def eval_with_onehot(onehot):
+            Vt = V.at[:, dim, :].set(onehot[None, :])
+            return batch_eval_rank1_ttns(T, Vt, par)[0]
+
+        return vmap(eval_with_onehot)(eye)
+
+    def marginal_l2_term(cores) -> jnp.ndarray:
+        vals = []
+        for dim in range(K):
+            c = marginal_coeffs_from_cores(cores, dim)
+            int_qi2 = (c @ gram[dim]) @ c
+            cross_i = c @ p_marg_moments[dim]
+            vals.append(int_qi2 - 2.0 * cross_i)
+        return jnp.mean(jnp.stack(vals))
 
     k_init, key = jax.random.split(key)
     ttns = _init_rank1(layer, bases, gram, Bg, rank, k_init, init_noise)
@@ -449,7 +490,10 @@ def _fit_analytic_ttns(
     def loss_fn(cores):
         T = TTNSOpt(tuple(cores))
         int_q2 = quadratic_form_ttns(T, gram, layer.parent)
-        return int_q2 - 2.0 * cross(cores)
+        loss = int_q2 - 2.0 * cross(cores)
+        if marginal_l2_weight > 0:
+            loss = loss + marginal_l2_weight * marginal_l2_term(cores)
+        return loss
 
     @jax.jit
     def step_fn(cores, opt_state):
@@ -460,6 +504,9 @@ def _fit_analytic_ttns(
 
     for st in range(steps):
         cores, opt_state, loss = step_fn(cores, opt_state)
+        if normalize_every > 0 and ((st + 1) % normalize_every == 0):
+            ttns_step, _ = normalize_ttns_by_integral(TTNSOpt(tuple(cores)), basis_int, layer.parent)
+            cores = list(ttns_step.cores)
         if log_every and ((st + 1) % log_every == 0 or st == 0):
             print(f"  [analytic-fit {label}] step {st+1}/{steps} L2={float(loss):.6f}", flush=True)
 
@@ -473,12 +520,13 @@ def fit_next_layer_tree(
     s_max: float, q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80,
     lr: float = 3e-3, steps: int = 1500, init_noise: float = 0.01,
-    log_every: int = 0,
+    log_every: int = 0, marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> Tuple[TTNSOpt, List[int], object, AnalyticLayer]:
     """全解析拟合第 li 层的**单棵**树 TTNS(不分块)。返回 (ttns, parent, bases, AnalyticLayer)。"""
     layer = analytic_layer_target(upper, spec, li, params, s_max, n_s=n_s, n_s_pair=n_s_pair)
     ttns, bases = _fit_analytic_ttns(
-        layer, key, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}"
+        layer, key, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}",
+        marginal_l2_weight=marginal_l2_weight, normalize_every=normalize_every,
     )
     return ttns, list(layer.parent), bases, layer
 
@@ -488,14 +536,15 @@ def fit_next_layer_forest(
     s_max: float, q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80,
     lr: float = 3e-3, steps: int = 1500, init_noise: float = 0.01,
-    log_every: int = 0, use_mi: bool = True,
+    log_every: int = 0, use_mi: bool = True, block_mode: str = "source",
+    marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> List[BlockModel]:
-    """全解析拟合第 li 层为 **TTNS 森林**：按 DAG 结构(共享祖先)分块，每块解析拟合成一棵树。
+    """全解析拟合第 li 层为 **TTNS 森林**：按 DAG 结构分块(block_mode)，每块解析拟合成一棵树。
 
-    块间(不共祖先)边际独立 → 层密度 = 块密度乘积 → 各块独立拟合即精确。返回 BlockModel 列表。
+    块间边际独立 → 层密度 = 块密度乘积 → 各块独立拟合即精确。返回 BlockModel 列表。
     """
     layer_nodes = list(spec.layers[li])
-    blocks = structural_blocks(spec, li)  # 层内局部索引分组
+    blocks = structural_blocks(spec, li, mode=block_mode)  # 层内局部索引分组
     forest: List[BlockModel] = []
     for bi, blk in enumerate(blocks):
         gids = [layer_nodes[i] for i in blk]
@@ -504,7 +553,8 @@ def fit_next_layer_forest(
         )
         k_b, key = jax.random.split(key)
         ttns, bases = _fit_analytic_ttns(
-            target, k_b, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}.b{bi}"
+            target, k_b, q, m, rank, lr, steps, init_noise, log_every, label=f"L{li}.b{bi}",
+            marginal_l2_weight=marginal_l2_weight, normalize_every=normalize_every,
         )
         forest.append(BlockModel(
             tuple(blk), tuple(int(g) for g in gids), tuple(target.parent), ttns, bases
@@ -527,10 +577,11 @@ def fit_analytic_chain(
     q: int = 2, m: int = 24, rank: int = 8,
     n_s: int = 100, n_s_pair: int = 80, lr: float = 3e-3, steps: int = 1500,
     init_noise: float = 0.01, log_every: int = 0, use_mi: bool = True,
+    block_mode: str = "source", marginal_l2_weight: float = 0.0, normalize_every: int = 1,
 ) -> Dict[int, list]:
     """clarify.md 全解析链：L0(数据森林) → L1 → ... 逐层解析拟合 **TTNS 森林**，**全程无采样**。
 
-    每层按 DAG 结构(共享祖先)分块，块内解析拟合成树；整层森林作为下一层的上层
+    每层按 DAG 结构分块(block_mode)，块内解析拟合成树；整层森林作为下一层的上层
     `UpperForest`。s_max 逐层按 max-plus 上界增长(每跳 +edge_hi+node_hi)。返回 {li: forest}。
     """
     forests: Dict[int, list] = {0: forest0}
@@ -542,7 +593,9 @@ def fit_analytic_chain(
         forests[li] = fit_next_layer_forest(
             upper, spec, li, params, k_l, s_max=s_max,
             q=q, m=m, rank=rank, n_s=n_s, n_s_pair=n_s_pair,
-            lr=lr, steps=steps, init_noise=init_noise, log_every=log_every, use_mi=use_mi,
+            lr=lr, steps=steps, init_noise=init_noise, log_every=log_every,
+            use_mi=use_mi, block_mode=block_mode, marginal_l2_weight=marginal_l2_weight,
+            normalize_every=normalize_every,
         )
     return forests
 
@@ -607,6 +660,8 @@ def fit_analytic_chain_joint(
 
 
 # ------------------------------------------------------------------ 采样交叉项链(允许 MC 噪声)
+
+
 def fit_sampled_chain(forest0, spec, params: DelayParams, key, cfg: dict) -> Dict[int, list]:
     """采样求 L2 的分层链:结构与解析链一致(DAG 结构分块),但每块目标 = **完整联合的样本**。
 
@@ -623,7 +678,7 @@ def fit_sampled_chain(forest0, spec, params: DelayParams, key, cfg: dict) -> Dic
         rng = np.random.default_rng(int(jax.random.randint(key, (), 0, 2**31 - 1)))
         s_layer = propagate_layer(spec, li, s_upper, params, rng)  # [n, layer_size]
         layer_nodes = list(spec.layers[li])
-        blocks = structural_blocks(spec, li)
+        blocks = structural_blocks(spec, li, mode=cfg.get("block_mode", "source"))
         forest: List[BlockModel] = []
         for bi, blk in enumerate(blocks):
             gids = [layer_nodes[i] for i in blk]
@@ -642,9 +697,16 @@ def fit_sampled_chain(forest0, spec, params: DelayParams, key, cfg: dict) -> Dic
             t0 = init_ttns_from_rank1(k_i, bases, tr, parent, cfg["rank"], cfg["init_noise"])
             best, _ = train_tree_l2(
                 t0, parent, bases, tr, val, gram, basis_int,
-                key=k_i, lr=cfg["lr"], train_steps=cfg["steps"], batch_sz=cfg["batch_sz"],
-                normalize_every=1, log_every=cfg["log_every"], label=f"samp_L{li}.b{bi}",
-                train_noise=cfg["train_noise"], early_stop_patience=cfg["early_stop_patience"],
+                key=k_i, lr=cfg.get("r7_lr", cfg["lr"]),
+                train_steps=cfg.get("r7_steps", cfg["steps"]),
+                batch_sz=cfg.get("r7_batch_sz", cfg["batch_sz"]),
+                normalize_every=1, log_every=cfg.get("r7_log_every", cfg["log_every"]),
+                label=f"samp_L{li}.b{bi}",
+                grad_clip=cfg.get("r7_grad_clip", 1.0),
+                train_noise=cfg.get("r7_train_noise", cfg["train_noise"]),
+                early_stop_patience=cfg.get("r7_early_stop_patience", cfg["early_stop_patience"]),
+                max_train_l2=cfg.get("r7_max_train_l2", float("inf")),
+                max_val_l2_increase=cfg.get("r7_max_val_l2_increase", float("inf")),
             )
             best, _ = normalize_ttns_by_integral(best, basis_int, parent)
             forest.append(BlockModel(tuple(blk), tuple(int(g) for g in gids),

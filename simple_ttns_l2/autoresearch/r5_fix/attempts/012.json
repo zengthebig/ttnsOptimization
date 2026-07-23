@@ -1,0 +1,14 @@
+{
+  "attempt_id": "012",
+  "name": "nonneg analytic L2 chain rank13",
+  "variant": "nonneg_chain",
+  "seed": 0,
+  "notes": "对齐 010 参数量：固定 chain 拓扑，rank 从 8 提到 13，使总参数约 205k，接近 010 的约 193k。",
+  "cfg_overrides": {
+    "rank": 13,
+    "an_lr": 0.001,
+    "an_steps": 3000
+  },
+  "fit_kwargs": {},
+  "conclusion": "待评估：chain 在参数量接近 010 MI-tree 后，是否追上 010 的 LL/corr"
+}

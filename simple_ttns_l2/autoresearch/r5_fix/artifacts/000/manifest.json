@@ -1,0 +1,10 @@
+{
+  "attempt_id": "000",
+  "name": "baseline R5 analytic chain",
+  "variant": "baseline",
+  "description": "R5 全解析链 λ=0（复现基线）",
+  "seed": 0,
+  "cfg_overrides": {},
+  "fit_kwargs": {},
+  "started_at": "2026-07-10T02:23:19.937358+00:00"
+}

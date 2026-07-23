@@ -1,0 +1,9 @@
+{
+  "attempt_id": "001",
+  "name": "简短英文或中文描述",
+  "variant": "baseline",
+  "seed": 0,
+  "notes": "假设：……",
+  "cfg_overrides": {},
+  "fit_kwargs": {}
+}

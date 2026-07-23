@@ -1,0 +1,50 @@
+{
+  "seed": 0,
+  "marginal_weights": [0.3, 1.0],
+  "timings": {
+    "R5 λ=0.3": 1080.0,
+    "R5 λ=1.0": 360.0
+  },
+  "results": {
+    "R5_marg0": {
+      "label": "R5 λ=0 (audit)",
+      "per_layer": [
+        {"layer": 0, "joint_ll": 22.693, "nonpos_rate": 0.037, "std_ratio_mean": 0.994},
+        {"layer": 1, "joint_ll": 5.272, "nonpos_rate": 0.009, "std_ratio_mean": 1.021},
+        {"layer": 2, "joint_ll": 5.213, "nonpos_rate": 0.035, "std_ratio_mean": 0.918},
+        {"layer": 3, "joint_ll": 1.969, "nonpos_rate": 0.143, "std_ratio_mean": 0.834},
+        {"layer": 4, "joint_ll": -12.585, "nonpos_rate": 0.571, "std_ratio_mean": 0.987}
+      ]
+    },
+    "R7 baseline": {
+      "label": "R7 baseline (audit)",
+      "per_layer": [
+        {"layer": 0, "joint_ll": 22.693, "nonpos_rate": 0.037, "std_ratio_mean": 1.005},
+        {"layer": 1, "joint_ll": 5.838, "nonpos_rate": 0.020, "std_ratio_mean": 0.984},
+        {"layer": 2, "joint_ll": 5.108, "nonpos_rate": 0.049, "std_ratio_mean": 0.851},
+        {"layer": 3, "joint_ll": 3.111, "nonpos_rate": 0.083, "std_ratio_mean": 0.757},
+        {"layer": 4, "joint_ll": 1.049, "nonpos_rate": 0.134, "std_ratio_mean": 0.722}
+      ]
+    },
+    "R5 λ=0.3": {
+      "label": "R5 λ=0.3",
+      "per_layer": [
+        {"layer": 0, "joint_ll": 22.693, "nonpos_rate": 0.037, "std_ratio_mean": 1.001},
+        {"layer": 1, "joint_ll": 5.003, "nonpos_rate": 0.011, "std_ratio_mean": 1.180},
+        {"layer": 2, "joint_ll": -23.865, "nonpos_rate": 0.985, "std_ratio_mean": 2.209},
+        {"layer": 3, "joint_ll": -77.632, "nonpos_rate": 0.999, "std_ratio_mean": 4.322},
+        {"layer": 4, "joint_ll": -84.489, "nonpos_rate": 1.000, "std_ratio_mean": 6.247}
+      ]
+    },
+    "R5 λ=1.0": {
+      "label": "R5 λ=1.0",
+      "per_layer": [
+        {"layer": 0, "joint_ll": 22.693, "nonpos_rate": 0.037, "std_ratio_mean": 1.000},
+        {"layer": 1, "joint_ll": -0.908, "nonpos_rate": 0.075, "std_ratio_mean": 1.721},
+        {"layer": 2, "joint_ll": -26.070, "nonpos_rate": 0.990, "std_ratio_mean": 2.224},
+        {"layer": 3, "joint_ll": -69.160, "nonpos_rate": 0.986, "std_ratio_mean": 4.438},
+        {"layer": 4, "joint_ll": -68.861, "nonpos_rate": 1.000, "std_ratio_mean": 5.965}
+      ]
+    }
+  }
+}

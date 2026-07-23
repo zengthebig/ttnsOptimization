@@ -1,0 +1,13 @@
+{
+  "attempt_id": "011",
+  "name": "nonneg analytic L2 chain topology",
+  "variant": "nonneg_chain",
+  "description": "R5 非负 core + 解析 L2 + 块内 chain",
+  "seed": 0,
+  "cfg_overrides": {
+    "an_lr": 0.001,
+    "an_steps": 3000
+  },
+  "fit_kwargs": {},
+  "started_at": "2026-07-10T07:32:24.532417+00:00"
+}

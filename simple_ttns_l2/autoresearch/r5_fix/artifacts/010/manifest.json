@@ -1,0 +1,13 @@
+{
+  "attempt_id": "010",
+  "name": "nonneg analytic L2 fast lr longer",
+  "variant": "nonneg",
+  "description": "R5 非负 core + 解析 L2",
+  "seed": 0,
+  "cfg_overrides": {
+    "an_lr": 0.001,
+    "an_steps": 3000
+  },
+  "fit_kwargs": {},
+  "started_at": "2026-07-10T06:57:07.746198+00:00"
+}

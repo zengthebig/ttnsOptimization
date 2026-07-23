@@ -1,0 +1,19 @@
+{
+  "attempt_id": "005",
+  "name": "nonneg joint block k4",
+  "variant": "joint_block",
+  "seed": 0,
+  "notes": "假设：L4 最强相关对位于 K=4 immediate 块内，树投影会抹掉相关；只在 L4 的 K≤4 块改用完整联合解析目标，其余层/大块回退非负树目标。",
+  "cfg_overrides": {
+    "n_s_joint": 8,
+    "an_steps": 2500,
+    "joint_steps": 800
+  },
+  "fit_kwargs": {
+    "joint_kmax": 4,
+    "joint_layers": [
+      4
+    ]
+  },
+  "conclusion": "待评估"
+}

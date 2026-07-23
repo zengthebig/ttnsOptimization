@@ -1,0 +1,9 @@
+{
+  "attempt_id": "000",
+  "name": "baseline R5 analytic chain",
+  "variant": "baseline",
+  "seed": 0,
+  "notes": "复现 audit 中 R5 λ=0；对齐 dense_dag_r567_three_way CFG",
+  "cfg_overrides": {},
+  "fit_kwargs": {}
+}

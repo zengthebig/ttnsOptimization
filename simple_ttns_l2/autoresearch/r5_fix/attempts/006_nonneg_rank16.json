@@ -1,0 +1,13 @@
+{
+  "attempt_id": "006",
+  "name": "nonneg immediate rank16 short",
+  "variant": "nonneg",
+  "seed": 0,
+  "notes": "假设：相关塌缩来自 rank=8 对 K=4/8 块内依赖表达不足；保持 immediate 分块与非负解析传播，提升 rank 到 16。",
+  "cfg_overrides": {
+    "rank": 16,
+    "an_steps": 2500
+  },
+  "fit_kwargs": {},
+  "conclusion": "待评估"
+}

@@ -1,0 +1,12 @@
+{
+  "attempt_id": "001",
+  "name": "nonneg analytic corr penalty",
+  "variant": "nonneg_corr",
+  "seed": 0,
+  "notes": "假设：R5 nonneg 已修复负密度，但相关塌缩；加入解析 pair-CDF 相关矩惩罚，保持解析 UpperForest 传播。",
+  "cfg_overrides": {},
+  "fit_kwargs": {
+    "corr_weight": 5.0
+  },
+  "conclusion": "待评估"
+}

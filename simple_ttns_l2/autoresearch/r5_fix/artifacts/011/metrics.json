@@ -1,0 +1,65 @@
+{
+  "attempt_id": "011",
+  "name": "nonneg analytic L2 chain topology",
+  "variant": "nonneg_chain",
+  "seed": 0,
+  "fit_seconds": 120.06775429891422,
+  "total_seconds": 227.41678969562054,
+  "per_layer": [
+    {
+      "layer": 0,
+      "joint_ll": 22.69296305143478,
+      "nonpos_rate": 0.03652777777777778,
+      "gt_std_mean": 0.1855888119389263,
+      "model_std_mean": 0.18532357941446392,
+      "std_ratio_mean": 0.9990070674024741,
+      "std_ratio_min": 0.9054426042689476
+    },
+    {
+      "layer": 1,
+      "joint_ll": 5.901953048276573,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.21487321844752555,
+      "model_std_mean": 0.2162816907202303,
+      "std_ratio_mean": 1.0066783848364103,
+      "std_ratio_min": 0.9882848678508281
+    },
+    {
+      "layer": 2,
+      "joint_ll": 6.734806618533112,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.20922501024035317,
+      "model_std_mean": 0.20273520506206572,
+      "std_ratio_mean": 0.96993805229431,
+      "std_ratio_min": 0.9282361517139469
+    },
+    {
+      "layer": 3,
+      "joint_ll": 6.6595698104464915,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.2079256908984391,
+      "model_std_mean": 0.19524844022550703,
+      "std_ratio_mean": 0.9421952479102986,
+      "std_ratio_min": 0.8870605040599119
+    },
+    {
+      "layer": 4,
+      "joint_ll": 5.948772965840263,
+      "nonpos_rate": 0.0,
+      "gt_std_mean": 0.2051602754545399,
+      "model_std_mean": 0.19108361427579096,
+      "std_ratio_mean": 0.936094618853644,
+      "std_ratio_min": 0.8725619350677751
+    }
+  ],
+  "corr_fro_norm_by_layer": {
+    "1": 0.10429765035216323,
+    "2": 0.16835691646722212,
+    "3": 0.2102974359259032,
+    "4": 0.2397883573818245
+  },
+  "artifacts": {
+    "marginal_slices": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/011/marginal_slices.png",
+    "slice_refined": "/home/sbzeng/2_1/research/TTDE/simple_ttns_l2/autoresearch/r5_fix/artifacts/011/slice_refined.png"
+  }
+}

@@ -1,0 +1,62 @@
+# dense_dag_r567 补救方案轻量测试
+
+- **seed**: 0
+- **Test 1**: R5 `marginal_l2_weight` ∈ {0.3, 1.0}（λ=0 来自 slices_audit）
+- **Test 2**: R7 非负链（core→raw² + 块级 MLE，L0 与各层均 nonneg）
+- **Test 3**: R5 非负解析链（core→raw² + 解析 L2，L1–L4 块内 nonneg）
+
+## 逐层指标
+
+| 方案 | L | joint_LL | nonpos | std比 |
+|---|---:|---:|---:|---:|
+| R5_marg0 | L0 | 22.693 | 0.037 | 0.994 |
+| R5_marg0 | L1 | 5.272 | 0.009 | 1.021 |
+| R5_marg0 | L2 | 5.213 | 0.035 | 0.918 |
+| R5_marg0 | L3 | 1.969 | 0.143 | 0.834 |
+| R5_marg0 | L4 | -12.585 | 0.571 | 0.987 |
+| R7 baseline | L0 | 22.693 | 0.037 | 1.005 |
+| R7 baseline | L1 | 5.838 | 0.020 | 0.984 |
+| R7 baseline | L2 | 5.108 | 0.049 | 0.851 |
+| R7 baseline | L3 | 3.111 | 0.083 | 0.757 |
+| R7 baseline | L4 | 1.049 | 0.134 | 0.722 |
+| R5 λ=0.3 | L0 | 22.693 | 0.037 | 1.001 |
+| R5 λ=0.3 | L1 | 5.003 | 0.011 | 1.180 |
+| R5 λ=0.3 | L2 | -23.865 | 0.985 | 2.209 |
+| R5 λ=0.3 | L3 | -77.632 | 0.999 | 4.322 |
+| R5 λ=0.3 | L4 | -84.489 | 1.000 | 6.247 |
+| R5 λ=1.0 | L0 | 22.693 | 0.037 | 1.000 |
+| R5 λ=1.0 | L1 | -0.908 | 0.075 | 1.721 |
+| R5 λ=1.0 | L2 | -26.070 | 0.990 | 2.224 |
+| R5 λ=1.0 | L3 | -69.160 | 0.986 | 4.438 |
+| R5 λ=1.0 | L4 | -68.861 | 1.000 | 5.965 |
+| R7 nonneg | L0 | 23.286 | 0.000 | 1.004 |
+| R7 nonneg | L1 | 7.073 | 0.000 | 1.000 |
+| R7 nonneg | L2 | 7.479 | 0.000 | 1.002 |
+| R7 nonneg | L3 | 7.146 | 0.000 | 0.983 |
+| R7 nonneg | L4 | 7.068 | 0.001 | 0.971 |
+| R5 nonneg | L0 | 22.693 | 0.037 | 1.001 |
+| R5 nonneg | L1 | 3.224 | 0.000 | 0.985 |
+| R5 nonneg | L2 | 3.326 | 0.000 | 0.899 |
+| R5 nonneg | L3 | 3.089 | 0.000 | 0.835 |
+| R5 nonneg | L4 | 2.448 | 0.000 | 0.918 |
+
+## 用时(s)
+
+- R5 λ=0.3: 1080.0s
+- R5 λ=1.0: 360.0s
+- R7 nonneg: 229.6s
+- R5 nonneg: 228.2s
+
+## 结论摘要
+
+1. **marginal_l2_weight 不能解决负区，大 λ 反而更差**：λ=0.3/1.0 时 L2+ 层 `nonpos_rate` 接近 1、joint_LL 崩溃；λ=0 基线 L4 nonpos≈57% 已是三者中最好。
+2. **marginal 会抬高边缘 std 比**（L4 std 比 >5），但这是模型在错误联合结构下的伪宽/振荡，不是正确拟合。
+3. **R7 非负 MLE 链**：`nonpos≈0`，L4 LL/std 比显著优于 linear R7。
+4. **R5 非负解析链有效**：L1–L4 `nonpos=0`；L4 `joint_LL=2.45`（linear R5 为 −12.6）、
+   `std比=0.92`（linear R5/R7 为 0.99/0.72）。L0 仍用 linear 数据森林故 nonpos 与基线相同；
+   **非负参数可修复 R5 后层密度失效**，且 LL 优于 linear R7 baseline（1.05）。
+
+- 指标图: `simple_ttns_l2/reports/dense_dag_r567_remedy_metrics.png`
+- L4 切片: `simple_ttns_l2/reports/dense_dag_r567_remedy_l4_slices.png`
+- **R5 nonneg 全节点 marginal**: `simple_ttns_l2/reports/dense_dag_r567_r5_nonneg_slices.png`
+- **R7 nonneg 全节点 marginal**: `simple_ttns_l2/reports/dense_dag_r567_r7_nonneg_slices.png`

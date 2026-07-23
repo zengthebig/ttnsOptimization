@@ -1,0 +1,17 @@
+{
+  "attempt_id": "008",
+  "name": "analytic target sampled MLE",
+  "variant": "analytic_mle",
+  "seed": 0,
+  "cfg_overrides": {
+    "nn_steps": 400,
+    "nn_batch_sz": 512,
+    "nn_patience": 6,
+    "nn_lr": 0.002,
+    "n_target_mle": 20000
+  },
+  "fit_kwargs": {
+    "n_target_mle": 20000
+  },
+  "conclusion": "待判定：解析 UpperForest target 采样后用非负 MLE，验证 sample 能否绕开解析 L2 拟合器的相关塌缩"
+}
