@@ -31,8 +31,32 @@ class _GAS:
 
 
 def _load_data(file):
+    """读取 GAS pickle。原 MAF `ethylene_CO.pickle` 由旧 pandas 序列化，
+    在 pandas≥2 上会因 `pandas.core.index` / `Int64Index` 缺失而失败。
+    优先读同目录现代副本 `ethylene_CO.pandas3.pkl`；否则做兼容 unpickle。
+    """
+    file = Path(file)
+    modern = file.with_name("ethylene_CO.pandas3.pkl")
+    if modern.exists():
+        data = pd.read_pickle(modern)
+    else:
+        import sys
+        import pickle
+        import pandas.core.indexes.base as idxbase
 
-    data = pd.read_pickle(file)
+        sys.modules.setdefault("pandas.core.index", idxbase)
+        if not hasattr(idxbase, "Int64Index"):
+            idxbase.Int64Index = pd.Index
+        if not hasattr(idxbase, "Float64Index"):
+            idxbase.Float64Index = pd.Index
+        if not hasattr(idxbase, "UInt64Index"):
+            idxbase.UInt64Index = pd.Index
+        with file.open("rb") as f:
+            data = pickle.load(f, encoding="latin1")
+        try:
+            data.to_pickle(modern)
+        except Exception:
+            pass
     # data = pd.read_pickle(file).sample(frac=0.25)
     # data.to_pickle(file)
     data.drop("Meth", axis=1, inplace=True)
