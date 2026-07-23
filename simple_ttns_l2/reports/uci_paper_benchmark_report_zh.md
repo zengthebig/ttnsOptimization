@@ -30,7 +30,11 @@
 
 ## 2. 提交命令
 
-**运行中**：`785458` array 0–2（POWER/GAS/HEPMASS）；`785459` array 3–4（MINIBOONE/BSDS300，若排队）。首次 `785452/785453` 因 QOS/路径问题已取消或失败。脚本现为 `2天×8核×64G` + `SLURM_SUBMIT_DIR`。
+**当前队列（2026-07-23）**：
+- `785458_0` POWER、`785458_2` HEPMASS：**RUNNING**
+- `785461_3` MINIBOONE：**RUNNING**；`785461_4` BSDS300：PENDING（`MaxCpuRunMinsPerUser`）
+- `785458_1` GAS：旧 `ethylene_CO.pickle` 在 pandas 3 下失败；已修 `gas.py`（`c35b809`）并重提 **`785463` array=1**（排队）
+- 更早 `785452/785453` 因 QOS/路径问题已取消或失败。脚本现为 `2天×8核×64G` + `SLURM_SUBMIT_DIR`。
 
 ```bash
 cd /home/sbzeng/2_1/research/TTDE-dev
