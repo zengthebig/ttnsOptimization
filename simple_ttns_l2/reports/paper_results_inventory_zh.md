@@ -21,6 +21,7 @@ Budget sweep 清楚刻画了 `rank`、`m` 和 `n_fit` 的不同作用，但全�
 | 已验证 | 7D/8D fork DAG：Chow–Liu、balanced、chain | 3 seed | 主文中的拓扑匹配收益 |
 | 已验证 | 6D 随机递归树：matched TTNS vs chain | 3 seed | 主文或附录中的外部结构复核 |
 | 已验证 | CDF 解析传播 vs 采样传播 | 单次配置 | 方法动机或机制消融 |
+| 已验证 | $K=3,L=4$ 确定性多层误差审计 | 固定人工配置 | 多层稳定性定理的实现一致性和误差来源示例；不是统计实验 |
 | 已验证 | 12D/24D/28D layered vs global TT/TTNS/TTDE | 单 seed 或单次配置 | 已知结构和核条件下的主实验；不得声称统计显著 |
 | 已验证 | 100 节点 dense DAG 的 R5-linear、R7-linear、R5-nonneg、R7-nonneg 及固定链对照 | `seed=0` | 大图可行性、失效诊断和修复结果；需要多 seed |
 | 已验证 | 100 节点 budget sweep、R6 小块参照、全局基线 | `seed=0` | 预算敏感性和 R5/R6/R7 机制消融；需要多 seed |
@@ -43,6 +44,8 @@ Budget sweep 清楚刻画了 `rank`、`m` 和 `n_fit` 的不同作用，但全�
 | 当目标依赖接近树结构时，匹配或数据驱动 TTNS 比 chain TTNS 更准确。 | `dag_chow_liu_vs_chain_multiseed_metrics.json`、`dag_chow_liu_vs_chain_8d_multiseed_metrics.json`、`random_tree_matched_vs_chain_multiseed_metrics.json` 及对应报告。 | 结论限于指定合成目标、B-spline L2 训练和 3 个 seed。 | 不能据此声称任意真实数据或任意树结构都显著优于链。 |
 | 在已知 DAG 结构和 delay kernel 时，结构感知的 layered 因子化可用更少学习参数优于全局黑盒。 | `global_vs_layered_metrics.json`、`global_vs_layered_complex_metrics.json`、`per_layer_all_methods_metrics.json` 及对应图片和报告。 | 必须说明层间条件核和图结构为 oracle/已知；结果主要为单次配置。 | 不能声称在未知图或未知 kernel 的纯密度估计任务上同样领先。 |
 | CDF 域解析传播可避免有符号密度采样截断造成的相关损失。 | `maxplus_cdf_vs_sampling_metrics.json` 和 `maxplus_cdf_vs_sampling_report_zh.md`。 | 在 `[4,4,4]`、`fanin=2`、上层负质量比例约 0.005 的配置中，`corr_fro` 为 0.0463 vs 0.1102。 | 不能声称所有分布和规模下解析传播都更快或更准。 |
+| 逐层 TTNS 材料化误差可按单层新增误差加性控制。 | `multilayer_error_analysis_metrics.json`、`multilayer_error_analysis_zh.md` 和 `maxplus_ttns_cdf_theorem_zh.md`。 | 定理使用经典 Markov contraction；数值证据为确定性 $K=3,L=4$ 人工模型。 | 不能外推为 Dense/UCI 的严格 TV 上界，也不能声称累积界紧。 |
+| 在 compact/truncated max-plus 模型中，多层先验误差可由 delay overlap、非树 interaction oscillation、conditional Hölder regularity、bond rank 和 quadrature 参数控制。 | `maxplus_ttns_cdf_theorem_zh.md` 的定理 2 及其证明。 | 这是条件性 approximation theorem；当前零 node-delay 审计的 common overlap 为 0，不能数值验证严格收缩。 | 尚不能声称当前 R5 非凸 optimizer 达到构造性 rank rate，也不能把事后完整表 certificate 当作先验界。 |
 | R5 的 dense 后层崩溃主要可由非负解析 L2 和合适优化尺度修复。 | `autoresearch/r5_fix/artifacts/010/manifest.json`、`metrics.json`、`target_audit_summary_zh.md` 和 `project_final_solution.png`。 | `seed=0`；最终配置继承 `dense_dag_r567_three_way.CFG`，并覆盖 `an_lr=0.001, an_steps=3000`。 | 不能声称已证明多 seed 稳定性、全局最优或优于所有 R7 变体。 |
 | R5、R6、R7 的目标口径具有互补性。 | `budget_sweep_layered_metrics.json` 和 `budget_r6_block_ref_metrics.json`。 | R6 证据只来自 3 维小块；budget sweep 为 `seed=0`。 | 不能声称 R6 已在 100 节点全链上验证，也不能声称单个预算点同时最优。 |
 | 修复后的混合 TTNSDE 在三个 UCI 数据集的单 seed 中优于等参数量 TTDE。 | 三个 `uci_ttde_vs_ttns_metrics_ncomps8fix*.json`。 | 配置为 `m=128, n_comps=8, seed=0`，且绝对 LL 未对齐论文 TTDE。 | 不能声称统计显著、五数据集全面领先或已达到论文级容量。 |
@@ -81,6 +84,45 @@ Budget sweep 清楚刻画了 `rank`、`m` 和 `n_fit` 的不同作用，但全�
 实验使用 `layer_sizes=[4,4,4]`、`fanin=2`、`n=15000` 和均匀 edge/node delay $U[0,0.25]$，比较方案 A 的采样传播和方案 B 的 CDF 域解析传播。上层有符号 TTNS 的平均负质量比例约为 0.005。解析方案的 `mean_abs_err=0.0032`、`std_abs_err=0.0096`、`corr_fro=0.0463`；采样方案为 0.0036、0.0093 和 0.1102。来源是 `maxplus_cdf_vs_sampling_metrics.json` 和 `maxplus_cdf_vs_sampling_report_zh.md`，复现入口为 `experiments/fit_maxplus_cdf_vs_sampling.py`。
 
 该实验支持“采样截断会损失相关结构，而解析积分在这一配置下避免了该损失”的机制解释。它不直接支持复杂度、墙钟速度或任意非均匀 delay 下的普适优势。
+
+另有一个不训练模型、不使用 Monte Carlo 的小维定理实现验证。其配置为三维
+rank-2 非负归一化 TTNS，两个下游输出的父集合分别为 `[0,1]` 和 `[1,2]`，
+共享父节点为 1，edge delay 为 $U[0,0.3]$，node delay 固定为 0。在
+`q_grid=81` 下，TTNS pair CDF 与显式系数张量的最大绝对差为
+$5.55\times10^{-16}$，与选定点直接三维网格积分的最大绝对差为
+$4.44\times10^{-16}$；相对于 `q_grid=2001` 数值参考，pair CDF 最大误差从
+`q_grid=41` 的 $2.08443\times10^{-3}$ 降至 `q_grid=321` 的
+$3.24116\times10^{-5}$。来源为
+`maxplus_cdf_theorem_validation_metrics.json` 和
+`maxplus_cdf_theorem_validation_report_zh.md`，复现入口为
+`experiments/validate_maxplus_cdf_theorem.py`。该结果只验证当前实现与定理公式
+在这一小维构造上的一致性。扩展检查还覆盖了非零 uniform node delay 的 `n_d`
+收敛和 $K=3$ 完整联合 CDF；后者与显式系数张量公式的最大绝对差为
+$3.33\times10^{-16}$。log-skew-normal delay 下，pair CDF 相对高分辨率参考的
+误差随 `q_grid=81` 到 641 从 $1.87035\times10^{-4}$ 降至
+$2.62933\times10^{-6}$；随 `n_d=8` 到 128 从
+$5.19866\times10^{-3}$ 降至 $3.76742\times10^{-4}$。平方 TTNS doubled
+pair 与显式平方张量的最大绝对差为 $3.44\times10^{-15}$，与选定点直接三维
+积分的最大差为 $7.77\times10^{-16}$。这些结果不能替代平方分层全链或多 seed
+实验，也不能用作一般复杂度或收敛阶结论。
+
+多层误差审计进一步把单层材料化误差分成 numerical、structural 和 fitting
+三项。连续 $K=3$ 固定构造中的 grid-estimated TV 分别为
+$4.21143\times10^{-5}$、0.136266 和 0.040144，实际总误差为 0.142686，
+低于三项和 0.176452。有限状态 $K=3,L=4$ 构造中，第 4 层实际全局 TV 为
+0.226152，直接局部 TV 累积上界为 0.624913；由完整表事后回算的信息论
+certificate 为 1.385602，已经超过 TV 的自然上限，故只作为负面边界诊断，
+不能作为论文主理论结果。116 项检查全部通过。连续单层结构 KL、
+`TC-edge MI` 和遗漏条件互信息均为 0.0998766 nat；rank-3 谱下界、无符号
+TT-SVD 和非负材料化 Frobenius error 分别为 $8.82\times10^{-4}$、
+$1.1630\times10^{-3}$ 和 $1.5596\times10^{-3}$。其 conditional fitting
+KL 为 0.0209111 nat，三个 fitting TV 上界中最紧的父边缘加权
+conditional-TV 界为 0.051810。来源为
+`multilayer_error_analysis_metrics.json` 和
+`multilayer_error_analysis_zh.md`，复现入口为
+`experiments/audit_multilayer_error_propagation.py`。连续结果只能称为公共网格
+上的离散估计；有限状态结果是该有限状态 Markov 模型上的精确 TV。它们验证审计
+实现和误差递推一致，不能证明真实 Dense/UCI 任务也由结构误差主导。
 
 ### 4.4 补充结构实验与早期多父 core 诊断
 
@@ -241,12 +283,25 @@ Layered 模型使用已知 DAG 和已知 delay kernel，而全局 TT/TTNS/TTDE �
 | 12D layered 总览 | `global_vs_layered_overview.png` | 基础结构先验收益 | 明示已知 DAG/kernel。 |
 | 24D complex 总览 | `global_vs_layered_complex_overview.png` | 多峰和更深图结果 | 明示单次配置。 |
 | 28D 完整联合 | `per_layer_all_methods_fulljoint.png` | layered vs 全局方法的主口径 | 同时在正文解释逐层边缘表。 |
+| 共享父节点收缩 | `maxplus_cdf_shared_parent_contraction.png` | 解释一维局部投影如何进入联合 CDF 的 TTNS contraction | 这是方法示意图，不是实验性能图。 |
+| 多层误差分解 | `multilayer_error_decomposition.png` | 展示四层 structural 与 rank-limited fit 的逐层组成 | 有限状态 $K=3$ 固定构造，不是 Dense 性能图。 |
+| 多层加性上界 | `multilayer_error_bound.png` | 对比实际全局 TV、精确传播后 TV、单步界和累积界 | 上界正确但较松；不能解读为真实任务误差。 |
+| 多层定量诊断 | `multilayer_quantitative_diagnostics.png` | 展示精确结构 KL/CMI、rank 谱夹逼和传播 TV 比 | 全局 Dobrushin coefficient 仍为 1；约 0.51 是固定分布对的事后比值。 |
 | UCI POWER/GAS bars | `uci_power_ttde_vs_ttns_bars_ncomps8fix_power.png`、`uci_gas_ttde_vs_ttns_bars_ncomps8fix.png` | 单 seed 真实数据初证 | 不与 paper preset 混用。 |
 | UCI POWER/GAS 2D slices | `uci_power_ttde_vs_ttns_slices_ncomps8fix_displaynorm.png`、`uci_gas_ttde_vs_ttns_slices_ncomps8fix_displaynorm.png` | 定性展示 | 图是有限窗口 display-normalization，不能读作原始积分。 |
 
 ### 11.2 建议附录或消融使用
 
-`project_original_metrics.png` 和 `project_original_details.png` 适合展示修复前失效；`project_fixed_topology_control.png` 适合固定链近参数量对照；`dense_dag_r567_remedy_metrics.png` 适合比较 `marginal_l2_weight`、R5-nonneg 和 R7-nonneg；`budget_sweep_slice_refined.png` 与 `budget_sweep_slice_refined_uniform.png` 适合边缘诊断；`per_layer_all_methods_metrics.png` 和 `per_layer_all_methods_marginals.png` 适合解释完整联合与逐层边缘口径的差别。
+`maxplus_cdf_theorem_validation_convergence.png` 适合展示 uniform 和
+log-skew-normal delay 下的经验离散误差，`maxplus_cdf_pair_validation_heatmaps.png`
+适合展示高分辨率参考、`q_grid=81` 结果及误差空间分布。二者只能称为相对数值
+参考的实现验证，不能称为理论收敛阶。`project_original_metrics.png` 和
+`project_original_details.png` 适合展示修复前失效；`project_fixed_topology_control.png`
+适合固定链近参数量对照；`dense_dag_r567_remedy_metrics.png` 适合比较
+`marginal_l2_weight`、R5-nonneg 和 R7-nonneg；`budget_sweep_slice_refined.png`
+与 `budget_sweep_slice_refined_uniform.png` 适合边缘诊断；
+`per_layer_all_methods_metrics.png` 和 `per_layer_all_methods_marginals.png`
+适合解释完整联合与逐层边缘口径的差别。
 
 Theta 重参数化目前没有独立图。Fork DAG 和随机树的主结果报告中有完整数表和 JSON，但本清单未发现专门的多 seed 汇总图；投稿前可只从已提交 JSON 重新绘制，不需要重跑实验。
 
@@ -259,6 +314,8 @@ Theta 重参数化目前没有独立图。Fork DAG 和随机树的主结果报�
 | Layered vs global | `experiments/compare_global_vs_layered_plot.py` | `global_vs_layered*_metrics.json` |
 | 28D 五模型 | `experiments/per_layer_all_methods.py` | `per_layer_all_methods_metrics.json` |
 | CDF vs sampling | `experiments/fit_maxplus_cdf_vs_sampling.py` | `maxplus_cdf_vs_sampling_metrics.json` |
+| CDF 定理实现验证 | `experiments/validate_maxplus_cdf_theorem.py`；绘图为 `experiments/plot_maxplus_cdf_theorem_validation.py` | `maxplus_cdf_theorem_validation_metrics.json` |
+| 多层误差审计 | `experiments/audit_multilayer_error_propagation.py` | `multilayer_error_analysis_metrics.json`、`multilayer_error_analysis_zh.md` |
 | Dense R5/R7 原始对照 | `experiments/dense_dag_r567_three_way.py` | `dense_dag_r567_three_way_metrics.json` |
 | Dense 补救 | `experiments/dense_dag_r567_remedy_tests.py` | `dense_dag_r567_remedy_metrics.json` |
 | Dense 最终 R5-nonneg | `simple_ttns_l2/autoresearch/r5_fix/run_attempt.py` 与 attempt 010 JSON | `simple_ttns_l2/autoresearch/r5_fix/artifacts/010/{manifest,metrics}.json` |
