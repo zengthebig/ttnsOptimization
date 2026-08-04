@@ -1,0 +1,4368 @@
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[margin=2.55cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,longtable,array}
+\usepackage{enumitem}
+\usepackage{fontspec}
+\usepackage[AutoFakeBold=true,AutoFakeSlant=true]{xeCJK}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\setCJKmainfont{PingFang SC}
+\setCJKsansfont{PingFang SC}
+\setCJKmonofont{PingFang SC}
+\renewcommand{\abstractname}{摘要}
+\renewcommand{\contentsname}{目录}
+\renewcommand{\proofname}{证明}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  urlcolor=blue!55!black,
+  citecolor=blue!55!black
+}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+
+\theoremstyle{definition}
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{引理}
+\newtheorem{corollary}{推论}
+\newtheorem{proposition}{命题}
+\newtheorem{definition}{定义}
+\newtheorem{assumption}{假设}
+\newtheorem{remark}{注}
+
+\newcommand{\R}{\mathbb R}
+\newcommand{\Z}{\mathbb Z}
+\newcommand{\N}{\mathbb N}
+\newcommand{\E}{\mathbb E}
+\newcommand{\Prob}{\mathbb P}
+\newcommand{\1}{\mathbf 1}
+\newcommand{\TV}{\mathrm{TV}}
+\newcommand{\KL}{\mathrm{KL}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+\newcommand{\pa}{\operatorname{pa}}
+\newcommand{\ch}{\operatorname{ch}}
+\newcommand{\tw}{\operatorname{tw}}
+\newcommand{\clipz}{\operatorname{clip}_{[0,1]}}
+\newcommand{\Gcal}{\mathcal G}
+\newcommand{\rootset}{\operatorname{root}}
+\newcommand{\vol}{\operatorname{vol}}
+\newcommand{\supp}{\operatorname{supp}}
+\newcommand{\TC}{\operatorname{TC}}
+\newcommand{\diam}{\operatorname{diam}}
+\newcommand{\Law}{\operatorname{Law}}
+\newcommand{\Qtrap}{\mathrm Q}
+\newcommand{\calT}{\mathcal T}
+\newcommand{\Kprod}{K^{\otimes}}
+\newcommand{\Eerr}{\mathsf E}
+\newcommand{\Pset}{\mathcal P}
+\newcommand{\TCs}{\mathsf T}
+\newcommand{\ecdf}{\varepsilon^{\mathrm{cdf}}}
+\newcommand{\Rq}{R_{\mathrm{q}}}
+\newcommand{\Qq}{\mathsf Q_{\Rq,\varepsilon}}
+\newcommand{\todo}[1]{\textcolor{red}{[\textbf{待核实}: #1]}}
+
+\title{树张量网络上的 max-plus 随机层：\\
+精确 CDF 收缩、树宽复杂度与信息预算}
+
+\author{%
+待填写作者姓名\thanks{通讯作者电子邮箱：待填写。}\\[0.3em]
+\normalsize 复旦大学，待填写院系名称，上海 200433，中国\\[0.2em]
+\normalsize\itshape Fudan University, \textup{[Department]},
+Shanghai 200433, China
+}
+
+\date{草稿日期：2026 年 7 月 30 日}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文研究树张量网络态（TTNS）表示的高维密度经过一层 max-plus 随机映射
+$Y_a=\max_{k\in P_a}(X_k+E_{ka})+D_a$ 之后的联合分布，给出四类结果。
+第一，若上游密度由树 $T$ 上的 TTNS 表示，则下游联合 CDF 等于一组一维局部
+投影的 TTNS 收缩；当 node delay 各分量独立时，外层期望恰是逐轴卷积算子的
+张量积，因而在已持有 $G^K$ 中间数组的前提下，额外的逐轴卷积代价对输出维数
+$K$ 为线性而非指数。第二，局部投影中的截断、求积与 edge CDF 近似误差按
+TTNS sensitivity 加权进入联合 CDF 误差，而外层 node-delay 求积、卷积网格
+插值与边界钳制误差则通过非扩张平均算子的 telescoping 直接相加；结合
+Kantorovich--Rubinstein 界得到含外层求积项的闭合单层误差预算与显式收敛条件，
+且当 telescoping 的坐标顺序取为树的后序遍历时，预算中出现的全部 $d$ 个
+hybrid sensitivity 可由两次上行加一次下行 sweep 同时算出，
+从而该预算可作为自适应精化判据。第三，我们把树结构与父集合族合成一张联合结构图，证明该图的树宽给出联合
+CDF 计算代价的\emph{条件性上界}（给定一个树分解即可达到），并给出与完整
+输出规模一致的下界；平方 TTNS 以平方后的域大小为底时改变底数而不
+改变指数（以原始 rank 与物理维计则幂次加倍）。第四，把每个下游节点视为一个局部 max-plus 通道，利用 max 映射的
+$\ell_\infty$ 非扩张性与 node-delay 分布的平移重叠显式界定局部 Dobrushin
+系数；再沿 total correlation 的链式分解逐项施加固定输入强数据处理不等式，
+得到整层收缩因子为各局部系数的最大值，\emph{不含随层宽显式增长的乘积信道
+惩罚因子}——该论证不依赖
+（且我们给出反例说明一般不成立的）乘积信道 input-independent KL 系数张量化。
+据此得到 pair 互信息、整层 total
+correlation 与多层累计的信息预算：多层累计中初始依赖按层数几何衰减，而每层
+新增的 fan-out 注入使总上界一般停在一个显式的非零渐近上界（上界残余项）上；
+需要强调这是所选\emph{上界}的极限，并不蕴含实际 total correlation 有非零下界。
+最后显式界定
+其有限状态版本的非平凡量化窗口。所有结果均不要求训练优化器达到全局最优。
+\end{abstract}
+
+\tableofcontents
+
+\section{理论定位}
+
+本文把一层传播写成
+\[
+Q_{\ell-1}
+\xrightarrow{\;\mathcal K_\ell\;}
+\widetilde Q_\ell
+\xrightarrow{\;\text{tree projection}\;}
+R_\ell^{T_Y}
+\xrightarrow{\;\text{optimization}\;}
+Q_\ell.
+\]
+本文只处理前三个数学对象中的可证明部分：
+\[
+Q_{\ell-1}\to \widetilde Q_\ell,
+\qquad
+\widetilde Q_\ell \text{ 的数值 CDF 计算},
+\qquad
+\widetilde Q_\ell\to R_\ell^{T_Y}.
+\]
+最后一步 $R_\ell^{T_Y}\to Q_\ell$ 是优化问题。除非另外证明优化器达到全局最优
+或给出可验证 certificate，否则它不应被写成本文三条主定理的一部分。
+这里 $T_Y$ 表示下游输出坐标 $(Y_1,\ldots,Y_K)$ 上的 tree projection 树
+（见 \S\ref{sec:treeproj}），与承载上游 TTNS 的树 $T$ 一般不是同一个对象。
+
+信息论部分进一步把精确传播
+\[
+Q_{\ell-1}\xrightarrow{\mathcal K_\ell}\widetilde Q_\ell
+\]
+拆成一组条件独立的局部 max-plus channels。它分析的是精确传播目标
+$\widetilde Q_\ell$ 的依赖如何由上一层传递，不分析优化所得 $Q_\ell$。
+
+本文中的 $K$ 表示单层下游输出维数。它可以是任意有限正整数；实验中保存
+完整 joint table 时选择 $K=3$ 只是计算限制，不是定理限制。
+
+\section{基本设定}
+
+\subsection{TTNS 密度和收缩}
+
+令上游随机向量为
+\[
+X=(X_1,\ldots,X_d)\in \R^d.
+\]
+对每个坐标 $k\in\{1,\ldots,d\}$，给定 $m_k$ 个 Borel 可测且绝对可积的
+一维基函数
+\[
+b_{k,1},\ldots,b_{k,m_k}:\R\to\R.
+\]
+设 $T=(V,E)$ 是一棵树，$V=\{1,\ldots,d\}$。对每条边 $e\in E$ 给定一个
+\emph{bond dimension} $r_e\in\Z_{\ge1}$，相应的 bond index 取值于
+\begin{equation}
+\label{eq:bondidx}
+\alpha_e\in[r_e]:=\{1,\ldots,r_e\} .
+\end{equation}
+记 $\delta_T(k)=\{e\in E:k\in e\}$ 为节点 $k$ 的关联边集，
+$\deg_T(k)=|\delta_T(k)|$。TTNS 由每个节点上的一个 \emph{core}
+\begin{equation}
+\label{eq:coredef}
+G^{(k)}
+\in
+\R^{\,m_k\times\prod_{e\in\delta_T(k)}r_e},
+\qquad
+G^{(k)}_{i_k,(\alpha_e)_{e\in\delta_T(k)}},
+\qquad k=1,\ldots,d,
+\end{equation}
+给出；它诱导的有限系数张量 $A\in\R^{m_1\times\cdots\times m_d}$ 为全部
+bond index 上的收缩
+\begin{equation}
+\label{eq:coretensor}
+A_{i_1,\ldots,i_d}
+=
+\sum_{(\alpha_e)_{e\in E}\in\prod_{e\in E}[r_e]}
+\;\prod_{k=1}^{d}
+G^{(k)}_{i_k,(\alpha_e)_{e\in\delta_T(k)}} .
+\end{equation}
+本文另记最大 bond dimension 与最大物理维为
+\begin{equation}
+\label{eq:rmdef}
+r:=
+\begin{cases}
+\max_{e\in E}r_e, & E\ne\varnothing,\\[2pt]
+1, & E=\varnothing,
+\end{cases}
+\qquad
+m:=\max_{1\le k\le d}m_k .
+\end{equation}
+$E=\varnothing$ 只在 $d=1$ 的退化树上发生（此时 $A=G^{(1)}\in\R^{m_1}$，
+\eqref{eq:coredef} 中的 bond 求和是空积）；约定 $r=1$ 与“空 bond product 取
+$1$”的 TTNS 约定一致，使命题 \ref{prop:sweep}、\ref{prop:hybsweep} 与定理
+\ref{thm:tw} 的代价表达式在 $d=1$ 时仍然有定义并给出正确的 $O(m_1)$ 量级。
+下文的多数结论只需要 $A$ 诱导的多线性收缩
+\[
+\mathcal C_T(z_1,\ldots,z_d)
+=
+\sum_{i_1=1}^{m_1}\cdots\sum_{i_d=1}^{m_d}
+A_{i_1,\ldots,i_d}\prod_{k=1}^{d}z_{k,i_k},
+\]
+其中 $z_k\in\R^{m_k}$；只有涉及收缩\emph{代价}的结论（命题
+\ref{prop:sweep}、\ref{prop:hybsweep}，定理 \ref{thm:tw} 及其推论）才需要
+用到 \eqref{eq:bondidx}--\eqref{eq:rmdef} 的显式 core 结构。
+
+若上游密度满足
+\[
+p_X(x_1,\ldots,x_d)
+=
+\sum_{i_1=1}^{m_1}\cdots\sum_{i_d=1}^{m_d}
+A_{i_1,\ldots,i_d}
+\prod_{k=1}^{d}b_{k,i_k}(x_k),
+\]
+且 $p_X\ge 0$ 几乎处处、$\int_{\R^d}p_X(x)\,dx=1$，则 $p_X$ 是合法概率
+密度。基函数本身可以带符号；概率性由最终密度的非负性和归一化保证。
+
+\begin{lemma}[可分离积分]
+令 $w_k:\R\to\R$ 为 Borel 可测函数。若每个 $b_{k,i}w_k$ 绝对可积，则
+\[
+z_{k,i}=\int_\R b_{k,i}(x)w_k(x)\,dx
+\]
+满足
+\[
+\int_{\R^d}p_X(x)\prod_{k=1}^{d}w_k(x_k)\,dx
+=
+\mathcal C_T(z_1,\ldots,z_d).
+\]
+\end{lemma}
+
+\begin{proof}
+把 $p_X$ 的有限展开代入左侧。由于求和有限，求和与积分可以交换。由于
+$b_{k,i}w_k$ 绝对可积，Fubini 定理把 $d$ 维积分分解为一维积分乘积。
+所得表达式正是 $\mathcal C_T(z_1,\ldots,z_d)$。
+\end{proof}
+
+\subsection{max-plus 随机层}
+
+令下游维数为 $K\in\N$。对每个下游坐标 $a\in\{1,\ldots,K\}$，给定非空
+父节点集合
+\[
+P_a\subseteq\{1,\ldots,d\}.
+\]
+定义单层 max-plus 随机映射
+\begin{equation}
+\label{eq:maxplus}
+Y_a=\max_{k\in P_a}(X_k+E_{ka})+D_a,
+\qquad a=1,\ldots,K.
+\end{equation}
+这里 $E_{ka}$ 是 edge delay，$D=(D_1,\ldots,D_K)$ 是 node-delay 向量。
+假设全部 edge delays 相互独立，并且 $X$、完整 edge-delay 族和 $D$ 三者
+相互独立。记 $E_{ka}$ 的 CDF 为 $F_{ka}$。不要求 $D_1,\ldots,D_K$ 相互
+独立，除非希望把外层期望进一步写成乘积求积。
+
+为区分维数与取值，本文一律用 $d$ 表示上游维数，用
+\[
+t=(t_1,\ldots,t_K)\in\R^K
+\]
+表示 node-delay 向量 $D$ 的一个实现值。类似地，$K$ 只表示下游维数，
+局部 Markov kernel 记为 $K_a$，其乘积信道记为 $\Kprod$，层映射记为
+$\mathcal K_\ell$。
+
+对每个上游坐标 $k$，记它影响的下游坐标集合为
+\[
+H_k=\{a\in\{1,\ldots,K\}:k\in P_a\}.
+\]
+
+\section{TTNS 上 max-plus 层的精确 joint CDF 收缩}
+\label{sec:exact}
+
+\begin{theorem}[精确 CDF 收缩]
+\label{thm:exact}
+在基本设定下，对固定 $y\in\R^K$ 和 node-delay 实现值 $t\in\R^K$，定义局部
+投影向量 $M_k(y,t)\in\R^{m_k}$，其第 $i$ 个分量为
+\[
+M_{k,i}(y,t)
+=
+\int_\R b_{k,i}(x)
+\prod_{a\in H_k}
+F_{ka}(y_a-t_a-x)\,dx.
+\]
+若 $H_k=\varnothing$，则空乘积定义为 $1$。于是下游随机向量
+$Y=(Y_1,\ldots,Y_K)$ 的 joint CDF 满足
+\[
+F_Y(y)
+=
+\Prob(Y_1\le y_1,\ldots,Y_K\le y_K)
+=
+\E_D\left[
+\mathcal C_T(M_1(y,D),\ldots,M_d(y,D))
+\right].
+\]
+\end{theorem}
+
+\begin{proof}
+固定 $X=x$ 和 $D=t$。事件 $Y_a\le y_a$ 等价于
+$E_{ka}\le y_a-t_a-x_k$ 对所有 $k\in P_a$ 同时成立。因此，由 edge delays
+相互独立，
+\[
+\Prob(Y_1\le y_1,\ldots,Y_K\le y_K\mid X=x,D=t)
+=
+\prod_{a=1}^{K}\prod_{k\in P_a}F_{ka}(y_a-t_a-x_k).
+\]
+按照上游坐标 $k$ 重排乘积，得到
+\[
+\prod_{k=1}^{d}
+\prod_{a\in H_k}F_{ka}(y_a-t_a-x_k).
+\]
+对 $X$ 积分，并对每个 $k$ 取
+\[
+w_k(x;y,t)=\prod_{a\in H_k}F_{ka}(y_a-t_a-x),
+\]
+即可由可分离积分引理得到条件于 $D=t$ 的 TTNS 收缩表达式。最后对 $D$ 取
+期望；外层期望的良定义性由下面的注保证。
+\end{proof}
+
+\begin{remark}[外层期望的可测性与良定义性]
+\label{rem:measurable}
+对每个 $(k,i)$，被积函数 $(x,t)\mapsto b_{k,i}(x)\prod_{a\in H_k}
+F_{ka}(y_a-t_a-x)$ 关于 $x$ 可测，关于 $t$ 逐点连续于每个 $F_{ka}$ 的连续
+点集；由于 $F_{ka}$ 单调，其不连续点至多可数，故该函数在
+$\R\times\R^K$ 上联合可测。又因为所有 CDF 取值于 $[0,1]$，被积函数被
+$|b_{k,i}|\in L^1(\R)$ 控制，由控制收敛定理，
+$t\mapsto M_{k,i}(y,t)$ 有界可测，且
+$|M_{k,i}(y,t)|\le\int_\R|b_{k,i}|$。由于 $\mathcal C_T$ 是有限多线性
+形式，$t\mapsto\mathcal C_T(M_1(y,t),\ldots,M_d(y,t))$ 也有界可测，
+从而 $\E_D[\cdot]$ 对 $D$ 的任意联合分布都有定义且有限。
+\end{remark}
+
+\begin{remark}[共享父节点]
+若某个上游坐标 $k$ 同时属于 $P_1$ 和 $P_2$，则局部投影中出现
+\[
+\int b_{k,i}(x)
+F_{k1}(y_1-t_1-x)
+F_{k2}(y_2-t_2-x)\,dx.
+\]
+因此共享父节点不会破坏一维局部化，但也不能被错误地拆成两个独立上游变量。
+同一个积分变量 $x$ 正是共享依赖被保留下来的位置。
+\end{remark}
+
+\subsection{node-delay 外层期望的张量积结构}
+
+定理 \ref{thm:exact} 把外层写成 $\E_D[\cdot]$，对 $D$ 的任意联合分布都成立。
+但若写成这个形式，外层期望看起来像一个不可约的 $K$ 维积分：在 $G^K$ 输出
+网格上逐点做 $K$ 维求积的代价是 $O(n_D^K G^K)$。本小节说明：当
+$D_1,\ldots,D_K$ 互相独立时，外层期望其实是 $K$ 个一维卷积算子的张量积，
+从而在已持有完整 $G^K$ 中间数组 $\widehat F_M$ 的前提下，\emph{额外}的
+逐轴卷积代价降为 $O(K\,n_D\,G^K)$——即求积点数的依赖从 $n_D^K$ 变为
+$K\,n_D$，而 $G^K$ 这个输出表规模本身不因该分解而减小。
+
+先定义无 node-delay 的中间量。令
+\[
+M_a=\max_{k\in P_a}(X_k+E_{ka}),
+\qquad a=1,\ldots,K,
+\]
+即 $Y_a=M_a+D_a$。由定理 \ref{thm:exact} 在 $t=0$ 处的特例，
+$M=(M_1,\ldots,M_K)$ 的 joint CDF 为
+\[
+F_M(y)
+=
+\mathcal C_T\bigl(M_1^{\circ}(y),\ldots,M_d^{\circ}(y)\bigr),
+\qquad
+M_{k,i}^{\circ}(y)
+=
+\int_\R b_{k,i}(x)\prod_{a\in H_k}F_{ka}(y_a-x)\,dx.
+\]
+
+\begin{definition}[单轴卷积算子]
+设 $\mu$ 是 $\R$ 上的概率测度，$a\in\{1,\ldots,K\}$。对有界可测函数
+$G:\R^K\to\R$，定义
+\[
+(\mathcal K_\mu^{(a)}G)(y)
+=
+\int_\R G(y_1,\ldots,y_{a-1},y_a-s,y_{a+1},\ldots,y_K)\,\mu(ds).
+\]
+即沿第 $a$ 个坐标轴与 $\mu$ 做卷积，其余坐标不动。
+\end{definition}
+
+\begin{proposition}[node-delay 的张量积分解]
+\label{prop:tensorconv}
+设 $D_1,\ldots,D_K$ 互相独立，且 $D$ 与 $(X,\{E_{ka}\})$ 独立，
+$\Law(D_a)=\mu_a$。则
+\[
+F_Y
+=
+\Bigl(\mathcal K_{\mu_1}^{(1)}\circ\cdots\circ\mathcal K_{\mu_K}^{(K)}\Bigr)F_M
+=
+\Bigl(\bigotimes_{a=1}^{K}\mathcal K_{\mu_a}^{(a)}\Bigr)F_M,
+\]
+且各算子两两交换，故复合次序任意。
+\end{proposition}
+
+\begin{proof}
+由构造 $Y_a=M_a+D_a$，且向量 $M$ 与向量 $D$ 独立。于是对任意 $y\in\R^K$，
+\[
+F_Y(y)
+=
+\Prob(M_a+D_a\le y_a,\ \forall a)
+=
+\E_D\bigl[F_M(y_1-D_1,\ldots,y_K-D_K)\bigr],
+\]
+其中交换期望与事件由 $M\perp D$ 和 Fubini（被积函数有界可测，见注
+\ref{rem:measurable}）保证。由 $D_1,\ldots,D_K$ 互相独立，
+$\Law(D)=\bigotimes_a\mu_a$，故上式右侧的 $K$ 维积分按 Fubini 分解为
+$K$ 次一维积分，每次只作用在一个坐标上：
+\[
+\E_D\bigl[F_M(y-D)\bigr]
+=
+\int_\R\cdots\int_\R F_M(y_1-s_1,\ldots,y_K-s_K)\,
+\mu_1(ds_1)\cdots\mu_K(ds_K).
+\]
+这正是 $\mathcal K_{\mu_1}^{(1)}\circ\cdots\circ\mathcal K_{\mu_K}^{(K)}$
+作用于 $F_M$。不同轴的算子作用在不同变量上，由 Fubini 可交换。
+\end{proof}
+
+\begin{corollary}[外层求积代价]
+\label{cor:convcost}
+设输出网格在每个坐标轴上取 $G$ 个点，每个 $\mu_a$ 用 $n_D$ 点求积公式
+近似。则在已知 $F_M$ 于整个 $G^K$ 网格上取值的前提下，计算
+$F_Y$ 于同一网格上全部取值的额外代价为
+\[
+O(K\,n_D\,G^K),
+\]
+而非直接对 $K$ 维联合分布求积所需的 $O(n_D^{K}G^K)$。
+\end{corollary}
+
+\begin{proof}
+由命题 \ref{prop:tensorconv}，只需依次沿每个轴做一维卷积。第 $a$ 轴的
+一维卷积对每个网格点需 $n_D$ 次加权求和，共 $G^K$ 个网格点，代价
+$O(n_D G^K)$；$K$ 个轴顺序执行，总代价 $O(K n_D G^K)$。
+\end{proof}
+
+\begin{remark}[与实现的对应]
+\label{rem:implconv}
+\sloppy
+仓库中的实现已经采用这一结构，而非 $K$ 维联合求积：
+\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf.py}
+中的 \texttt{pair\_cdf} 对 $K=2$ 先沿第一坐标、再沿第二坐标做加权求积；
+\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf\_forest.py}
+中的 \texttt{block\_joint\_cdf} 对一般 $K$ 逐轴调用
+\texttt{\_delay\_convolve\_axis}。命题 \ref{prop:tensorconv} 说明：
+“逐轴依次执行一维算子”这一\emph{分解}在 $D_a$ 独立时是精确恒等式，
+用它代替 $K$ 维联合积分不引入任何额外误差。但这不等于说\emph{实现}是精确的：
+每个一维算子的离散化仍带有有限求积、插值、截断与 clipping 误差，这些误差
+由定理 \ref{thm:fullbudget} 的完整误差预算统一控制。
+\end{remark}
+
+\begin{remark}[独立性不可去除]
+若 $D_1,\ldots,D_K$ 相关，则 $\Law(D)$ 不再是乘积测度，Fubini 分解失效，
+张量积形式一般不成立；此时只能保留定理 \ref{thm:exact} 的
+$\E_D[\cdot]$ 一般式。这与后文关于公共噪声的边界讨论一致：相关的
+node delay 会自行注入输出依赖，既破坏外层求积的张量积结构，也破坏
+信息预算定理的前提。
+\end{remark}
+
+\section{局部投影误差通过 TTNS 的传播}
+
+\subsection{sensitivity 向量}
+
+对任意 $k$ 和任意给定的其他输入向量 $u_{-k}=(u_1,\ldots,u_{k-1},u_{k+1},
+\ldots,u_d)$，定义第 $k$ 个 sensitivity 向量
+\[
+S_k(u_{-k})\in\R^{m_k}
+\]
+为
+\[
+[S_k(u_{-k})]_i
+=
+\mathcal C_T(u_1,\ldots,u_{k-1},e_i,u_{k+1},\ldots,u_d),
+\]
+其中 $e_i$ 是 $\R^{m_k}$ 中第 $i$ 个标准基向量。换言之，$S_k$ 是把除了第
+$k$ 个物理指标以外的整个 TTNS 全部收缩掉以后得到的局部敏感度。
+
+按定义逐个计算 $S_1,\ldots,S_d$ 需要 $d$ 次独立的完整收缩。下面的命题
+说明这是不必要的：全部 $d$ 个 sensitivity 向量可以由两次 sweep 同时
+得到，代价与一次收缩同阶。
+
+\begin{proposition}[一次上行加一次下行 sweep 给出全部 sensitivity]
+\label{prop:sweep}
+把树 $T$ 任取一个根定向。对每个 $k$，记 $\delta_T(k)$ 为与 $k$ 相邻的
+树边集合，$\deg_T(k)=|\delta_T(k)|$，core 为
+$G^{(k)}_{i_k,(\alpha_e)_{e\in\delta_T(k)}}$，输入向量为 $z_k\in\R^{m_k}$。
+定义沿每条边两个方向的消息：对 $k$ 的父边 $e_k=(k,\pa(k))$，
+\[
+U_{k\to\pa(k)}(\alpha_{e_k})
+=
+\sum_{i_k}z_{k,i_k}
+\sum_{(\alpha_e)_{e\in\delta_T(k)\setminus\{e_k\}}}
+G^{(k)}_{i_k,(\alpha_e)_{e\in\delta_T(k)}}
+\prod_{c\in\ch(k)}U_{c\to k}(\alpha_{(c,k)}),
+\]
+并对每个孩子 $c$ 对称地定义下行消息 $U_{k\to c}$（把 $k$ 的父消息与
+除 $c$ 以外的孩子消息一并收缩）。则
+\[
+[S_k]_{i}
+=
+\sum_{(\alpha_e)_{e\in\delta_T(k)}}
+G^{(k)}_{i,(\alpha_e)_{e\in\delta_T(k)}}
+\prod_{e\in\delta_T(k)}U_{\cdot\to k}(\alpha_e),
+\]
+其中 $U_{\cdot\to k}$ 表示沿边 $e$ 指向 $k$ 的那条消息。全部
+$\{S_k\}_{k=1}^{d}$ 可由一次 leaf$\to$root 上行 sweep 加一次
+root$\to$leaf 下行 sweep 得到，总时间为
+\[
+O\!\left(\sum_{k=1}^{d}(\deg_T(k)+1)\,m_k\prod_{e\in\delta_T(k)}r_e\right)
+=
+O\!\left(d\,(\deg_T^{\max}+1)\,m\,r^{\deg_T^{\max}}\right),
+\]
+其中 $\deg_T^{\max}=\max_k\deg_T(k)$；$\deg_T(k)$ 之外的
+$+1$ 计入读取 core $G^{(k)}$ 并与 $z_k$ 收缩得到
+$S_k$ 本身这一步。对 $d\ge2$ 的树这只改变常数；但在 $d=1$ 的退化树上唯一
+节点的度数为零，若写成 $\deg_T(k)$ 则右侧为零，而此时仍需读取该 core，
+故 $+1$ 是必要的。
+消息存储为 $O\!\left(\sum_{e\in E}r_e\right)=O(d\,r)$。
+\end{proposition}
+
+\begin{proof}
+恒等式部分即 $\mathcal C_T$ 关于第 $k$ 个物理指标的多线性展开：把
+$z_k$ 换成 $e_i$ 后，树上其余部分的收缩值与 $i$ 无关，恰好等于以 $k$ 为
+中心、沿每条关联边汇入的消息之积。由于 $T$ 是树，去掉节点 $k$ 后
+各分支互不相交，故这些消息可以独立计算，且每条边的两个方向消息合起来
+覆盖了所有分支。
+
+代价部分：上行 sweep 按拓扑序对每个非根节点计算一条消息；下行 sweep
+按逆序对每个非根节点计算一条反向消息。每条消息的计算是把 core 与
+$\deg_T(k)-1$ 条已知消息及 $z_k$ 收缩，代价
+$O(m_k\prod_{e\in\delta_T(k)}r_e)$；节点 $k$ 共产生 $\deg_T(k)$ 条出边
+消息，故该节点总代价 $O(\deg_T(k)m_k\prod_{e}r_e)$。最后由同样的一次收缩
+得到 $S_k$ 自身，这一步对每个节点各计一次，即上式中的 $+1$；对
+$\deg_T(k)\ge1$ 的节点它不改变阶，对 $d=1$ 的单节点树它是唯一的代价来源。
+求和即得。
+\end{proof}
+
+\begin{remark}[相对逐个计算的收益与定位]
+\label{rem:sweepgain}
+按定义逐个计算需 $d$ 次完整收缩，代价
+$O(d^2\,m\,r^{\deg_T^{\max}})$；命题 \ref{prop:sweep} 把它降到
+$O(d\,(\deg_T^{\max}+1)\,m\,r^{\deg_T^{\max}})$，即节省一个 $d$ 因子。这使定理
+\ref{thm:localerr} 与推论 \ref{cor:local2joint} 从存在性估计变成可执行的
+自适应精化判据：在同一次 sweep 内即可得到全部
+$\|S_k\|_\infty$，从而按 $\Eerr_k\|S_k\|_\infty$ 的大小决定在哪个上游
+坐标上加密求积网格或扩大截断区间。（这里得到的是同一输入配置下的
+sensitivity；定理 \ref{thm:fullbudget} 实际需要的有序 hybrid 版本见注
+\ref{rem:hybgap} 与命题 \ref{prop:hybsweep}，代价同阶。）
+
+该 sweep 是 DMRG environment tensor 与树上反向传播的标准技巧在本设定
+的实例化，本文不主张其为新算法，只主张上述复杂度结论及其与误差判据的
+组合。需要说明的是：当前仓库实现
+（\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf.py} 中的 \texttt{UpperModel.\_contract}）
+每次调用都做一次完整收缩，并未实现 sensitivity sweep；即本命题属于
+“理论允许但当前实现未采用”，若要按该判据做自适应精化需另行实现。
+\end{remark}
+
+\begin{remark}[命题 \ref{prop:sweep} 还\emph{不}足以支撑误差预算的权重]
+\label{rem:hybgap}
+命题 \ref{prop:sweep} 给出的是同一个输入配置 $(z_1,\ldots,z_d)$ 下的
+$d$ 个 sensitivity $S_k(u_{-k})$。但下面定理 \ref{thm:telescope} 的
+telescoping 恒等式所需的第 $k$ 个 sensitivity 是
+\[
+S_k\bigl(\widehat z_1,\ldots,\widehat z_{k-1},z_{k+1},\ldots,z_d\bigr),
+\]
+其输入环境随 $k$ 改变：前 $k-1$ 个坐标取近似值、后 $d-k$ 个坐标取真值。
+这\emph{不是}同一配置下的一族 sensitivity，因此不能直接由命题
+\ref{prop:sweep} 得到。命题 \ref{prop:hybsweep} 补上这一步：只要把
+telescoping 的坐标顺序取为 $T$ 的一个后序遍历，全部 $d$ 个 hybrid
+sensitivity 仍可由常数次 sweep 同时得到。
+\end{remark}
+
+\begin{proposition}[后序 telescoping 下的 hybrid environment sweep]
+\label{prop:hybsweep}
+把树 $T$ 任取一个根 $\mathrm{rt}$ 定向，并把坐标标号
+$1,\ldots,d$ 取为该有根树的一个\emph{后序遍历}（每个节点的编号大于其全部
+后代的编号，且同一父节点的各子树按编号区间连续排列）。定义三族消息。
+
+\emph{(a) 真值上行消息.} 对每个非根节点 $c$，
+\[
+U_{c\to\pa(c)}(\alpha_{e_c})
+=
+\sum_{i_c}z_{c,i_c}
+\sum_{(\alpha_e)_{e\in\delta_T(c)\setminus\{e_c\}}}
+G^{(c)}_{i_c,(\alpha_e)_{e\in\delta_T(c)}}
+\prod_{c'\in\ch(c)}U_{c'\to c}(\alpha_{(c',c)}),
+\qquad e_c=(c,\pa(c)).
+\]
+
+\emph{(b) 近似值上行消息.} $\widehat U_{c\to\pa(c)}$ 由同一公式给出，
+但把 $z_{c}$ 换成 $\widehat z_{c}$、把 $U_{c'\to c}$ 换成
+$\widehat U_{c'\to c}$。
+
+\emph{(c) hybrid 下行消息.} 设节点 $p$ 的孩子按后序编号递增排列为
+$c_1,\ldots,c_t$。对每个 $j$，
+\[
+V_{p\to c_j}(\alpha_{(p,c_j)})
+=
+\sum_{i_p}z_{p,i_p}
+\!\!\!\sum_{(\alpha_e)_{e\in\delta_T(p)\setminus\{(p,c_j)\}}}\!\!\!
+G^{(p)}_{i_p,(\alpha_e)_{e\in\delta_T(p)}}
+\,
+V_{\pa(p)\to p}(\alpha_{e_p})
+\!\!\prod_{i<j}\!\widehat U_{c_i\to p}
+\!\!\prod_{i>j}\!U_{c_i\to p},
+\]
+其中最后两个乘积中的消息分别以 $\alpha_{(c_i,p)}$ 为自变量；
+当 $p=\mathrm{rt}$ 时因子 $V_{\pa(p)\to p}$ 与其 bond 指标一并省略
+（空乘积为 $1$）。则对每个 $k$，
+\[
+\bigl[S_k(u_{-k}^{\mathrm{hyb}})\bigr]_i
+=
+\sum_{(\alpha_e)_{e\in\delta_T(k)}}
+G^{(k)}_{i,(\alpha_e)_{e\in\delta_T(k)}}
+\,
+V_{\pa(k)\to k}(\alpha_{e_k})
+\prod_{c\in\ch(k)}\widehat U_{c\to k}(\alpha_{(c,k)}),
+\]
+其中沿用上面同一约定：当 $k=\mathrm{rt}$ 时（此时 $\pa(k)$ 与 $e_k$ 均无
+定义）因子 $V_{\pa(k)\to k}(\alpha_{e_k})$ 及求和指标 $\alpha_{e_k}$ 一并
+省略，该因子按空乘积取 $1$。
+其中 $u_{-k}^{\mathrm{hyb}}
+=(\widehat z_1,\ldots,\widehat z_{k-1},z_{k+1},\ldots,z_d)$ 按上述后序编号
+理解。因此全部 $d$ 个 hybrid sensitivity 可由\emph{两次上行 sweep 加一次
+下行 sweep} 同时得到，总时间仍为
+\[
+O\!\left(\sum_{k=1}^{d}(\deg_T(k)+1)\,m_k\prod_{e\in\delta_T(k)}r_e\right)
+=
+O\!\left(d\,(\deg_T^{\max}+1)\,m\,r^{\deg_T^{\max}}\right),
+\]
+其中 $+1$ 的含义与命题 \ref{prop:sweep} 相同（读取 core 并收缩出
+$S_k$ 自身；$d=1$ 时它是唯一代价来源）。消息存储为 $O(d\,r)$。
+\end{proposition}
+
+\begin{proof}
+关键是一个纯组合观察。固定 $k$，去掉节点 $k$ 后 $T$ 分裂为
+$\deg_T(k)$ 个分支：每个孩子 $c\in\ch(k)$ 对应的子树 $T_c$，以及 $k$ 的
+父方向分支（$k=\mathrm{rt}$ 时不存在）。按后序编号：
+
+\emph{第一，$T_c$ 中的每个节点都是 $k$ 的后代，故编号小于 $k$}，从而在
+$u_{-k}^{\mathrm{hyb}}$ 中一律取近似值 $\widehat z$。因此该分支汇入 $k$ 的
+消息正是 (b) 中的 $\widehat U_{c\to k}$。
+
+\emph{第二，父方向分支内部按“路径上的祖先取真值、路径左侧的兄弟子树取
+近似值、路径右侧的兄弟子树取真值”分层}。理由：设 $k$ 到根的路径为
+$k,p_1=\pa(k),p_2,\ldots,\mathrm{rt}$。每个 $p_l$ 都是 $k$ 的祖先，后序编号
+大于 $k$，故取 $z_{p_l}$。对 $p_l$ 的每个不在该路径上的孩子 $c'$，子树
+$T_{c'}$ 与含 $k$ 的那棵子树在后序遍历中占据两个\emph{不相交的连续编号
+区间}，因此 $T_{c'}$ 的全部编号要么都小于 $k$（$c'$ 在含 $k$ 的孩子之前，
+取 $\widehat z$），要么都大于 $k$（在其之后，取 $z$）。这正是 (c) 中
+$\prod_{i<j}\widehat U\cdot\prod_{i>j}U$ 的含义，其中 $c_j$ 是 $p_l$ 通往
+$k$ 的那个孩子。
+
+于是父方向分支汇入 $k$ 的消息恰为 $V_{\pa(k)\to k}$：对该式按
+$l=1,2,\ldots$ 递归展开，每一层的 $z_{p_l}$、左侧 $\widehat U$、右侧 $U$
+与上述分层逐项对应。由于 $T$ 是树，去掉 $k$ 后各分支互不相交，各分支的
+收缩可以独立进行，把它们与 core $G^{(k)}$ 及第 $k$ 个物理指标上的基向量
+$e_i$ 收缩即得 $[S_k(u_{-k}^{\mathrm{hyb}})]_i$。这就是所断言的恒等式；
+它同时说明 $V$ 的递归定义是良定义的（下行 sweep 按编号递减处理）。
+
+代价：两次上行 sweep 各对每个非根节点算一条消息，代价
+$O(m_k\prod_{e\in\delta_T(k)}r_e)$；下行 sweep 在节点 $p$ 处对每个孩子
+算一条消息，共 $|\ch(p)|\le\deg_T(p)$ 条，单条代价同阶。求和即得上述
+总时间。三族消息各占 $O(\sum_er_e)=O(d\,r)$。
+\end{proof}
+
+\begin{remark}[后序要求是无代价的，但必须显式声明]
+\label{rem:postorder}
+定理 \ref{thm:telescope} 的 telescoping 恒等式对坐标的\emph{任意}排列都
+成立（它只是一个逐项相消的求和），因此把标号取成后序遍历不损失一般性，
+只是在若干等价的误差分解中选定一个。代价是：误差预算中出现的
+$\|S_k(u_{-k}^{\mathrm{hyb}})\|_\infty$ 依赖于所选顺序，故定理
+\ref{thm:fullbudget} 与推论 \ref{cor:convergence} 中的这一项应理解为
+“在选定的后序标号下”的值。若不愿绑定顺序，可以退而使用与顺序无关的
+一致上界
+\[
+\|S_k\|_\infty^{\sup}
+=
+\sup\bigl\{\|S_k(v_{-k})\|_\infty:\;
+v_b\in\{z_b,\widehat z_b\}\ \text{对所有}\ b\ne k\bigr\},
+\]
+它同时控制全部 $2^{d-1}$ 个 hybrid 环境，但一般比逐个后序值更松，且没有
+对应的 sweep 算法——本文采用前者。
+\end{remark}
+
+\begin{theorem}[TTNS 局部扰动恒等式和范数界]
+\label{thm:telescope}
+令 $z_k,\widehat z_k\in\R^{m_k}$。定义 hybrid 输入
+\[
+u_{-k}^{\mathrm{hyb}}
+=
+(\widehat z_1,\ldots,\widehat z_{k-1},z_{k+1},\ldots,z_d).
+\]
+（恒等式对坐标的任意排列成立；按注 \ref{rem:postorder} 的约定，本文一律把
+$1,\ldots,d$ 取为 $T$ 的一个后序遍历，以便由命题 \ref{prop:hybsweep}
+同时算出全部 $S_k(u_{-k}^{\mathrm{hyb}})$。）
+则有精确 telescoping 恒等式
+\[
+\mathcal C_T(z_1,\ldots,z_d)
+-
+\mathcal C_T(\widehat z_1,\ldots,\widehat z_d)
+=
+\sum_{k=1}^{d}
+\left\langle
+z_k-\widehat z_k,\,
+S_k(u_{-k}^{\mathrm{hyb}})
+\right\rangle.
+\]
+因此，对任意共轭范数 $\|\cdot\|_p$ 和 $\|\cdot\|_q$，
+\[
+\left|
+\mathcal C_T(z_1,\ldots,z_d)
+-
+\mathcal C_T(\widehat z_1,\ldots,\widehat z_d)
+\right|
+\le
+\sum_{k=1}^{d}
+\|z_k-\widehat z_k\|_p
+\,
+\|S_k(u_{-k}^{\mathrm{hyb}})\|_q.
+\]
+特别地，
+\[
+\left|
+\mathcal C_T(z_1,\ldots,z_d)
+-
+\mathcal C_T(\widehat z_1,\ldots,\widehat z_d)
+\right|
+\le
+\sum_{k=1}^{d}
+\|z_k-\widehat z_k\|_1
+\,
+\|S_k(u_{-k}^{\mathrm{hyb}})\|_\infty.
+\]
+\end{theorem}
+
+\begin{proof}
+定义
+\[
+V^{(k)}
+=
+\mathcal C_T(\widehat z_1,\ldots,\widehat z_k,z_{k+1},\ldots,z_d),
+\qquad
+V^{(0)}=\mathcal C_T(z_1,\ldots,z_d).
+\]
+则
+\[
+\mathcal C_T(z_1,\ldots,z_d)
+-
+\mathcal C_T(\widehat z_1,\ldots,\widehat z_d)
+=
+\sum_{k=1}^{d}(V^{(k-1)}-V^{(k)}).
+\]
+由于 $\mathcal C_T$ 对第 $k$ 个输入向量线性，
+\[
+V^{(k-1)}-V^{(k)}
+=
+\left\langle
+z_k-\widehat z_k,\,
+S_k(u_{-k}^{\mathrm{hyb}})
+\right\rangle.
+\]
+对每一项应用 Hölder 不等式即得范数界。
+\end{proof}
+
+\subsection{局部 CDF 投影的数值误差}
+
+固定 $y\in\R^K$ 和 node-delay 实现值 $t\in\R^K$。设 $H_k\ne\varnothing$ 时
+\[
+f_{k,i}(x;y,t)
+=
+b_{k,i}(x)\prod_{a\in H_k}F_{ka}(y_a-t_a-x),
+\]
+若 $H_k=\varnothing$，则乘积仍定义为 $1$。选择有限积分区间
+\[
+I_{k,i}=[\alpha_{k,i},\beta_{k,i}]
+\]
+和步长 $h_{k,i}=(\beta_{k,i}-\alpha_{k,i})/n_{k,i}$。令 $\Qtrap_{k,i}$ 表示
+$I_{k,i}$ 上的复合梯形公式。若 edge CDF 用近似函数 $\widehat F_{ka}$，
+则实际计算的局部投影记为
+\[
+\widehat M_{k,i}(y,t)
+=
+\Qtrap_{k,i}
+\left[
+b_{k,i}(x)
+\prod_{a\in H_k}
+\widehat F_{ka}(y_a-t_a-x)
+\right].
+\]
+
+\begin{assumption}[近似 edge CDF 的取值范围]
+\label{ass:clip}
+每个近似函数满足 $\widehat F_{ka}:\R\to[0,1]$。
+\end{assumption}
+
+该假设不是技术性赘述：下面误差分解的第三项使用乘积 telescoping
+$\left|\prod_a u_a-\prod_a v_a\right|\le\sum_a|u_a-v_a|$，而该不等式要求
+两组因子都落在 $[0,1]$ 内。真实 CDF 自动满足，插值或拟合得到的
+$\widehat F_{ka}$ 则不一定；实现中通过对近似值做 $[0,1]$ 截断
+（clipping）来强制满足，见
+\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf.py} 中对 $F$ 的
+\texttt{np.clip} 处理。截断本身不增大近似误差，因为真值已在 $[0,1]$ 内。
+
+\begin{theorem}[局部 CDF 投影误差估计]
+\label{thm:localerr}
+在假设 \ref{ass:clip} 下，假设在 $I_{k,i}$ 上 $f_{k,i}$ 二阶可导，且
+\[
+\sup_{x\in I_{k,i}}|f_{k,i}''(x;y,t)|\le B_{k,i}^{(2)}(y,t).
+\]
+再假设 edge CDF 近似误差满足
+\[
+\ecdf_{k,i,a}(y,t)
+=
+\sup_{x\in I_{k,i}}
+\left|
+F_{ka}(y_a-t_a-x)-\widehat F_{ka}(y_a-t_a-x)
+\right|
+<\infty.
+\]
+定义尾部项
+\[
+\tau_{k,i}(y,t)
+=
+\int_{\R\setminus I_{k,i}}|b_{k,i}(x)|\,dx
+\]
+和梯形权重下的基函数绝对质量
+\[
+\Lambda_{k,i}
+=
+h_{k,i}
+\left[
+\frac12|b_{k,i}(\alpha_{k,i})|
++
+\sum_{r=1}^{n_{k,i}-1}
+|b_{k,i}(\alpha_{k,i}+r h_{k,i})|
++
+\frac12|b_{k,i}(\beta_{k,i})|
+\right].
+\]
+则
+\[
+\left|
+M_{k,i}(y,t)-\widehat M_{k,i}(y,t)
+\right|
+\le
+\tau_{k,i}(y,t)
++
+\frac{\beta_{k,i}-\alpha_{k,i}}{12}
+h_{k,i}^2 B_{k,i}^{(2)}(y,t)
++
+\Lambda_{k,i}
+\sum_{a\in H_k}\ecdf_{k,i,a}(y,t).
+\]
+\end{theorem}
+
+\begin{proof}
+把误差分成三项：
+\[
+\begin{aligned}
+|M_{k,i}-\widehat M_{k,i}|
+\le{}&
+\left|\int_{\R\setminus I_{k,i}}f_{k,i}(x)\,dx\right|\\
+&+
+\left|\int_{I_{k,i}}f_{k,i}(x)\,dx-\Qtrap_{k,i}[f_{k,i}]\right|\\
+&+
+\left|
+\Qtrap_{k,i}[f_{k,i}]
+-
+\Qtrap_{k,i}\left[
+b_{k,i}\prod_{a\in H_k}\widehat F_{ka}
+\right]
+\right|.
+\end{aligned}
+\]
+第一项由所有 CDF 取值在 $[0,1]$ 内得到
+\[
+\left|\int_{\R\setminus I_{k,i}}f_{k,i}(x)\,dx\right|
+\le
+\int_{\R\setminus I_{k,i}}|b_{k,i}(x)|\,dx.
+\]
+第二项是复合梯形公式的标准误差界。第三项使用乘积 telescoping：
+若 $0\le u_a,v_a\le 1$，则
+\[
+\left|\prod_a u_a-\prod_a v_a\right|\le \sum_a |u_a-v_a|,
+\]
+其中真值因子 $u_a=F_{ka}(\cdot)\in[0,1]$ 自动成立，近似因子
+$v_a=\widehat F_{ka}(\cdot)\in[0,1]$ 由假设 \ref{ass:clip} 保证。
+再利用梯形公式权重非负，得到
+$\Lambda_{k,i}\sum_{a\in H_k}\ecdf_{k,i,a}$。
+\end{proof}
+
+\begin{assumption}[外层期望的可积性]
+\label{ass:integrable}
+记
+\[
+\Eerr_k(y,t)
+=
+\sum_{i=1}^{m_k}
+\left[
+\tau_{k,i}(y,t)
++
+\frac{\beta_{k,i}-\alpha_{k,i}}{12}h_{k,i}^2B_{k,i}^{(2)}(y,t)
++
+\Lambda_{k,i}\sum_{a\in H_k}\ecdf_{k,i,a}(y,t)
+\right].
+\]
+假设对每个 $k$，随机变量
+\[
+\Eerr_k(y,D)\,
+\bigl\|S_k(u_{-k}^{\mathrm{hyb}}(y,D))\bigr\|_\infty
+\]
+关于 $\Law(D)$ 可积。
+\end{assumption}
+
+该假设不可省略：$B_{k,i}^{(2)}(y,t)$ 与
+$\|S_k(\cdot)(y,t)\|_\infty$ 都是 $t$ 的函数，因而在
+$D$ 随机时是随机变量，其 $\E_D$ 未必有限。一个便于核验的充分条件是：
+$b_{k,i}\in C_c^2(\R)$，每个相关的 $F_{ka}\in C^2(\R)$ 且
+$F_{ka}',F_{ka}''$ 有与平移参数 $t_a$ 无关的一致上界，同时 edge CDF 近似
+误差 $\ecdf_{k,i,a}$ 与 sensitivity 范数 $\|S_k\|_\infty$ 也有与 $t$ 无关的
+一致上界；此时由乘积求导法则可显式控制
+$B_{k,i}^{(2)}$，被积函数一致有界，可积性自动满足。
+\emph{仅设 $F_{ka}$ 为 Lipschitz 是不够的}：Lipschitz 不蕴含二阶可导，甚至
+不蕴含处处一阶可导。例如取 $[0,1]$ 上均匀分布的 CDF
+$F(u)=\min\{\max\{u,0\},1\}$（它是 $1$-Lipschitz 的）与任一满足
+$b(c)\neq0$ 的 $b\in C_c^2(\R)$，则 $x\mapsto b(x)F(c-x)$ 在 $x=c$ 与
+$x=c-1$ 处一般有导数折点，不满足定理 \ref{thm:localerr} 所需的区间内
+$C^2$ 假设。这与注 \ref{rem:secondorder} 中关于均匀 delay 端点不光滑的
+说明一致。若确实只能假设 Lipschitz（或更一般的有界变差）edge CDF，则应
+把梯形项换成适用于分段光滑函数的一阶误差估计，而不能继续使用二阶导上界。
+
+\begin{corollary}[局部误差到 joint CDF 误差]
+\label{cor:local2joint}
+在假设 \ref{ass:clip} 与 \ref{ass:integrable} 下，若外层 node-delay
+期望精确计算，则由定理 \ref{thm:exact} 和 TTNS 局部扰动定理，
+\[
+\left|
+F_Y(y)-\widehat F_Y(y)
+\right|
+\le
+\E_D
+\left[
+\sum_{k=1}^{d}
+\Eerr_k(y,D)
+\,
+\|S_k(u_{-k}^{\mathrm{hyb}}(y,D))\|_\infty
+\right],
+\]
+其中 $u_{-k}^{\mathrm{hyb}}(y,D)$ 使用
+$(\widehat M_1,\ldots,\widehat M_{k-1},M_{k+1},\ldots,M_d)$。若 $D$ 的外层
+期望也用数值求积近似，则需要额外加入外层求积误差项，见后文
+定理 \ref{thm:fullbudget}。
+\end{corollary}
+
+\subsection{外层求积误差与完整单层预算}
+
+命题 \ref{prop:tensorconv} 把外层期望化为逐轴一维卷积，因此外层求积误差
+也可以逐轴分离。设第 $a$ 轴用 $n_D$ 点求积公式近似 $\mu_a$，即取
+非负权重 $w_{a,1},\ldots,w_{a,n_D}$ 与节点 $s_{a,1},\ldots,s_{a,n_D}$，
+令
+\[
+\widehat\mu_a=\sum_{j=1}^{n_D}w_{a,j}\,\delta_{s_{a,j}},
+\qquad
+\sum_{j}w_{a,j}=1,
+\]
+并记对应算子为 $\mathcal K_{\widehat\mu_a}^{(a)}$。要求 $\widehat\mu_a$ 是
+概率测度是本质的：它保证该算子仍是平均算子，从而在 $\|\cdot\|_\infty$ 下
+算子范数不超过 $1$。
+
+\begin{lemma}[卷积算子的非扩张性]
+\label{lem:nonexp}
+对任意概率测度 $\mu$ 与任意 $a$，算子 $\mathcal K_\mu^{(a)}$ 在
+$\|\cdot\|_\infty$ 下的算子范数不超过 $1$。
+\end{lemma}
+
+\begin{proof}
+$|(\mathcal K_\mu^{(a)}G)(y)|\le\int|G(\cdots,y_a-s,\cdots)|\mu(ds)
+\le\|G\|_\infty\mu(\R)=\|G\|_\infty$。
+\end{proof}
+
+\begin{lemma}[单轴求积误差的 Kantorovich--Rubinstein 界]
+\label{lem:kr}
+设 $G:\R^K\to\R$ 有界，且关于第 $a$ 个坐标一致 $L_a$-Lipschitz，即
+\[
+|G(\ldots,y_a,\ldots)-G(\ldots,y_a',\ldots)|\le L_a|y_a-y_a'|
+\]
+对所有其余坐标一致成立。则
+\[
+\bigl\|\mathcal K_{\mu_a}^{(a)}G-\mathcal K_{\widehat\mu_a}^{(a)}G\bigr\|_\infty
+\le
+L_a\,W_1(\mu_a,\widehat\mu_a),
+\]
+其中 $W_1$ 是 $\R$ 上的 $1$-Wasserstein 距离。
+\end{lemma}
+
+\begin{proof}
+固定 $y$，令 $\varphi(s)=G(y_1,\ldots,y_a-s,\ldots,y_K)$。由假设 $\varphi$
+是 $L_a$-Lipschitz 的一元函数，且
+\[
+(\mathcal K_{\mu_a}^{(a)}G)(y)-(\mathcal K_{\widehat\mu_a}^{(a)}G)(y)
+=
+\int_\R\varphi\,d\mu_a-\int_\R\varphi\,d\widehat\mu_a.
+\]
+由 Kantorovich--Rubinstein 对偶，该差的绝对值不超过
+$L_a W_1(\mu_a,\widehat\mu_a)$。对 $y$ 取上确界即得。
+\end{proof}
+
+本文把外层求积项统一记为
+\[
+\varrho_a(n_D)=W_1(\mu_a,\widehat\mu_a).
+\]
+若 $\mu_a$ 有有限一阶矩，且 $\widehat\mu_a$ 取其 $n_D$ 点分位数离散或复合
+中点离散，则 $\varrho_a(n_D)\to0$。但\emph{仅有}有限一阶矩不足以保证
+$O(n_D^{-1})$ 的速率，见注 \ref{rem:w1rate}。
+
+\begin{remark}[$W_1$ 收敛率需要额外的尾部或正则性条件]
+\label{rem:w1rate}
+有限一阶矩只给出 $\varrho_a(n_D)\to0$，不给出速率。设 $\mu_a$ 的分位数
+函数在 $u\to1^-$ 时满足
+\[
+Q(u)=(1-u)^{-\alpha},
+\qquad 0<\alpha<1 .
+\]
+该分布有有限一阶矩，但等概率分位数离散的最后一个区间
+$[1-1/n_D,1)$ 单独贡献
+\[
+\int_{1-1/n_D}^{1}\bigl|Q(u)-Q(u^\ast)\bigr|\,du
+=
+\Theta\bigl(n_D^{\alpha-1}\bigr),
+\]
+故 $\varrho_a(n_D)=\Theta(n_D^{\alpha-1})$，慢于 $n_D^{-1}$；例如
+$\alpha=1/2$ 时只有 $\Theta(n_D^{-1/2})$，且随 $\alpha\uparrow1$ 可以任意
+接近不收敛。因此速率断言必须附加条件。
+
+下面给出一个可直接验证的充分条件。设 $Q$ 绝对连续且
+$Q'\in L^p([0,1])$ 对某个 $p>1$ 成立，$\widehat\mu_a$ 取 $n_D$ 个等概率区间
+$I_j$ 上的任意代表点。由 $|Q(u)-Q(u_j)|\le\int_{I_j}|Q'|$ 与 H\"older
+不等式，$\int_{I_j}|Q'|\le|I_j|^{1/p'}\|Q'\|_{L^p(I_j)}$（$1/p+1/p'=1$），
+故
+\[
+\varrho_a(n_D)
+\le
+\sum_{j=1}^{n_D}|I_j|^{1+1/p'}\|Q'\|_{L^p(I_j)}
+=
+n_D^{-(1+1/p')}\sum_{j=1}^{n_D}\|Q'\|_{L^p(I_j)},
+\]
+再对求和用 H\"older（指数 $p',p$）得
+$\sum_j\|Q'\|_{L^p(I_j)}\le n_D^{1/p'}\|Q'\|_{L^p}$，于是
+\begin{equation}
+\label{eq:w1rate}
+\varrho_a(n_D)\;\le\;\frac{\|Q'\|_{L^p([0,1])}}{n_D}.
+\end{equation}
+特别地，有界支撑且密度有正下界（此时 $Q'\in L^\infty$）给出
+$\varrho_a(n_D)\le\|Q'\|_\infty n_D^{-1}$。上面的反例与
+\eqref{eq:w1rate} 不矛盾：$Q(u)=(1-u)^{-\alpha}$ 的导数
+$Q'(u)=\alpha(1-u)^{-\alpha-1}$ 对任何 $p\ge1$ 都不属于 $L^p$。
+
+本文其余部分只使用 $\varrho_a(n_D)$ 这一记号本身与 $\varrho_a(n_D)\to0$，
+凡出现具体速率 $O(n_D^{-1})$ 之处（推论 \ref{cor:convergence}）都显式引用
+条件 $Q'\in L^p$、$p>1$。
+\end{remark}
+
+\subsection{实现所使用的算子：网格插值与边界钳制}
+
+命题 \ref{prop:tensorconv} 与引理 \ref{lem:kr} 都假定 $\widehat F_M$ 可在
+任意移位点 $y_a-s$ 上准确求值。实际实现并非如此。中间 CDF 只在有限输出
+网格上计算；做逐轴卷积时，$\widehat F_M(y_a-s)$ 用沿该轴的分段线性插值
+求值，并把落到网格之外的求值点\emph{钳制}到首尾网格点
+（\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf.py} 的
+\texttt{pair\_cdf} 与
+\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf\_forest.py} 的
+\texttt{\_delay\_convolve\_axis}，二者都以
+\texttt{np.interp(grid-d, grid, arange(G), left=0, right=G-1)} 取索引）。
+钳制相当于把 CDF 沿该轴作常数外延，而不是使用精确的边界外取值。因此
+仅有引理 \ref{lem:kr} 的求积项还不足以覆盖实现误差，必须另外计入两项。
+本小节先把实现算子写清楚，再给出这两项的显式界。
+
+\begin{definition}[实现所使用的逐轴卷积算子]
+\label{def:implop}
+设第 $a$ 轴的输出网格为
+$\mathcal Y_a=\{y_a^{(1)}<\cdots<y_a^{(G)}\}$，记
+$y_a^{\min}=y_a^{(1)}$、$y_a^{\max}=y_a^{(G)}$，网格步长
+\[
+h_a^{\mathrm{out}}=\max_{1\le j\le G-1}\bigl(y_a^{(j+1)}-y_a^{(j)}\bigr).
+\]
+令钳制映射
+\[
+\pi_a(v)=\min\bigl\{\max\{v,\,y_a^{\min}\},\;y_a^{\max}\bigr\},
+\]
+并令 $\Pi_a$ 为沿第 $a$ 轴在 $\mathcal Y_a$ 上的分段线性插值算子。定义
+\emph{实现算子}
+\[
+(\widetilde{\mathcal K}_aG)(y)
+=
+\sum_{j=1}^{n_D}w_{a,j}\,
+(\Pi_aG)\bigl(y_1,\ldots,y_{a-1},\pi_a(y_a-s_{a,j}),y_{a+1},\ldots,y_K\bigr),
+\]
+以及
+$\widetilde{\mathcal A}
+=\widetilde{\mathcal K}_K\circ\cdots\circ\widetilde{\mathcal K}_1$。
+实际数值结果是 $\widetilde F_Y=\widetilde{\mathcal A}\widehat F_M$，而不是
+理想化的 $\bigl(\bigotimes_a\mathcal K_{\widehat\mu_a}^{(a)}\bigr)
+\widehat F_M$。
+\end{definition}
+
+\begin{lemma}[插值误差与边界钳制误差]
+\label{lem:gridbd}
+设 $G:\R^K\to[0,1]$ 有界，且关于第 $a$ 个坐标一致 $L_a$-Lipschitz。定义
+越界振幅
+\[
+\theta_a^-(G)
+=
+\sup_{y_{-a}}\;\sup_{v\le y_a^{\min}}
+\bigl|G(y_a^{\min},y_{-a})-G(v,y_{-a})\bigr|,
+\]
+\[
+\theta_a^+(G)
+=
+\sup_{y_{-a}}\;\sup_{v\ge y_a^{\max}}
+\bigl|G(v,y_{-a})-G(y_a^{\max},y_{-a})\bigr| .
+\]
+则：
+\begin{enumerate}[label=(\roman*)]
+\item $\widetilde{\mathcal K}_a$ 是\emph{平均算子}：$(\widetilde{\mathcal
+K}_aG)(y)$ 是 $G$ 在有限多个点上取值的凸组合。因此它保持常数、保序、在
+$\|\cdot\|_\infty$ 下非扩张；并且对任意 $b$，它不增大 $G$ 关于第 $b$ 个
+坐标的 Lipschitz 常数；对任意 $b\ne a$，还有
+$\theta_b^{\pm}(\widetilde{\mathcal K}_aG)\le\theta_b^{\pm}(G)$。
+\item
+\[
+\bigl\|\widetilde{\mathcal K}_aG-\mathcal K_{\widehat\mu_a}^{(a)}G\bigr\|_\infty
+\le
+\underbrace{\tfrac12L_ah_a^{\mathrm{out}}}
+_{=:\;\varepsilon_a^{\mathrm{grid}}}
++
+\underbrace{\theta_a^-(G)+\theta_a^+(G)}
+_{=:\;\varepsilon_a^{\mathrm{bdry}}} .
+\]
+若 $G$ 关于第 $a$ 个坐标为 $C^2$ 且 $|\partial_{y_a}^2G|\le B_a^{\mathrm{out}}$
+一致成立，则 $\varepsilon_a^{\mathrm{grid}}$ 可改进为
+$(h_a^{\mathrm{out}})^2B_a^{\mathrm{out}}/8$。
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(i) 求积权重 $w_{a,j}\ge0$ 且 $\sum_jw_{a,j}=1$；$\Pi_a$ 在任一点的取值是
+相邻两个网格节点取值的凸组合 $(1-\vartheta)G(y_a^{(j)},\cdot)
++\vartheta G(y_a^{(j+1)},\cdot)$；$\pi_a$ 只是点映射。三者复合后
+$(\widetilde{\mathcal K}_aG)(y)$ 仍是 $G$ 取值的凸组合，故保持常数、保序、
+$\|\cdot\|_\infty$ 非扩张。关于 Lipschitz 常数：对 $b\ne a$，凸组合中每个
+点的第 $b$ 个坐标都等于 $y_b$，故沿第 $b$ 轴的 Lipschitz 常数直接继承；
+对 $b=a$，分段线性插值的斜率是 $G$ 的差商，绝对值不超过 $L_a$，$\pi_a$ 是
+$1$-Lipschitz，凸组合保持 Lipschitz 界。关于 $\theta_b^\pm$（$b\ne a$）：
+$\theta_b^\pm(\widetilde{\mathcal K}_aG)$ 中的差是 $G$ 在若干\emph{第 $b$
+坐标相同}的点对上的差的加权平均，故其绝对值不超过
+$\theta_b^\pm(G)$。
+
+(ii) 逐个求积节点比较：
+\[
+(\widetilde{\mathcal K}_aG-\mathcal K_{\widehat\mu_a}^{(a)}G)(y)
+=
+\sum_{j=1}^{n_D}w_{a,j}
+\Bigl[(\Pi_aG)\bigl(\pi_a(y_a-s_{a,j}),y_{-a}\bigr)
+-G\bigl(y_a-s_{a,j},y_{-a}\bigr)\Bigr].
+\]
+记 $v=y_a-s_{a,j}$，并插入 $G(\pi_a(v),y_{-a})$：
+\[
+\begin{aligned}
+\bigl|(\Pi_aG)(\pi_a(v),y_{-a})-G(v,y_{-a})\bigr|
+\le{}&
+\bigl|(\Pi_aG)(\pi_a(v),y_{-a})-G(\pi_a(v),y_{-a})\bigr|\\
+&+
+\bigl|G(\pi_a(v),y_{-a})-G(v,y_{-a})\bigr|.
+\end{aligned}
+\]
+第一项是插值误差，求值点 $\pi_a(v)$ 必落在网格区间内：若
+$\pi_a(v)\in[y_a^{(j_0)},y_a^{(j_0+1)}]$ 且 $\vartheta$ 是其相对位置，则
+\[
+\bigl|G-\Pi_aG\bigr|
+\le
+(1-\vartheta)\bigl|G(\pi_a(v))-G(y_a^{(j_0)})\bigr|
++\vartheta\bigl|G(\pi_a(v))-G(y_a^{(j_0+1)})\bigr|
+\le
+2\vartheta(1-\vartheta)L_ah_a^{\mathrm{out}}
+\le
+\tfrac12L_ah_a^{\mathrm{out}},
+\]
+$C^2$ 情形则是分段线性插值的标准界
+$(h_a^{\mathrm{out}})^2B_a^{\mathrm{out}}/8$。第二项在 $v$ 落在网格区间内
+时为 $0$；在 $v<y_a^{\min}$ 时不超过 $\theta_a^-(G)$，在 $v>y_a^{\max}$ 时
+不超过 $\theta_a^+(G)$。两种越界情形互斥、权重之和不超过 $1$，故第二项的
+加权平均不超过 $\theta_a^-(G)+\theta_a^+(G)$。对 $y$ 取上确界即得。
+\end{proof}
+
+\begin{remark}[越界振幅的概率含义]
+\label{rem:thetamass}
+本注需要一个比“逐坐标非降且取值于 $[0,1]$”更强的假设。
+
+\textbf{假设（合法联合 CDF）。}设 $\widehat F_M$ 是 $\R^K$ 上某个随机向量
+$\widehat M=(\widehat M_1,\ldots,\widehat M_K)$ 的联合分布函数，即除逐坐标
+非降、取值于 $[0,1]$ 外，还满足 $K$-增性（所有矩形的测度非负）、右连续，
+以及 $\lim_{y\to-\infty\ \text{某坐标}}\widehat F_M=0$、
+$\lim_{y\to+\infty\ \text{全部坐标}}\widehat F_M=1$。
+
+在该假设下，记 $\widehat F_{M_a}$ 为 $\widehat M_a$ 的一维边缘分布函数，
+即令其余阈值趋于 $+\infty$ 的极限
+$\widehat F_{M_a}(u)=\lim_{y_{-a}\to+\infty}\widehat F_M(u,y_{-a})$
+（\emph{不}是对 $y_{-a}$ 的平均），则两个越界振幅可以精确计算：
+\begin{equation}
+\label{eq:thetaeq}
+\theta_a^-(\widehat F_M)=\widehat F_{M_a}\bigl(y_a^{\min}\bigr),
+\qquad
+\theta_a^+(\widehat F_M)=1-\widehat F_{M_a}\bigl(y_a^{\max}\bigr),
+\end{equation}
+从而
+\[
+\varepsilon_a^{\mathrm{bdry}}
+=\theta_a^-+\theta_a^+
+=\Pr\bigl[\widehat M_a\notin(y_a^{\min},y_a^{\max}]\bigr] .
+\]
+\emph{证明。}对 $\theta_a^-$：由 $\widehat F_M$ 是联合 CDF，
+$\lim_{v\to-\infty}\widehat F_M(v,y_{-a})=0$，故内层上确界等于
+$\widehat F_M(y_a^{\min},y_{-a})$；它关于 $y_{-a}$ 非降，故外层上确界等于
+$y_{-a}\to+\infty$ 的极限，即 $\widehat F_{M_a}(y_a^{\min})$。
+对 $\theta_a^+$：内层上确界为
+$\lim_{v\to+\infty}\widehat F_M(v,y_{-a})-\widehat F_M(y_a^{\max},y_{-a})
+=\Pr[\widehat M_a>y_a^{\max},\,\widehat M_{-a}\le y_{-a}]$，
+它作为一个随 $y_{-a}$ 增大的事件的概率关于 $y_{-a}$ 非降，故外层上确界等于
+$\Pr[\widehat M_a>y_a^{\max}]=1-\widehat F_{M_a}(y_a^{\max})$。\hfill$\square$
+
+\textbf{该假设不可省略。}仅设逐坐标非降且取值于 $[0,1]$ 时，即使
+\eqref{eq:thetaeq} 的\emph{不等号}形式
+$\theta_a^-+\theta_a^+\le\widehat F_{M_a}(y_a^{\min})
++[1-\widehat F_{M_a}(y_a^{\max})]$ 也不成立。反例：取 $K=2$，先在单位方块上令
+\[
+G(u,v)=v\,u^{\,1+10(1-v)},\qquad (u,v)\in[0,1]^2 ,
+\]
+再用坐标截断把它延拓到整个 $\R^2$：
+\[
+\widehat F_M(u,v):=G\bigl(\clipz(u),\clipz(v)\bigr),
+\qquad \clipz(t):=\min\{\max\{t,0\},1\} .
+\]
+延拓后的 $\widehat F_M$ 在 $\R^2$ 上逐坐标非降、取值于 $[0,1]$，且满足
+\eqref{eq:gfnorm} 型归一化：$\widehat F_M(u,v)\to0$（$u\to-\infty$）、
+$\widehat F_M(u,v)\to\widehat F_{M_1}(u)$（$v\to+\infty$）。由 $G(u,1)=u$、
+$G(1,v)=v$ 得边缘 $\widehat F_{M_1}(u)=\clipz(u)$。取
+$y_1^{\min}=0$、$y_1^{\max}=1/2$：因 $\widehat F_M(v,y_2)=\widehat F_M(0,y_2)$
+对一切 $v\le0$ 成立，故 $\theta_1^-=0=\widehat F_{M_1}(0)$；而
+\[
+\theta_1^+\;\ge\;\widehat F_M(1,0.9)-\widehat F_M(1/2,0.9)=0.675
+\;>\;0.5=1-\widehat F_{M_1}(1/2) ,
+\]
+于是 $\theta_1^-+\theta_1^+>\widehat F_{M_1}(y_1^{\min})
++[1-\widehat F_{M_1}(y_1^{\max})]$，不等号形式被破坏。
+该函数不是 $2$-增的（存在负测度矩形），因此不是任何随机向量的联合 CDF——
+这正是上述假设排除的情形。
+
+\textbf{对本文的意义。}$\varepsilon_a^{\mathrm{bdry}}$ 等于中间变量
+$\widehat M_a$ 落在\emph{半开}区间 $(y_a^{\min},y_a^{\max}]$ 之外的质量，
+\[
+\theta_a^-+\theta_a^+
+=\Pr\bigl[\widehat M_a\le y_a^{\min}\bigr]+\Pr\bigl[\widehat M_a>y_a^{\max}\bigr]
+=\Pr\bigl[\widehat M_a\notin(y_a^{\min},y_a^{\max}]\bigr] ,
+\]
+区间取半开是因为 $\theta_a^-=\widehat F_{M_a}(y_a^{\min})$ 已经计入
+$\widehat M_a$ 恰好落在左端点处的原子质量，而右端点处的原子不计入
+$\theta_a^+$。这给出一个可直接核验的设计准则：
+输出网格必须覆盖 $\widehat M_a$ 的有效支撑，否则钳制误差不随网格加密而
+减小。若实现中的 $\widehat F_M$ 因数值近似（截断、求积、钳制）而不能保证是
+合法联合 CDF，则应放弃这一概率解释，只把 $\theta_a^{\pm}$ 当作引理
+\ref{lem:gridbd} 中定义的确定性越界振幅使用；下面命题 \ref{prop:gridfloor}
+的两个下界会分别标明它们依赖哪一种读法。
+该项与 $\varepsilon_a^{\mathrm{grid}}$ 被相反方向的参数控制——前者
+要求网格区间\emph{变宽}，后者要求网格\emph{变密}——在固定网格点数 $G$
+下二者不能同时任意小。下面的命题 \ref{prop:gridfloor} 把这一定性说法
+量化为一个只依赖 $G$ 的显式正下界。
+\end{remark}
+
+\begin{proposition}[固定 $G$ 下的预算地板]
+\label{prop:gridfloor}
+沿用引理 \ref{lem:gridbd} 的记号，设 $\widehat F_M$ 关于\emph{每个}坐标非降、
+取值于 $[0,1]$，关于第 $a$ 个坐标一致 $L_a$-Lipschitz。定义第 $a$ 个一维边缘为
+极限 $\widehat F_{M_a}(u):=\lim_{y_{-a}\to+\infty}\widehat F_M(u,y_{-a})$，并设
+归一化条件
+\begin{equation}
+\label{eq:gfnorm}
+\lim_{v\to-\infty}\widehat F_M(v,y_{-a})=0\ \ (\forall y_{-a}),
+\qquad
+\widehat F_{M_a}(-\infty)=0,\qquad \widehat F_{M_a}(+\infty)=1 .
+\end{equation}
+\emph{本命题不要求 $\widehat F_M$ 是合法联合 CDF}（不需要 $K$-增性）：它只用到
+上述单调性与归一化。需要强调，这\emph{不}意味着任何实现近似量都自动满足
+本命题的假设——截断、求积、钳制未必保持逐坐标单调性与全局归一化
+\eqref{eq:gfnorm}；准确的说法是：若某个实现量另经核验满足上述单调性与
+归一化，则无须再核验 $K$-增性即可套用本命题。
+注 \ref{rem:thetamass} 的等式 \eqref{eq:thetaeq} 是更强假设下的加细，本证明只
+需要其中一个方向的不等式（见证明第一步）。则对第 $a$ 轴上\emph{任意}
+$G\ge2$ 点网格（网格位置任意，可不等距），
+\begin{equation}
+\label{eq:gridfloor}
+\varepsilon_a^{\mathrm{grid}}+\varepsilon_a^{\mathrm{bdry}}
+\;\ge\;
+\frac{1}{2(G-1)} .
+\end{equation}
+若改用引理 \ref{lem:gridbd}(ii) 的 $C^2$ 改进式
+$\varepsilon_a^{\mathrm{grid}}=(h_a^{\mathrm{out}})^2B_a^{\mathrm{out}}/8$，
+并设边缘 $\widehat F_{M_a}$ 可微且 $\widehat F_{M_a}'$ 是
+$B_a^{\mathrm{out}}$-Lipschitz 的（见下方证明第三步：这由引理
+\ref{lem:gridbd}(ii) 对各切片的假设经\emph{极限}传递到边缘），则
+\[
+\varepsilon_a^{\mathrm{grid}}+\varepsilon_a^{\mathrm{bdry}}
+\;\ge\;
+\frac{1}{8(G-1)^2} .
+\]
+两个下界都与网格区间宽度、与 $\widehat F_M$ 的具体形状无关，只由 $G$ 决定；
+因此在固定 $G$ 下这两项之和不能同时任意小，要压低预算只能增大 $G$。
+\end{proposition}
+
+\begin{proof}
+记 $p=\varepsilon_a^{\mathrm{bdry}}=\theta_a^-+\theta_a^+$，
+$W=y_a^{\max}-y_a^{\min}$ 为网格区间宽度，并记网格内部的爬升量
+\[
+\nu:=\widehat F_{M_a}\bigl(y_a^{\max}\bigr)
+-\widehat F_{M_a}\bigl(y_a^{\min}\bigr) .
+\]
+
+\emph{第一步：$p\ge1-\nu$。}这一步只用 $\theta_a^{\pm}$ 的定义与归一化条件
+\eqref{eq:gfnorm}，不需要 $\widehat F_M$ 是合法联合 CDF。在 $\theta_a^-$ 的
+定义中，先取 $y_{-a}$ 使其充分大、再令 $v\to-\infty$：由
+\eqref{eq:gfnorm} 的第一式，内层量趋于 $\widehat F_M(y_a^{\min},y_{-a})$，
+再对 $y_{-a}$ 取上确界（由关于 $y_{-a}$ 的非降性，上确界即
+$y_{-a}\to+\infty$ 的极限，也就是边缘）得
+\[
+\theta_a^-\;\ge\;\widehat F_{M_a}\bigl(y_a^{\min}\bigr) .
+\]
+同理，在 $\theta_a^+$ 的定义中取 $y_{-a}\to+\infty$ 与 $v\to+\infty$，
+由 $\widehat F_{M_a}(+\infty)=1$ 得
+$\theta_a^+\ge1-\widehat F_{M_a}(y_a^{\max})$。两式相加即
+\[
+p\;\ge\;\widehat F_{M_a}\bigl(y_a^{\min}\bigr)
++1-\widehat F_{M_a}\bigl(y_a^{\max}\bigr)
+\;=\;1-\nu .
+\]
+若额外假设 $\widehat F_M$ 是合法联合 CDF，则注 \ref{rem:thetamass} 的
+\eqref{eq:thetaeq} 把这两个不等式加强为等式，从而 $p=1-\nu$；本证明不需要
+这一加强，只需上面的 $\ge$ 方向。
+由 $\widehat F_{M_a}$ 取值于 $[0,1]$ 且非降，有 $\nu\in[0,1]$、$p\ge1-\nu\ge0$。
+
+\emph{第二步：Lipschitz 情形。}一个 $L_a$-Lipschitz 函数在长度 $W$ 的区间
+上的总变差不超过 $L_aW$，故 $L_aW\ge\nu$，即
+\[
+L_a\;\ge\;\frac{\nu}{W} .
+\]
+另一方面 $G$ 个点把长度 $W$ 的区间分成 $G-1$ 段，最大段长满足
+$h_a^{\mathrm{out}}\ge W/(G-1)$。两式相乘，$W$ 恰好抵消，再用第一步的
+$p\ge1-\nu$：
+\[
+\varepsilon_a^{\mathrm{grid}}+\varepsilon_a^{\mathrm{bdry}}
+=\tfrac12L_ah_a^{\mathrm{out}}+p
+\;\ge\;
+\frac{\nu}{2(G-1)}+(1-\nu)
+\;\ge\;
+\frac{1}{2(G-1)},
+\]
+最后一步因为 $\nu\mapsto\frac{\nu}{2(G-1)}+(1-\nu)$ 关于 $\nu$ 非增
+（$G\ge2$ 时斜率 $\frac{1}{2(G-1)}-1\le0$），在 $\nu=1$ 处取最小值
+$\frac{1}{2(G-1)}$。
+
+\emph{第三步：$C^2$ 情形。}先说明边缘为何继承二阶界。引理
+\ref{lem:gridbd}(ii) 的假设是 $|\partial_{y_a}^2\widehat F_M|\le
+B_a^{\mathrm{out}}$ 一致成立，等价于每个切片
+$f_{y_{-a}}(u):=\widehat F_M(u,y_{-a})$ 满足二阶差分界
+\[
+\bigl|f_{y_{-a}}(u+h)+f_{y_{-a}}(u-h)-2f_{y_{-a}}(u)\bigr|
+\;\le\;B_a^{\mathrm{out}}h^2,
+\qquad\forall u\in\R,\ h>0 .
+\]
+边缘 $\widehat F_{M_a}$ 是这族切片在 $y_{-a}\to+\infty$ 时的\emph{逐点极限}
+（不是平均），而上式对逐点极限保持，故 $\widehat F_{M_a}$ 也满足同一个二阶
+差分界。于是 $u\mapsto\widehat F_{M_a}(u)+\tfrac12B_a^{\mathrm{out}}u^2$
+中点凸、$u\mapsto\widehat F_{M_a}(u)-\tfrac12B_a^{\mathrm{out}}u^2$ 中点凹；
+$\widehat F_{M_a}$ 单调故可测，中点凸（凹）加可测即凸（凹）。比较二者的
+单侧导数得：对任意 $u<u'$，
+$|\widehat F_{M_a}'(u')-\widehat F_{M_a}'(u)|\le B_a^{\mathrm{out}}(u'-u)$，
+这同时迫使左右导数重合。故 $\widehat F_{M_a}$ 可微且
+$\widehat F_{M_a}'$ 是 $B_a^{\mathrm{out}}$-Lipschitz 的，且由非降性
+$\widehat F_{M_a}'\ge0$。记 $s=\sup_{\R}\widehat F_{M_a}'\in[0,+\infty]$。
+
+先排除 $B_a^{\mathrm{out}}=0$：此时 $\widehat F_{M_a}'$ 是 $0$-Lipschitz 的，
+即恒等于某个常数 $c\ge0$，于是 $\widehat F_{M_a}(u)=\widehat F_{M_a}(0)+cu$；
+$c=0$ 给出常值函数、$c>0$ 给出无界函数，两者都与归一化
+$\widehat F_{M_a}(-\infty)=0$、$\widehat F_{M_a}(+\infty)=1$ 矛盾。故
+$B_a^{\mathrm{out}}>0$，下面可以除以它。若 $\nu=0$，则待证的
+$B_a^{\mathrm{out}}\ge\nu^2/W^2$ 自动成立，故以下设 $\nu>0$。
+
+上确界未必取到，故取一列 $y_n\in\R$ 使 $s_n:=\widehat F_{M_a}'(y_n)\uparrow s$，
+并对每个\emph{有限的} $s_n$ 做估计。由 $\widehat F_{M_a}'$ 的
+$B_a^{\mathrm{out}}$-Lipschitz 性，对
+$|y-y_n|\le s_n/B_a^{\mathrm{out}}$ 有
+$\widehat F_{M_a}'(y)\ge s_n-B_a^{\mathrm{out}}|y-y_n|\ge 0$，该三角形的面积为
+$s_n^2/B_a^{\mathrm{out}}$。关键在于这个三角形\emph{未必落在网格区间内}，
+因此只能用 $\widehat F_{M_a}'$ 在\emph{整条实轴}上的积分来控制它，而不是用
+网格内部的爬升量 $\nu$：
+\[
+\frac{s_n^2}{B_a^{\mathrm{out}}}
+\;\le\;
+\int_{\R}\widehat F_{M_a}'(y)\,\mathrm dy
+=\widehat F_{M_a}(+\infty)-\widehat F_{M_a}(-\infty)
+=1,
+\qquad\text{即}\qquad
+s_n\le\sqrt{B_a^{\mathrm{out}}} .
+\]
+令 $n\to\infty$ 得 $s\le\sqrt{B_a^{\mathrm{out}}}<\infty$。
+（若改用 $\nu$ 作右端就需要额外假设该三角形被网格区间包含，那不是现有假设的
+推论；这也是本证明与只用 Lipschitz 常数的第二步的区别所在。）
+另一方面由均值定理 $s\ge\nu/W$。两式合并消去 $s$：
+\[
+B_a^{\mathrm{out}}\;\ge\;s^2\;\ge\;\frac{\nu^2}{W^2} .
+\]
+代入 $h_a^{\mathrm{out}}\ge W/(G-1)$ 并用 $p\ge1-\nu$，$W$ 同样抵消：
+\[
+\frac{(h_a^{\mathrm{out}})^2B_a^{\mathrm{out}}}{8}+p
+\;\ge\;
+\frac{W^2}{(G-1)^2}\cdot\frac{\nu^2}{W^2}\cdot\frac18+(1-\nu)
+=\frac{\nu^2}{8(G-1)^2}+(1-\nu)
+\;\ge\;
+\frac{1}{8(G-1)^2},
+\]
+最后一步同样在 $\nu=1$ 处取最小值：$\nu\mapsto\frac{\nu^2}{8(G-1)^2}
++(1-\nu)$ 在 $[0,1]$ 上的导数为 $\frac{\nu}{4(G-1)^2}-1\le0$（$G\ge2$ 时
+$\frac{1}{4(G-1)^2}\le\frac14$），故在 $\nu=1$ 处最小。此处未追求常数最优：
+结论只需下界为正且以 $\Omega(1/G^2)$ 的阶随 $G$ 衰减，这正是本命题的
+全部内容。
+\end{proof}
+
+\begin{remark}[这是预算项的下界，不是真实误差的下界]
+\label{rem:gridfloorscope}
+命题 \ref{prop:gridfloor} 约束的是引理 \ref{lem:gridbd} 中\emph{被定义为}
+$\tfrac12L_ah_a^{\mathrm{out}}$ 与 $\theta_a^-+\theta_a^+$ 的两个预算项，
+而不是实际发生的插值与钳制误差。后者可以为零：取 $M_a\sim
+\mathrm{Uniform}[0,1]$、两点网格 $\mathcal Y_a=\{0,1\}$，则
+$\widehat F_{M_a}$ 在 $[0,1]$ 上是线性的，分段线性插值完全精确，区间外的
+常数外延也恰好等于真实 CDF，真实误差为 $0$；而预算项给出
+$\tfrac12\cdot1\cdot1+0=\tfrac12$，恰好等于 \eqref{eq:gridfloor} 在 $G=2$
+时的值 $\tfrac12$。这说明：（i）下界 \eqref{eq:gridfloor} 是紧的；
+（ii）在 $\widehat F_M$ 恰好分段线性且与网格对齐这类特殊情形下，预算远不紧，
+此时应直接使用真实误差而非本预算。一般情形下 $\widehat F_M$ 的形状事先未知，
+预算才是可用的量，命题 \ref{prop:gridfloor} 说明它必然带有一个与 $G$
+有关的非零地板。需要区分两种预算：使用 Lipschitz 插值项
+$\tfrac12L_ah_a^{\mathrm{out}}$ 时地板为 $\Omega(G^{-1})$；改用二阶插值项
+$(h_a^{\mathrm{out}})^2B_a^{\mathrm{out}}/8$ 时，当前证明给出的地板是
+$\Omega(G^{-2})$。两者阶数不同，不能笼统合写成 $\Omega(1/G)$。
+\end{remark}
+
+\begin{theorem}[完整单层 CDF 误差预算]
+\label{thm:fullbudget}
+设假设 \ref{ass:clip} 与 \ref{ass:integrable} 成立，$D_1,\ldots,D_K$ 互相
+独立，各轴求积权重非负且归一。设 $\widehat F_M$ 是按定理
+\ref{thm:localerr} 的局部投影近似与 TTNS 收缩得到的中间 CDF 近似，取值于
+$[0,1]$，并设它关于第 $a$ 个坐标一致 $\widehat L_a$-Lipschitz。按定义
+\ref{def:implop} 令实际数值结果为
+$\widetilde F_Y=\widetilde{\mathcal A}\widehat F_M$，并记
+$\theta_a^{\pm}=\theta_a^{\pm}(\widehat F_M)$。则对每个 $y$，
+\[
+\bigl|F_Y(y)-\widetilde F_Y(y)\bigr|
+\le
+\varepsilon^{\mathrm{loc}}(y)
++\varepsilon^{\mathrm{nq}}
++\varepsilon^{\mathrm{grid}}
++\varepsilon^{\mathrm{bdry}},
+\]
+其中
+\[
+\begin{aligned}
+\varepsilon^{\mathrm{loc}}(y)
+&=
+\sup_{t}\sum_{k=1}^{d}
+\Eerr_k(y,t)\,\bigl\|S_k(u_{-k}^{\mathrm{hyb}}(y,t))\bigr\|_\infty
+&&\text{（截断 $+$ 局部求积 $+$ edge CDF 近似）},\\
+\varepsilon^{\mathrm{nq}}
+&=
+\sum_{a=1}^{K}\widehat L_a\,\varrho_a(n_D)
+&&\text{（外层 node-delay 求积）},\\
+\varepsilon^{\mathrm{grid}}
+&=
+\sum_{a=1}^{K}\tfrac12\widehat L_a\,h_a^{\mathrm{out}}
+&&\text{（逐轴卷积中的输出网格插值）},\\
+\varepsilon^{\mathrm{bdry}}
+&=
+\sum_{a=1}^{K}\bigl[\theta_a^-+\theta_a^+\bigr]
+&&\text{（网格外求值的钳制／常数外延）} .
+\end{aligned}
+\]
+若最终还需把 $\widetilde F_Y$ 从输出网格插值到其他求值点，且该插值算子的
+一致误差为 $\varepsilon^{\mathrm{itp}}$，则右侧再加上 $\varepsilon^{\mathrm{itp}}$。
+\end{theorem}
+
+\begin{proof}
+记 $\mathcal A=\bigotimes_a\mathcal K_{\mu_a}^{(a)}$、
+$\widehat{\mathcal A}=\bigotimes_a\mathcal K_{\widehat\mu_a}^{(a)}$。理想
+算子沿不同轴作用，故互相交换，可写成任意顺序的复合；特别取
+$\widehat{\mathcal A}=\mathcal K_{\widehat\mu_K}^{(K)}\circ\cdots\circ
+\mathcal K_{\widehat\mu_1}^{(1)}$。由命题 \ref{prop:tensorconv}，
+$F_Y=\mathcal AF_M$。作三段分解
+\[
+F_Y-\widetilde F_Y
+=
+\underbrace{\mathcal A(F_M-\widehat F_M)}_{\text{(I)}}
++
+\underbrace{(\mathcal A-\widehat{\mathcal A})\widehat F_M}_{\text{(II)}}
++
+\underbrace{(\widehat{\mathcal A}-\widetilde{\mathcal A})\widehat F_M}
+_{\text{(III)}} .
+\]
+
+(I) 由引理 \ref{lem:nonexp}，$\mathcal A$ 是若干非扩张算子之复合，故
+$\|\mathcal A(F_M-\widehat F_M)\|_\infty\le\|F_M-\widehat F_M\|_\infty$。而
+$F_M-\widehat F_M$ 在每个求值点上正是推论 \ref{cor:local2joint} 中 $t$
+固定时的被积量，故被 $\varepsilon^{\mathrm{loc}}(y)$ 控制。
+
+(II) 沿坐标轴做算子 telescoping，
+\[
+\mathcal A-\widehat{\mathcal A}
+=
+\sum_{a=1}^{K}
+\Bigl(\prod_{b<a}\mathcal K_{\widehat\mu_b}^{(b)}\Bigr)
+\Bigl(\mathcal K_{\mu_a}^{(a)}-\mathcal K_{\widehat\mu_a}^{(a)}\Bigr)
+\Bigl(\prod_{b>a}\mathcal K_{\mu_b}^{(b)}\Bigr).
+\]
+每一项中前缀与后缀都非扩张（引理 \ref{lem:nonexp}；此处用到
+$\widehat\mu_b$ 是概率测度），中间因子由引理 \ref{lem:kr} 控制为
+$\widehat L_a\varrho_a(n_D)$——注意后缀算子作用于 $\widehat F_M$ 后仍关于
+第 $a$ 坐标 $\widehat L_a$-Lipschitz，因为沿其他轴的卷积是关于该坐标的
+逐点平均。对 $a$ 求和得 $\varepsilon^{\mathrm{nq}}$。
+
+(III) 同样做 telescoping，但这次前缀取实现算子、后缀取理想算子：
+\[
+\widehat{\mathcal A}-\widetilde{\mathcal A}
+=
+\sum_{a=1}^{K}
+\Bigl(\prod_{b>a}\mathcal K_{\widehat\mu_b}^{(b)}\Bigr)
+\Bigl(\mathcal K_{\widehat\mu_a}^{(a)}-\widetilde{\mathcal K}_a\Bigr)
+\Bigl(\prod_{b<a}\widetilde{\mathcal K}_b\Bigr),
+\]
+其中两侧的乘积分别按下标递减与递增复合。直接验证：$K=2$ 时右侧为
+$\mathcal K_{\widehat\mu_2}(\mathcal K_{\widehat\mu_1}-\widetilde{\mathcal
+K}_1)+(\mathcal K_{\widehat\mu_2}-\widetilde{\mathcal K}_2)\widetilde{\mathcal
+K}_1$，两个交叉项相消后即为
+$\widehat{\mathcal A}-\widetilde{\mathcal A}$；一般 $K$ 同理。
+
+对第 $a$ 项，令
+$H_a=\bigl(\prod_{b<a}\widetilde{\mathcal K}_b\bigr)\widehat F_M$。由引理
+\ref{lem:gridbd}(i)，每个 $\widetilde{\mathcal K}_b$（$b\ne a$）都不增大关于
+第 $a$ 坐标的 Lipschitz 常数，也不增大 $\theta_a^{\pm}$，故
+\[
+H_a\ \text{关于第 $a$ 坐标 $\widehat L_a$-Lipschitz},
+\qquad
+\theta_a^{\pm}(H_a)\le\theta_a^{\pm}(\widehat F_M)=\theta_a^{\pm};
+\]
+又因平均算子保持取值范围，$H_a$ 仍取值于 $[0,1]$。于是引理
+\ref{lem:gridbd}(ii) 给出
+\[
+\bigl\|(\mathcal K_{\widehat\mu_a}^{(a)}-\widetilde{\mathcal K}_a)H_a
+\bigr\|_\infty
+\le
+\tfrac12\widehat L_ah_a^{\mathrm{out}}+\theta_a^-+\theta_a^+ .
+\]
+外层前缀 $\prod_{b>a}\mathcal K_{\widehat\mu_b}^{(b)}$ 非扩张（引理
+\ref{lem:nonexp}）。对 $a$ 求和得
+$\varepsilon^{\mathrm{grid}}+\varepsilon^{\mathrm{bdry}}$。
+
+把 (I)(II)(III) 三项相加即得结论。最后一句关于 $\varepsilon^{\mathrm{itp}}$
+的断言是一次额外的三角不等式。
+\end{proof}
+
+\begin{remark}[四项误差的独立可控性并不对称]
+\label{rem:budgetknobs}
+$\varepsilon^{\mathrm{loc}}$ 由局部积分区间与局部步长控制，
+$\varepsilon^{\mathrm{nq}}$ 由 $n_D$ 控制，二者可独立加细。但
+$\varepsilon^{\mathrm{grid}}$ 与 $\varepsilon^{\mathrm{bdry}}$ 共用同一个
+输出网格：在网格点数 $G$ 固定时，$h_a^{\mathrm{out}}$ 与网格区间宽度
+$y_a^{\max}-y_a^{\min}$ 成正比，故两项之和存在非零下界（定量下界见命题
+\ref{prop:gridfloor}；$\theta_a^\pm$ 的概率含义见注
+\ref{rem:thetamass}）。要同时压小这两项，只能增大 $G$，而全表代价按
+$G^K$ 增长——这正是第 \ref{sec:tw} 节树宽分析要量化的对象。
+\end{remark}
+
+\begin{remark}[Lipschitz 常数的来源]
+$\widehat L_a$ 可由 $M_a$ 的密度上界控制：若 $F_M$ 关于 $y_a$ 的偏导
+（即 $M_a$ 的边缘密度上界）不超过 $L_a$，则精确量满足该 Lipschitz 条件；
+数值近似 $\widehat F_M$ 的常数 $\widehat L_a$ 可由基函数与 edge CDF 的
+光滑性直接估计。若 edge delay 有有界密度，则 $\max_k(X_k+E_{ka})$ 的
+密度也有界，该条件自动满足。
+\end{remark}
+
+\begin{corollary}[单层收敛性]
+\label{cor:convergence}
+在定理 \ref{thm:fullbudget} 的假设下，考虑一列离散化方案，并设它们满足
+下列全部条件：
+\begin{enumerate}[label=(C\arabic*)]
+\item\label{it:c1}
+局部积分区间 $I_{k,i}=[\alpha_{k,i},\beta_{k,i}]\uparrow\R$ 使尾部项
+$\sup_{y,t}\tau_{k,i}(y,t)\to0$；
+\item\label{it:c2}
+局部梯形项\emph{整体}趋零，即
+\[
+\sup_{y,t}
+\Bigl[(\beta_{k,i}-\alpha_{k,i})\,h_{k,i}^2\,B_{k,i}^{(2)}(y,t)\Bigr]
+\longrightarrow0 ,
+\]
+而不只是 $h_{k,i}\to0$——因为区间长度 $\beta_{k,i}-\alpha_{k,i}$ 在
+(C\ref{it:c1}) 下趋于无穷，两者之积未必趋零；
+\item\label{it:c3}
+edge CDF 近似误差 $\sup_{y,t}\ecdf_{k,i,a}(y,t)\to0$；
+\item\label{it:c4}
+下列各量在整个精化过程中\emph{一致有界}：梯形权重下的基函数绝对质量
+$\Lambda_{k,i}$，sensitivity 范数
+$\sup_{y,t}\|S_k(u_{-k}^{\mathrm{hyb}}(y,t))\|_\infty$，以及各轴的
+Lipschitz 常数 $\widehat L_a$；
+\item\label{it:c5}
+外层求积满足 $\varrho_a(n_D)\to0$；
+\item\label{it:c6}
+输出网格同时加密并扩张，即 $h_a^{\mathrm{out}}\to0$ 且
+$\theta_a^-+\theta_a^+\to0$。
+\end{enumerate}
+则
+\[
+\sup_y\bigl|F_Y(y)-\widetilde F_Y(y)\bigr|\longrightarrow0 .
+\]
+更精确地，
+\[
+\sup_y\bigl|F_Y(y)-\widetilde F_Y(y)\bigr|
+=
+O\!\left(
+\tau
++\bar h^{\,2}
++\ecdf
++\max_a\varrho_a(n_D)
++\max_ah_a^{\mathrm{out}}
++\max_a\bigl[\theta_a^-+\theta_a^+\bigr]
+\right),
+\]
+其中 $\tau=\max_{k,i}\sup_{y,t}\tau_{k,i}$、
+$\ecdf=\max_{k,i,a}\sup_{y,t}\ecdf_{k,i,a}$，而
+\[
+\bar h^{\,2}
+=
+\max_{k,i}\sup_{y,t}
+\Bigl[(\beta_{k,i}-\alpha_{k,i})h_{k,i}^2B_{k,i}^{(2)}(y,t)\Bigr]
+\]
+是 (C\ref{it:c2}) 中的复合量。若还希望把外层项写成显式速率
+$\max_a\varrho_a(n_D)=O(n_D^{-1})$，必须额外引用注 \ref{rem:w1rate} 的
+条件（$\mu_a$ 的分位数函数满足 $Q'\in L^p([0,1])$，某个 $p>1$）；仅有
+有限一阶矩是不够的。若 $\widehat F_M$ 关于第 $a$ 坐标为 $C^2$ 且二阶偏导
+一致有界，则 $h_a^{\mathrm{out}}$ 一项可改进为 $(h_a^{\mathrm{out}})^2$。
+\end{corollary}
+
+\begin{proof}
+把各项代入定理 \ref{thm:fullbudget} 的右侧。
+
+$\varepsilon^{\mathrm{loc}}$：由 (C\ref{it:c1})--(C\ref{it:c3})，$\Eerr_k$
+的三项分别是 $O(\tau)$、$O(\bar h^{\,2})$、$O(\ecdf)$，其中第二项的系数是
+$1/12$、第三项的系数是 $\Lambda_{k,i}$。由 (C\ref{it:c4})，这些系数与
+$\|S_k\|_\infty$ 一致有界，故 $\varepsilon^{\mathrm{loc}}$ 被
+$O(\tau+\bar h^{\,2}+\ecdf)$ 控制，且常数与离散化参数无关。这里必须保留
+(C\ref{it:c2}) 的复合形式：要把
+$(\beta_{k,i}-\alpha_{k,i})h_{k,i}^2B_{k,i}^{(2)}$ 写成 $O(h_{k,i}^2)$，
+需要区间长度与二阶导界都一致有界，而 (C\ref{it:c1}) 恰恰使区间长度发散。
+
+$\varepsilon^{\mathrm{nq}}$：由 (C\ref{it:c4}) 与 (C\ref{it:c5})，
+$\sum_a\widehat L_a\varrho_a(n_D)=O(\max_a\varrho_a(n_D))$。
+
+$\varepsilon^{\mathrm{grid}}+\varepsilon^{\mathrm{bdry}}$：由 (C\ref{it:c4})
+与 (C\ref{it:c6})，$\sum_a\tfrac12\widehat L_ah_a^{\mathrm{out}}
+=O(\max_ah_a^{\mathrm{out}})$ 且
+$\sum_a[\theta_a^-+\theta_a^+]=O(\max_a[\theta_a^-+\theta_a^+])$。$C^2$
+情形的改进直接来自引理 \ref{lem:gridbd}(ii) 的第二个界。
+
+四项之和趋零，即得结论。
+\end{proof}
+
+\begin{remark}[一致性条件不是形式上的赘述]
+\label{rem:uniformity}
+(C\ref{it:c4}) 中的三个量都可能随精化而发散，因此不能省略。
+$\Lambda_{k,i}$ 是 $|b_{k,i}|$ 在 $I_{k,i}$ 上的梯形近似质量，若
+$I_{k,i}\uparrow\R$ 而 $b_{k,i}$ 不绝对可积，它会发散；
+$\|S_k\|_\infty$ 由其余坐标的投影向量决定，注 \ref{rem:measurable} 给出的
+$|M_{k,i}|\le\int|b_{k,i}|$ 只在 $b_{k,i}$ 绝对可积时是一致界；
+$\widehat L_a$ 由 edge CDF 与基函数的光滑性决定，若近似 CDF 在精化中
+变陡（例如逼近阶跃），它同样发散。(C\ref{it:c6}) 的两半互相牵制：网格点数
+固定时不能同时实现，见注 \ref{rem:budgetknobs} 与 \ref{rem:thetamass}。
+因此本推论是一个\emph{条件性}收敛结论，不应读作“加密网格必然收敛”。
+\end{remark}
+
+\begin{remark}[二阶率的前提]
+\label{rem:secondorder}
+上式中 $\bar h^{\,2}$ 的二阶依赖来自 $f_{k,i}$ 在 $I_{k,i}$ 上的 $C^2$
+光滑性与二阶导界。若 edge CDF 只是分段光滑（例如 uniform delay 的 CDF 在
+端点处一阶导不连续），或基函数为低次样条，则复合梯形公式的实际阶可能
+低于二阶。此外，$\varepsilon^{\mathrm{grid}}$ 在只有 Lipschitz 假设时是
+\emph{一阶} $O(h_a^{\mathrm{out}})$，故即使局部求积达到二阶，整体也可能被
+输出网格插值项压到一阶。因此不应在未核验光滑性时宣称二阶收敛。
+\end{remark}
+
+\begin{remark}[与已有数值证据的一致性]
+仓库中的数值验证报告给出：固定输出网格与 $q_{\mathrm{grid}}$ 时，
+pair CDF 相对高分辨率参考的最大绝对误差随 $n_d$ 增大从
+$5.75\times10^{-3}$（$n_d=2$）降至 $4.33\times10^{-6}$（$n_d=16$）后
+出现平台。这与定理 \ref{thm:fullbudget} 的结构相容：四项中只有
+$\varepsilon^{\mathrm{nq}}=\sum_a\widehat L_a\varrho_a(n_D)$ 随 $n_D$ 下降，
+而 $\varepsilon^{\mathrm{loc}}$、$\varepsilon^{\mathrm{grid}}$、
+$\varepsilon^{\mathrm{bdry}}$ 都与 $n_D$ 无关，故总误差在外层项降到其余
+三项之和以下后不再下降。但必须强调：\emph{上界}的分解只能说明该现象
+与误差分解所预测的多误差源竞争相容，不能据此断定平台一定由某一项造成。
+插值误差、边界钳制、浮点舍入以及不同误差项之间的符号抵消都可能产生平台；
+区分它们需要逐项独立扫描（固定 $n_D$ 改变 $G$、固定 $G$ 改变局部积分区间
+等），而不是仅凭一条上界。该数值现象同样不能反过来用于宣称一般收敛阶。
+\end{remark}
+
+\section{联合结构图的树宽与可计算代价}
+\label{sec:tw}
+
+定理 \ref{thm:exact} 给出了精确收缩公式，但没有回答“代价是多少”。命题
+\ref{prop:tensorconv} 只解决了 node delay 一项，$F_M$ 在整个输出网格上的
+取值仍可能是指数的。本节说明：真正的判据既不是上游树 $T$ 单独给出，也不是
+父集合族 $\{P_a\}$ 单独给出，而是二者合成的一张图的树宽。
+
+\subsection{离散化后的张量网络形式}
+
+固定每个上游坐标 $k$ 的一维求积公式：节点
+$x^{(k)}_1,\ldots,x^{(k)}_q$，权重 $w^{(k)}_1,\ldots,w^{(k)}_q$（为记号简洁
+取统一点数 $q$，非统一情形只需把 $q$ 理解为 $\max_k q_k$）。输出网格在每个
+坐标轴上取 $G$ 个点 $y^{(a)}_1,\ldots,y^{(a)}_G$。
+
+\begin{definition}[投影 core]
+\label{def:projcore}
+对每个 $k$ 定义
+\[
+\widetilde G^{(k)}_{j,(\alpha_e)_{e\in\delta_T(k)}}
+=
+\sum_{i=1}^{m_k}
+G^{(k)}_{i,(\alpha_e)_{e\in\delta_T(k)}}
+\,w^{(k)}_j\,b_{k,i}\!\left(x^{(k)}_j\right),
+\qquad j=1,\ldots,q .
+\]
+预计算全部投影 core 的代价为
+$O\!\left(\sum_k q\,m_k\prod_{e\in\delta_T(k)}r_e\right)$。
+\end{definition}
+
+\begin{lemma}[离散化 $F_M$ 的张量网络展开]
+\label{lem:tnform}
+把定理 \ref{thm:exact} 中每个局部投影 $M_{k,i}$ 的一维积分用上述求积公式
+代替，所得的离散化中间 CDF 满足
+\[
+\widehat F_M(y)
+=
+\sum_{j_1=1}^{q}\cdots\sum_{j_d=1}^{q}
+\;\sum_{(\alpha_e)_{e\in E(T)}}
+\prod_{k=1}^{d}
+\widetilde G^{(k)}_{j_k,(\alpha_e)_{e\in\delta_T(k)}}
+\;
+\prod_{a=1}^{K}\prod_{k\in P_a}
+F_{ka}\!\left(y_a-x^{(k)}_{j_k}\right).
+\]
+\end{lemma}
+
+\begin{proof}
+把 $M_{k,i}(y)\approx\sum_{j}w^{(k)}_j b_{k,i}(x^{(k)}_j)
+\prod_{a\in H_k}F_{ka}(y_a-x^{(k)}_j)$ 代入
+$\mathcal C_T(M_1(y),\ldots,M_d(y))$，展开系数张量
+$A_{i_1\ldots i_d}=\sum_{(\alpha_e)}\prod_k G^{(k)}_{i_k,(\alpha_e)}$，
+先对每个 $i_k$ 求和得到定义 \ref{def:projcore} 的 $\widetilde G^{(k)}$，
+再把 $\prod_k\prod_{a\in H_k}=\prod_a\prod_{k\in P_a}$ 按下游坐标重排即得。
+\end{proof}
+
+引理 \ref{lem:tnform} 的右侧是一个标准的 sum-product 表达式。它的
+\emph{变量}为
+\[
+\xi_k\in[q]\;(k=1,\ldots,d),
+\qquad
+\alpha_e\in[r_e]\;(e\in E(T)),
+\qquad
+\upsilon_a\in[G]\;(a=1,\ldots,K),
+\]
+\emph{因子}为投影 core
+$\widetilde G^{(k)}$（scope 为 $\{\xi_k\}\cup\{\alpha_e:e\in\delta_T(k)\}$）
+与 edge-CDF 因子
+\[
+\Phi_{ka}(\xi_k,\upsilon_a)
+=
+F_{ka}\!\left(y^{(a)}_{\upsilon_a}-x^{(k)}_{\xi_k}\right),
+\qquad k\in P_a
+\]
+（scope 为 $\{\xi_k,\upsilon_a\}$）。
+
+\subsection{联合结构图}
+
+\begin{definition}[联合结构图]
+\label{def:joint}
+设 $S\subseteq\{1,\ldots,K\}$，$|S|=s$。称无向图
+$\Gcal_S=(V_{\Gcal},E_{\Gcal})$ 为该 max-plus 层关于 $S$ 的
+\textbf{联合结构图}，其中
+\[
+V_{\Gcal}
+=
+\{\xi_k\}_{k=1}^{d}
+\;\sqcup\;
+\{\alpha_e\}_{e\in E(T)}
+\;\sqcup\;
+\{\upsilon_a\}_{a\in S},
+\]
+$E_{\Gcal}$ 由如下两族团（clique）的并给出：
+\begin{enumerate}[label=(\roman*)]
+\item 对每个 $k$，$\{\xi_k\}\cup\{\alpha_e:e\in\delta_T(k)\}$ 构成一个团；
+\item 对每个 $a\in S$ 与每个 $k\in P_a$，$\{\xi_k,\upsilon_a\}$ 是一条边。
+\end{enumerate}
+即 $\Gcal_S$ 是引理 \ref{lem:tnform} 中因子图的 primal graph。进一步记
+$\Gcal_S^{+}$ 为在 $\Gcal_S$ 中额外把 $\{\upsilon_a\}_{a\in S}$ 补成团后
+所得的图。
+\end{definition}
+
+定义 \ref{def:joint} 的第 (i) 类团来自树 $T$ 的 core 结构，第 (ii) 类边
+来自父集合族 $\{P_a\}$。二者缺一不可：只看 $T$ 会漏掉 reconvergent
+fan-out 造成的下游耦合，只看 $\{P_a\}$ 会漏掉 bond 结构造成的 core 代价。
+这也是本文中树结构第一次真正进入\emph{结论}而不只是记号。
+
+\begin{remark}[与简化形式的关系]
+\label{rem:reducedgraph}
+若把每个 $\alpha_e$ 视为树边 $e$ 的细分点并加以压缩，则 $\Gcal_S$ 收缩为
+顶点集 $\{1,\ldots,d\}\sqcup\{a':a\in S\}$、边集
+$E(T)\cup\{\{k,a'\}:k\in P_a\}$ 的图。该简化形式便于画图与直觉判断，但
+它抹掉了 hub 节点的 core 代价：$\Gcal_S$ 中 $\xi_k$ 与其全部 bond 变量
+构成团，故
+\[
+\tw(\Gcal_S)\;\ge\;\deg_T^{\max},
+\]
+这正对应 core 的 $r^{\deg_T^{\max}}$ 存储与收缩代价。下文一律使用定义
+\ref{def:joint} 的完整形式。
+\end{remark}
+
+\subsection{主复杂度定理}
+
+本节起沿用 \eqref{eq:rmdef} 定义的最大 bond dimension $r$（$E(T)=\varnothing$
+时 $r=1$）与最大物理维 $m=\max_{1\le k\le d}m_k$，并记
+\begin{equation}
+\label{eq:rmW}
+W=\max\{q,\;r,\;m,\;G\},
+\end{equation}
+其中 $q$ 是每个上游坐标的局部求积节点数、$G$ 是每个输出轴的网格点数。
+$W$ 是本节所有变量域大小的统一上界。
+
+\begin{theorem}[联合 CDF 的树宽复杂度]
+\label{thm:tw}
+设 $S\subseteq\{1,\ldots,K\}$，$|S|=s$，并对 $a\notin S$ 取
+$y_a=+\infty$（即只求 $S$ 上的边缘联合 CDF）。设已给定 $\Gcal_S^{+}$ 的
+一个宽度为 $w$ 的树分解。则整个 $G^{s}$ 输出网格上
+$\widehat F^{S}_{M}$ 的全部取值可在
+\[
+O\!\left(
+\underbrace{\textstyle\sum_{k}q\,m_k\prod_{e\in\delta_T(k)}r_e}
+_{\text{投影 core 预计算}}
+\;+\;
+\underbrace{(d+|E(T)|+\textstyle\sum_{a\in S}|P_a|)\cdot W^{\,w+1}}
+_{\text{sum-product 收缩}}
+\right)
+\]
+次算术运算内算出，内存为 $O\!\left((d+s)W^{\,w+1}\right)$。若进一步需要
+含 node delay 的 $\widehat F^{S}_{Y}$，由命题 \ref{prop:tensorconv} 只需
+再加 $O(s\,n_D\,G^{s})$。特别地，取
+$w=\tw(\Gcal_S^{+})$ 并用 \eqref{eq:rmW} 的 $W$ 一并控制两项，得到
+\begin{equation}
+\label{eq:twshort}
+O\!\left(
+\mathrm{poly}(d,K)\cdot
+W^{\,\tw(\Gcal_S^{+})+2}
++
+s\,n_D\,G^{s}
+\right).
+\end{equation}
+\end{theorem}
+
+\begin{remark}[为什么简写中的指数是 $\tw+2$ 而不是 $\tw+1$]
+\label{rem:twexp}
+sum-product 项本身是 $W^{\,w+1}$，但投影 core 预计算项不能被
+$W^{\,\tw+1}$ 控制。取 $q=m=r=W$ 与某节点度数 $\Delta=\deg_T(k)$，该节点
+的预计算代价为 $q\,m_k\prod_{e\in\delta_T(k)}r_e=W^{\Delta+2}$；而联合
+结构图只保证 $\tw(\Gcal_S)\ge\deg_T^{\max}$（注 \ref{rem:reducedgraph}），
+故在 $\tw=\Delta$ 时 $W^{\,\tw+1}=W^{\Delta+1}$ 恰好\emph{少一个} $W$
+因子。由 $\Delta\le\deg_T^{\max}\le\tw(\Gcal_S)\le\tw(\Gcal_S^{+})$ 得
+$W^{\Delta+2}\le W^{\,\tw(\Gcal_S^{+})+2}$，于是 \eqref{eq:twshort} 的
+$\tw+2$ 同时控制两项。
+
+因此本文的规范是：\emph{凡需要精确复杂度处一律引用定理 \ref{thm:tw} 的
+分项表达式}；\eqref{eq:twshort} 只用于口头概述。若在特定设定下把 $q$ 或
+$m$ 视为与 $W$ 无关的固定常数，或把 $qm$ 整体视为单一基数，则可以恢复
+$\tw+1$；本文不作这类假设。
+\end{remark}
+
+\begin{proof}
+由引理 \ref{lem:tnform}，去掉 $a\notin S$ 的因子（$F_{ka}(+\infty)=1$）后，
+$\widehat F^{S}_{M}$ 是上述因子集合关于变量
+$\{\xi_k\}\cup\{\alpha_e\}$ 的 sum-product，$\{\upsilon_a\}_{a\in S}$ 为
+自由指标。由定义 \ref{def:joint}，每个因子的 scope 在 $\Gcal_S$（从而在
+$\Gcal_S^{+}$）中是一个团，故在任意树分解中都存在包含该 scope 的 bag，
+可以把每个因子指派给这样一个 bag。于是标准的 bucket elimination／junction
+tree 算法适用：以任一 bag 为根，按后序对每条树分解边计算一条消息；每条
+消息的计算是在其 bag 上枚举全部赋值、乘入该 bag 的因子与已到达的子消息、
+再对不在父 bag 中的变量求和，代价 $O(W^{|{\rm bag}|})\le O(W^{w+1})$，
+乘入因子的次数总计为因子个数
+$d+\sum_{a\in S}|P_a|$，边数 $|E(T)|$ 体现在 bond 变量个数上。
+bag 个数可取为 $O(|V_{\Gcal}|)=O(d+s)$，故总代价与内存如式所示。
+
+由于 $\Gcal_S^{+}$ 中 $\{\upsilon_a\}_{a\in S}$ 是团，必存在包含全部
+$\upsilon_a$ 的 bag；取它为根，则根处得到的正是 $G^{s}$ 维输出数组，
+无需额外重组。最后的 node-delay 项即推论 \ref{cor:convcost} 在 $s$ 个
+轴上的形式。
+\end{proof}
+
+\begin{remark}[两个方向的紧性]
+\label{rem:twtight}
+定理 \ref{thm:tw} 的指数在两个方向上都被卡住，但两侧的含义不同：
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{下界}。$\Gcal_S^{+}$ 含 $s$ 个顶点的团，故
+$\tw(\Gcal_S^{+})\ge s-1$，于是 $W^{\tw+1}\ge G^{s}$。这与“输出数组本身
+就有 $G^{s}$ 个元素”的平凡下界一致，说明定理 \ref{thm:tw} 在 $s$ 这一
+维度上不可改进。必须强调这一侧只是\emph{输出规模}下界：它由人为加入的
+输出团得到，与实例的真实收缩难度无关。本文\emph{不}主张任何形式的
+treewidth 复杂度下界——特殊的因子取值即使联合图树宽很高也可能容易收缩
+（例如全体因子恒等于常数），因此“树宽刻画实际复杂度”这类说法在本文
+证明的范围之外。
+\item \textbf{上界}。取树 $T$ 自身的自然树分解（bag
+$\{\xi_k\}\cup\{\alpha_e:e\in\delta_T(k)\}$，宽度 $\deg_T^{\max}$），
+再把全部 $s$ 个 $\upsilon_a$ 加进每个 bag，即得
+\[
+\tw(\Gcal_S^{+})\;\le\;\deg_T^{\max}+s .
+\]
+代入定理 \ref{thm:tw} 恰好还原“对 $G^{s}$ 个输出点各做一次树收缩”的朴素
+算法。因此定理 \ref{thm:tw} 的内容不是“总能更快”，而是给出一个介于
+朴素算法与结构可分离情形之间的连续判据。
+\end{enumerate}
+\end{remark}
+
+\begin{corollary}[不显式材料化整表时的代价]
+\label{cor:twnoclique}
+若所需的不是 $G^{s}$ 全表，而是
+\begin{enumerate}[label=(\alph*)]
+\item 任意单点值 $\widehat F^{S}_{M}(y)$，
+\item 任意可分离泛函
+$\sum_{y}\prod_{a\in S}g_a(y_a)\,\widehat F^{S}_{M}(y)$，
+\item 或任意落在同一 bag 内的低维边缘，
+\end{enumerate}
+则可以去掉 $\{\upsilon_a\}$ 上的团，代价的 sum-product 项降为
+$O(\mathrm{poly}(d,K)\cdot W^{\tw(\Gcal_S)+1})$（投影 core 预计算项不变，
+按注 \ref{rem:twexp} 与之合并后为 $W^{\tw(\Gcal_S)+2}$）。此时
+$\tw(\Gcal_S)$ 可以
+远小于 $s$：例如 $T$ 为路径、$P_a=\{a,a+1\}$（局部 fan-in、无长程
+reconvergence）时 $\Gcal_S$ 是梯形图，$\tw(\Gcal_S)=O(1)$，代价对 $s$
+是多项式而非指数。
+\end{corollary}
+
+\begin{proof}
+情形 (a) 把每个 $\upsilon_a$ 固定为常数，等价于删去这些变量；情形 (b)
+把因子 $g_a(y^{(a)}_{\upsilon_a})$ 乘入任一含 $\upsilon_a$ 的 bag 后对
+$\upsilon_a$ 求和；情形 (c) 以该 bag 为根。三种情形都不要求
+$\{\upsilon_a\}_{a\in S}$ 同时出现在一个 bag 中，故只需 $\Gcal_S$ 的树
+分解。其余同定理 \ref{thm:tw} 的证明。
+\end{proof}
+
+\begin{remark}[树宽本身的计算与非平凡性]
+\label{rem:twhard}
+精确计算 $\tw(\Gcal_S)$ 是 NP-难的，定理 \ref{thm:tw} 是“给定一个树分解
+即可达到”的条件性上界；实践中用 min-fill、min-degree 等启发式即可得到
+可用的消去序。另一方面，一般 DAG 上最长路（PERT／SSTA 意义下的
+project completion time）分布的精确计算是难的：Hagstrom
+\cite{Hagstrom1988} 证明了在 edge 长度取\emph{离散}随机变量时该问题是
+\#P-完全的（经网络可靠性问题的归约），Ando \cite{Ando2026} 把 \#P-难性
+推广到 i.i.d.\ 连续 edge 长度。因此定理 \ref{thm:exact} 的精确可计算性
+并不平凡：它依赖两个额外结构，即上游密度具有树张量网络表示，以及
+$\Gcal_S$ 的树宽有界。定理 \ref{thm:tw} 的作用正是把这两个条件量化为
+单一参数。
+\end{remark}
+
+\begin{remark}[与 treewidth-parameterized 最长路算法的关系]
+\label{rem:ando}
+Ando \cite[Theorem 1.10]{Ando2026} 也给出了一个以树宽为参数的算法：当 edge 长度
+i.i.d.\ 服从 $[0,1]$（或 $[-1,0]$）上均匀分布时，给定宽度为 $k$ 的树分解，
+$s$--$t$ 最长／最短路长度的分布函数可在
+$O(n^{2k^2+2k+2})$ 内算出，其中 $k$ 是底层无向图的树宽。该结果与定理
+\ref{thm:tw} 处理的是不同问题，需明确区分：
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{对象不同}。\cite{Ando2026} 计算单个标量量
+$\max_{\pi}\sum_{e\in\pi}X_e$ 的一维分布函数，$s,t$ 固定；本文计算的是
+$s$ 个下游输出的\emph{联合} CDF $F^S_Y$，并允许 $s>1$。
+$s=1$ 时两者才在同一量纲上，$s\ge2$ 时 $G^s$ 输出规模本身就是本文的
+下界（注 \ref{rem:twtight}(1)）。
+\item \textbf{随机性来源不同}。\cite{Ando2026} 的随机性全在 edge 上，且
+要求 i.i.d.；本文的上游 $X$ 有\emph{任意相依}的联合分布（由 TTNS 给出），
+edge delay 只要求相互独立、不要求同分布，另有 node delay $D_a$。
+\cite{Ando2026} 的模型不含 node delay。
+\item \textbf{参数图不同}。\cite{Ando2026} 的 $k$ 是问题图本身的树宽；本文
+的 $\tw(\Gcal_S^{+})$ 是联合结构图的树宽，同时编码上游 TTNS 的树 $T$、
+fan-in 结构 $\{P_a\}$ 与输出集合 $S$（定义 \ref{def:joint}）。两者不可直接
+比较。
+\item \textbf{指数形式不同}。\cite{Ando2026} 是 $n^{O(k^2)}$（XP），本文是
+$W^{\tw+O(1)}$，即在 \eqref{eq:rmW} 的 $W$ 上单指数、指数为 $\tw+1$
+（sum-product 项）或 $\tw+2$（与投影 core 预计算合并后，注
+\ref{rem:twexp}）。
+本文的更好指数来自更强的输入假设（给定 TTNS 表示、离散化的输出网格），
+不是同一问题上的改进。
+\end{enumerate}
+简言之：\cite{Ando2026} 说明“连续 i.i.d.\ 情形下标量最长路分布仍是
+\#P-难、但对树宽是 XP”，本文说明“若上游有 TTNS 表示且联合结构图树宽
+有界，则多输出联合 CDF 有单指数算法”。前者是本文非平凡性的背景，不是
+本文结论的特例，也不被本文结论覆盖。
+\end{remark}
+
+\subsection{特例：与仓库现有实现的对应}
+
+以下推论把定理 \ref{thm:tw} 落到三种已实现的情形。为简洁设
+$\Delta_T^{\max}:=\deg_T^{\max}$。
+
+\begin{corollary}[$s=1$：单点边缘 CDF]
+\label{cor:s1}
+取 $S=\{a\}$。此时 $\Gcal_S^{+}=\Gcal_S$，且由注 \ref{rem:twtight}(2)
+有 $\tw\le\Delta_T^{\max}+1$，故全部 $G$ 个网格点上的
+$\widehat F^{\{a\}}_{M}$ 可在 $O(\mathrm{poly}(d)\cdot W^{\Delta_T^{\max}+2})$ 内
+算出。该情形对应
+\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf.py} 的
+\texttt{marginal\_cdf}。
+\end{corollary}
+
+\begin{corollary}[$s=2$：pair CDF 与共享父节点]
+\label{cor:s2}
+取 $S=\{a,b\}$，$\tw(\Gcal_S^{+})\le\Delta_T^{\max}+2$，故 $G^2$ 全表可在
+$O(\mathrm{poly}(d)\cdot W^{\Delta_T^{\max}+3})$ 内算出。共享父节点
+$k\in P_a\cap P_b$ 在 $\Gcal_S$ 中表现为 $\xi_k$ 同时与 $\upsilon_a$ 和
+$\upsilon_b$ 相邻，从而 $\{\xi_k,\upsilon_a,\upsilon_b\}$ 落入同一 bag；
+这正是共享父依赖被保留在同一个积分变量内的图论对应（参见
+\S\ref{sec:exact} 的共享父节点注）。该情形对应
+\texttt{pair\_cdf}。
+\end{corollary}
+
+\begin{corollary}[一般 $s$ 与全 $K$：块联合 CDF]
+\label{cor:sK}
+取 $S=\{1,\ldots,K\}$。由注 \ref{rem:twtight}，
+$K-1\le\tw(\Gcal_S^{+})\le\Delta_T^{\max}+K$，故代价在 $G^{K}$ 与
+$W^{\Delta_T^{\max}+K+1}$ 之间，对 $K$ 是指数的。该情形对应
+\texttt{simple\_ttns\_l2/}\allowbreak\texttt{maxplus\_cdf\_forest.py} 的
+\texttt{block\_joint\_cdf}；下界部分说明该实现只适合小 $K$ 不是实现缺陷，
+而是“要求 $G^{K}$ 全表”这一目标本身的代价。若把目标改为推论
+\ref{cor:twnoclique} 中的低维边缘或可分离泛函，则 sum-product 项的指数
+可以降到 $\tw(\Gcal_S)+1$（合并投影 core 预计算后为 $\tw(\Gcal_S)+2$）。
+\end{corollary}
+
+\begin{corollary}[forest 情形的分量分解]
+\label{cor:forest}
+设 $T$ 是 forest，连通分量为 $T_1,\ldots,T_c$，且每个 $a\in S$ 的父集合
+$P_a$ 完全落在单个分量内。进一步设上游密度按分量\emph{独立}分解
+\begin{equation}
+\label{eq:forestprob}
+p_X(x)=\prod_{j=1}^{c}p_j\bigl(x_{V(T_j)}\bigr),
+\end{equation}
+其中每个 $p_j$ 是分量树 $T_j$ 上按
+\eqref{eq:coredef}--\eqref{eq:coretensor} 表示的\emph{非负、归一化}密度
+（即 $p_j\ge0$ 且 $\int p_j=1$）。令 $S_j=\{a\in S:P_a\subseteq V(T_j)\}$，
+$s_j=|S_j|$，并约定 $S_j=\varnothing$ 时相应因子取 $1$（空乘积）。
+则 $\Gcal_S$ 按分量分解为 $c$ 个互不相连的子图，且
+\[
+\widehat F^{S}_{M}(y)
+=
+\prod_{j=1}^{c}\widehat F^{S_j}_{M}\!\left(y_{S_j}\right),
+\]
+总代价为
+$O\!\left(\sum_{j}\mathrm{poly}(d,K)W^{\tw(\Gcal_{S_j}^{+})+2}\right)$
+（指数中的 $+2$ 按注 \ref{rem:twexp}），
+其中\emph{因子化表示}的总存储规模由 $G^{s}$ 降为 $\sum_j G^{s_j}$。该情形对应
+\texttt{UpperForest}。
+\end{corollary}
+
+\begin{proof}
+$\Gcal_S$ 中不存在跨分量的边：第 (i) 类团在单个分量内，第 (ii) 类边由
+$P_a\subseteq V(T_j)$ 也在单个分量内。因子集合据此划分为 $c$ 组、变量
+集合亦然，sum-product 随之分解为乘积。这给出\emph{代数}上的因子分解；
+要把第 $j$ 个因子读作分量 CDF $\widehat F^{S_j}_M$，还需要
+\eqref{eq:forestprob}：由它，$\{X_{V(T_j)}\}_{j=1}^{c}$ 相互独立且每块
+自身归一化，故 $\{Y_a\}_{a\in S_j}$ 只依赖第 $j$ 块，分量之间独立，
+联合 CDF 等于各分量 CDF 之积，且每个因子取值于 $[0,1]$。若缺少归一化，
+上式仍是恒等的代数分解，但各因子不再是概率意义下的 CDF。
+\end{proof}
+
+\begin{remark}[“因子化表示规模”不是“完整全表规模”]
+\label{rem:forestsize}
+推论 \ref{cor:forest} 中的 $\sum_j G^{s_j}$ 是\emph{按分量分开保存}
+$\{\widehat F^{S_j}_{M}\}_{j=1}^{c}$ 时的总存储规模。它\emph{不是}完整 $s$ 维
+数组的规模：若下游仍要求显式材料化 $\widehat F^{S}_{M}$ 在整个 $G^{s}$ 网格
+上的取值，则仍需生成并保存 $G^{s}=\prod_j G^{s_j}$ 个元素，此时分解只把
+\emph{计算}代价从 $W^{\tw(\Gcal_S^{+})+2}$ 降为
+$\sum_j W^{\tw(\Gcal_{S_j}^{+})+2}$（外加 $O(G^{s})$ 的逐点相乘），
+并不降低输出规模。因此在报告复杂度时必须区分两个目标：
+\begin{enumerate}
+\item \textbf{因子化表示}：只保存各分量表并按需在单点上求值——存储
+$\sum_j G^{s_j}$，单点求值 $O(c)$ 次乘法；
+\item \textbf{完整材料化}：输出整张 $s$ 维表——存储与写出代价下界为 $G^{s}$，
+与是否 forest 无关。
+\end{enumerate}
+本文其余处凡出现“全表”“材料化整张 $G^{s}$ 表”的表述均指第 2 类目标；
+推论 \ref{cor:forest} 的收益属于第 1 类。
+\end{remark}
+
+\begin{remark}[跨分量父集合会破坏分解]
+\label{rem:forestbreak}
+若某个 $a$ 的父集合跨越两个分量，则 $\upsilon_a$ 把这两个分量连起来，
+分解失效，$\tw$ 一般随之上升。因此推论 \ref{cor:forest} 的前提是块划分
+与 fan-out 结构相容，而不是任意 forest 都可分解。
+\end{remark}
+
+\subsection{具体拓扑上的树宽}
+\label{sec:twtable}
+
+定理 \ref{thm:tw} 的判据只有落到具体拓扑上才有内容。本小节给出若干代表性
+层结构的 $\tw(\Gcal_S)$ 与 $\tw(\Gcal_S^{+})$。表中 $s=|S|$，$T$ 为上游树。
+
+\paragraph{数值来源与可复算性.}
+本表全部数字由脚本
+\begin{center}
+\texttt{simple\_ttns\_l2/experiments/audit\_joint\_structure\_treewidth.py}
+\end{center}
+生成，输出 \texttt{simple\_ttns\_l2/reports/}\allowbreak\texttt{joint\_structure\_treewidth.json}。
+该脚本只做小图组合计算：不读任何数据、不使用随机数、不依赖仓库其他模块，
+单线程数秒内完成，因此\emph{不属于数值实验}。它按定义 \ref{def:joint}
+逐字构造 $\Gcal_S$ 与 $\Gcal_S^{+}$，并对每一行记录
+拓扑名、上游树边集、完整父集合族 $\{P_a\}$、输出子集 $S$、联合结构图的
+完整边表、所用算法、以及该数字是精确值还是上界。JSON 同时记录注
+\ref{rem:twtight} 两侧界的逐例核对结果。
+
+树宽的计算方式为：所审计的联合结构图（$\Gcal_S$ 与 $\Gcal_S^{+}$，二者顶点集
+相同）的顶点数不超过 $21$ 时用按顶点子集的动态规划给出
+\emph{精确}树宽；超过时给出 min-fill 与 min-degree 两种消元启发式的较小者，
+即\emph{上界}（表中以 $\le$ 标出）。两种启发式都按顶点名破平，故结果确定。
+
+\paragraph{三类层结构.}
+\begin{itemize}
+\item \textbf{banded}：节点 $a$ 的父集合为上一层中一段连续下标
+$P_a=\{a,a+1\}$（$|P_a|=2$，模 $d$ wrap）。层间共享父节点，存在真实的
+reconvergent fanout。
+\item \textbf{clustered$+$crossed}：$d=K=20$ 分为 $4$ 个大小为 $5$ 的簇；
+簇内 fan-in 为 $4$（簇内 wrap），另对簇对 $(0,1)$ 与 $(2,3)$ 让下层簇的
+节点各额外从上层配对簇取 $1$ 个父节点，故 $|P_a|\le5$。这是仓库
+\texttt{dag\_pipeline.py} 中 \texttt{build\_crossed\_spec} 的层内结构。
+\item \textbf{long-range dense}：同样 $|P_a|=5$，但把第 $5$ 个父节点放在
+距离 $12$ 处（$a+3\cdot4 \bmod 20$），作为“长程 reconvergence”的对照行。
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabular}{llrrcc}
+\toprule
+层结构 & $T$ & $d$ & $s$ & $\tw(\Gcal_S)$ & $\tw(\Gcal_S^{+})$\\
+\midrule
+banded $K=4$   & path & 4 & 4 & 3 & 4\\
+banded $K=6$   & path & 6 & 6 & 3 & 6\\
+banded $K=7$   & path & 7 & 7 & 3 & 7\\
+banded $K=6$   & star & 6 & 6 & 6 & 7\\
+banded $K=7$   & star & 7 & 7 & 7 & 8\\
+\midrule
+banded $K=6$   & path & 6 & 1 & 2 & 2\\
+banded $K=6$   & path & 6 & 2 & 2 & 3\\
+\midrule
+clustered$+$crossed & path   & 20 & 20 & $\le7$  & $\le20$\\
+clustered$+$crossed & 二叉树 & 20 & 20 & $\le13$ & $\le20$\\
+clustered$+$crossed & star   & 20 & 20 & $\le19$ & $\le23$\\
+clustered$+$crossed & path   & 20 & 1  & $\le3$  & $\le3$\\
+clustered$+$crossed & path   & 20 & 2  & $\le4$  & $\le4$\\
+\midrule
+long-range dense & path & 20 & 20 & $\le16$ & $\le21$\\
+long-range dense & path & 20 & 1  & $\le3$  & $\le3$\\
+long-range dense & path & 20 & 2  & $\le4$  & $\le4$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+前七行的顶点数不超过 $21$，为精确树宽；后八行为上界。
+
+\begin{remark}[表中四个可读的结论]
+\label{rem:twtable}
+第一，\textbf{$\tw(\Gcal_S)$ 在该族中不随层宽增长，而 $\tw(\Gcal_S^{+})$ 随 $s$ 增长}。
+对 banded 下游 $+$ path 上游树，脚本在 $K=4,\ldots,32$ 上逐项核对：
+$\tw(\Gcal_S)$ 在 $K=4,\ldots,7$ 上精确等于 $3$，在 $K=8,\ldots,32$ 上
+启发式上界仍为 $3$；而 $\tw(\Gcal_S^{+})$ 在 $K=4,\ldots,7$ 上精确等于 $K$，
+在 $K=8,\ldots,32$ 上上界等于 $K$、下界由注 \ref{rem:twtight}(1) 给出
+$K-1$。这把推论 \ref{cor:twnoclique} 从“存在这样的例子”变成“实际使用的层
+结构就是这样的例子”：只要不材料化整张 $G^{K}$ 表，代价的\emph{树宽指数部分}
+在该族中保持常数；一旦材料化，指数就等于层宽（至多相差 $1$）。
+两点限定必须一并说明。其一，“指数部分保持常数”不等于“总代价与层宽无关”：
+定理 \ref{thm:tw} 的界含 $\mathrm{poly}(d,K)$ 前因子，层变宽时总代价仍按多项式增长。
+其二，$K\ge8$ 各行只是 min-fill/min-degree 消元给出的\emph{确定性启发式上界}
+（脚本按顶点名破平，故可复现），并非精确树宽；因此这里只能说“在扫描到的
+$K\le32$ 范围内该上界恒为 $3$”，不能仅凭有限扫描断言对\emph{任意} $K$ 成立
+——要得到对任意 $K$ 的结论，需要另行给出一族与 $K$ 无关宽度的显式树分解构造，
+本文未做这件事。
+
+第二，\textbf{上游树的形状直接改变指数}。同一个下游层，$T$ 取 path 时
+$\tw(\Gcal_S)$ 为 $3$（banded）或 $\le7$（clustered$+$crossed），取 star 时
+升到 $6$、$7$（banded）与 $\le19$（clustered$+$crossed），即
+$\deg_T^{\max}$ 主导。这说明定理 \ref{thm:tw} 中的树结构不是记号上的摆设：
+Chow--Liu 选出的树是链状还是星状，会实际改变可计算性。
+
+第三，\textbf{低维泛函在稠密层上依然便宜}。$d=20$、$|P_a|\le5$ 的
+clustered$+$crossed 层在 $s=1,2$ 时树宽上界只有 $3,4$，而 $s=20$ 时
+$\tw(\Gcal_S^{+})\le20$。这与仓库中 \texttt{marginal\_cdf} /
+\texttt{pair\_cdf} 可在稠密配置上直接使用、而
+\texttt{block\_joint\_cdf} 只用于小块的实际情况一致，也给推论
+\ref{cor:sK} 的“指数来自目标本身”提供了具体数字。
+
+第四，\textbf{父集合的\emph{几何位置}而非\emph{大小}影响可获得的树宽上界}。
+clustered$+$crossed 与 long-range dense 两行的 $|P_a|$ 相同（都是 $5$）、
+上游树相同（path）、$d$ 与 $s$ 相同，但整表情形下消元启发式给出的
+$\tw(\Gcal_S)$ \emph{上界}从 $\le7$ 升到 $\le16$。差别只在第 $5$ 个父节点是
+落在同一簇内还是落在距离 $12$ 处。必须严格限定这一比较的含义：两个数都只是
+min-fill／min-degree 给出的上界（顶点数 $>21$，见 \S\ref{sec:twtable} 的
+分类），\emph{上界更大不能推出真实树宽更大}，更不能推出真实收缩代价一定
+更大；要证明真实树宽增加，需要给第二张图一个严格超过第一张图上界的下界，
+或直接精确计算两者。因此这里只能说：在这两个配置上，父集合的几何位置显著
+改变了消元启发式所能达到的上界，从而改变了本文可以\emph{保证}的代价。
+
+同样不能由“两者在 $s=1,2$ 时的上界相同（$3$ 与 $4$）”推出“长程
+reconvergence 只在材料化整表时才付出代价”——后者作为一般命题是错的。
+一个可精确计算的小反例：上游树取 $d=4$ 的 path，$s=2$，父集合
+$P_0=\{0,1\}$、$P_1=\{1,2\}$ 时 $\tw(\Gcal_S)=2$；把第二个父集合改为
+$P_1=\{0,2\}$（大小不变，只是跨度变大）后 $\tw(\Gcal_S)=3$。两者顶点数
+均为 $9\le21$，故均为精确树宽；这里既未加输出团也未材料化整表，长程连接
+已经抬高了 $\tw(\Gcal_S)$。可以保留的是弱得多的读法：在\emph{本文所列的}
+$s=1,2$ 配置上，两类拓扑的启发式上界相同，因而低维泛函在两者上都便宜；
+这为“何时该用 \texttt{block\_joint\_cdf}、何时该退回低维泛函”给出一个
+可直接从层拓扑读出的\emph{启发式}判据，而不是一个已证明的分界。
+\end{remark}
+
+\begin{remark}[与两侧紧性的一致性核对]
+\label{rem:twcheck}
+注 \ref{rem:twtight} 断言 $s-1\le\tw(\Gcal_S^{+})\le\deg_T^{\max}+s$。
+上述脚本对表中全部 $15$ 行以及 $K=4,\ldots,32$ 的整个扫描逐例核对该式
+（JSON 中的 \texttt{bounds\_respected} 字段），无一违反。在 banded $+$
+path 的整表情形下 $\tw(\Gcal_S^{+})=s$，落在两界之间而与上界
+$\deg_T^{\max}+s=s+2$ 相差常数。这说明该上界在这类结构上不是紧的，但也
+没有松到无用。
+\end{remark}
+
+\begin{remark}[本小节数值的边界]
+\label{rem:twnumbounds}
+四点限制。第一，判据是\emph{联合结构图的顶点数}而非上游维数 $d$：当
+$|V_{\mathcal G_S}|>21$（等价地 $|V_{\mathcal G_S^+}|>21$，二者顶点集相同）
+时给出的是\emph{上界}而非精确树宽（精确树宽的
+计算是 NP-难的，见注 \ref{rem:twhard}），故后八行的数字只能用来说明
+“至多这么贵”，不能用来说明“至少这么贵”；唯一可用的下界是注
+\ref{rem:twtight}(1) 的 $s-1$。第二，上游树 $T$ 在实际流程中
+由 Chow--Liu 从数据估计，本表改为对 path、star、二叉树三种代表形状分别
+列出，用以显示 $T$ 的影响范围，而不是断言实际学到的树是哪一种。第三，
+表中 clustered$+$crossed 一行复刻的是仓库层生成器的\emph{拓扑}，不涉及其
+任何参数取值或训练结果。第四，
+本表只涉及图的组合量，不含任何统计结论，也未使用任何实验产物；反过来说，
+它也不能替代定理 \ref{thm:tw} 复杂度标度的实测（见\S\ref{sec:todo}）。
+\end{remark}
+
+\subsection{平方 TTNS 的对应}
+
+\begin{corollary}[doubled network 的复杂度]
+\label{cor:squared}
+设上游密度取平方形式 $p_X=\psi^2/Z$，其中 $\psi$ 由树 $T$ 上 bond
+dimension $r_e$、物理维 $m_k$ 的 TTNS 按 \eqref{eq:coredef}--\eqref{eq:coretensor}
+表示，$\psi\in L^2(\R^d)$，且归一化常数
+\begin{equation}
+\label{eq:Zdef}
+Z:=\int_{\R^d}\psi(x)^2\,dx
+\quad\text{满足}\quad
+0<Z<\infty
+\end{equation}
+（$Z<\infty$ 即 $\psi\in L^2$；$Z>0$ 即 $\psi$ 不是几乎处处为零，二者
+共同保证 $p_X=\psi^2/Z$ 是合法概率密度）。则 $p_X$ 本身是同一棵树上
+bond dimension $r_e^2$、物理维 $m_k^2$ 的 TTNS，其联合结构图
+$\Gcal_S$ 与 $\Gcal_S^{+}$ \emph{完全不变}。因此定理 \ref{thm:tw} 的
+指数不变，只是把 \eqref{eq:rmW} 中的 $r$ 换成 $r^2$、$m$ 换成
+$m^2$：分项复杂度为
+\[
+O\!\left(
+\textstyle\sum_{k}q\,m_k^2\prod_{e\in\delta_T(k)}r_e^2
++
+(d+|E(T)|+\textstyle\sum_{a\in S}|P_a|)\cdot W_2^{\,\tw(\Gcal_S^{+})+1}
++
+s\,n_D\,G^{s}
+\right),
+\]
+其中 $W_2=\max\{q,\;r^2,\;m^2,\;G\}$；相应的单一表达式（按注
+\ref{rem:twexp} 的同一理由取指数 $\tw+2$）为
+\[
+O\!\left(
+\mathrm{poly}(d,K)\cdot
+W_2^{\,\tw(\Gcal_S^{+})+2}
++
+s\,n_D\,G^{s}
+\right).
+\]
+注意这里的 $+2$ 同样不可省：$q=m^2=r^2=W_2$ 时某度数为 $\Delta$ 的节点
+预计算代价为 $q\,m_k^2\prod_{e\in\delta_T(k)}r_e^2=W_2^{\Delta+2}$，而
+$\tw(\Gcal_S^{+})\ge\deg_T^{\max}\ge\Delta$。
+\end{corollary}
+
+\begin{proof}
+$\psi(x)^2$ 的系数张量是 $\psi$ 的系数张量与自身的 Hadamard 型乘积，可由
+逐节点的 doubled core
+$G^{(k)}\otimes G^{(k)}$ 表示：物理指标为 $(i,i')$、每条边的 bond 指标为
+$(\alpha_e,\alpha'_e)$。树拓扑、$\delta_T(k)$ 与父集合族均未改变，故由
+定义 \ref{def:joint}，$\Gcal_S$ 逐字相同。定义 \ref{def:projcore} 中
+$b_{k,i}b_{k,i'}$ 起 $m_k^2$ 个基函数的作用，$q$ 与 $G$ 不变。归一化常数
+$1/Z$ 是与所有指标无关的标量，把它并入任意一个 core（例如根 core
+$G^{(\mathrm{rt})}\otimes G^{(\mathrm{rt})}$ 整体乘以 $1/Z$）即得
+$p_X=\psi^2/Z$ 本身的 TTNS 表示；这一步既不改变 bond 与物理维，也不改变
+树拓扑，因而 $\Gcal_S$、$\Gcal_S^{+}$ 与全部复杂度指数均不受影响。代入定理
+\ref{thm:tw} 即得。
+\end{proof}
+
+\begin{remark}[非负性不改变结构，只改变常数]
+\label{rem:squaredstruct}
+推论 \ref{cor:squared} 说明：把线性 TTNS 换成平方 TTNS 以换取逐点非负性，
+代价是 bond 与物理维的平方，而\emph{不}改变可计算性的结构判据。这一点对
+方法选择是实质性的——非负化不会把一个 tractable 的拓扑变成 intractable 的
+拓扑。必须注意“指数不变”是相对于\emph{替换后}的域大小
+$W_2=\max\{q,r^2,m^2,G\}$ 而言：树宽 $\tw(\Gcal_S^{+})$ 由图决定，而图未变，
+故以 $W_2$ 为底的幂次不变；若改用\emph{原始}的 $r$ 与 $m$ 表示同一代价，则
+rank 与物理维上的幂次相应加倍（$W_2^{\,w+2}$ 中来自 $r^2,m^2$ 的部分等于
+$r,m$ 的 $2(w+2)$ 次幂）。因此该推论说的是“结构判据不变、底数平方”，
+而不是“以原始 $r,m$ 计的代价不变”。仓库中已有的低维一致性证据
+（doubled contraction 与显式平方系数
+张量的差为 $10^{-15}$ 量级）只验证了恒等式，未验证本推论的复杂度标度；
+后者需要独立的计时实验。
+\end{remark}
+
+\section{max-plus 层的信息传递预算}
+
+\subsection{局部 max-plus channel}
+
+本节要求不同下游节点使用相互独立的局部 delay 随机源。具体地，对每个
+$a\in\{1,\ldots,K\}$，令
+\[
+\mathcal E_a=(E_{ka})_{k\in P_a}
+\]
+表示节点 $a$ 的 edge-delay 向量，并假设随机对象
+\[
+(\mathcal E_1,D_1),\ldots,(\mathcal E_K,D_K)
+\]
+相互独立且都与 $X$ 独立。这个假设比定理 \ref{thm:exact} 更强；它是下游条件通道分解为
+乘积所必需的。
+
+对父状态 $u=(u_k)_{k\in P_a}$，定义局部 Markov kernel
+\[
+K_a(B\mid u)
+=
+\Prob\left(
+\max_{k\in P_a}(u_k+E_{ka})+D_a\in B
+\right),
+\qquad B\in\mathcal B(\R).
+\]
+若 $E_{ka}$ 相互独立，则该 channel 的条件 CDF 为
+\[
+K_a((-\infty,y]\mid u)
+=
+\E_{D_a}\left[
+\prod_{k\in P_a}F_{ka}(y-D_a-u_k)
+\right].
+\]
+若 $E_{ka}$ 还有密度 $f_{ka}$，则 max 之前的条件密度为
+\[
+q_a(z\mid u)
+=
+\sum_{r\in P_a}
+f_{ra}(z-u_r)
+\prod_{\substack{k\in P_a\\k\ne r}}
+F_{ka}(z-u_k),
+\]
+所以在 $D_a$ 有密度或一般概率测度时，$K_a$ 可以通过一维卷积确定性计算。
+
+定义 channel 的 Dobrushin 系数
+\[
+\delta_a
+=
+\sup_{u,u'}
+\left\|
+K_a(\cdot\mid u)-K_a(\cdot\mid u')
+\right\|_{\TV}.
+\]
+这里 total variation 采用
+\[
+\|P-Q\|_{\TV}=\sup_B|P(B)-Q(B)|
+\]
+的归一化；若 $P,Q$ 有密度 $p,q$，则它等于
+$\frac12\int|p-q|$。经典 contraction-coefficient 结果给出
+\[
+\eta_{\KL}(K_a)\le \delta_a,
+\]
+其中
+\[
+\eta_{\KL}(K_a)
+=
+\sup_{\substack{P\ne Q\\0<D_{\KL}(P\|Q)<\infty}}
+\frac{D_{\KL}(PK_a\|QK_a)}{D_{\KL}(P\|Q)}
+\]
+是 KL contraction coefficient \cite{Cohen1993,PolyanskiyWu2017}。
+
+\subsection{max 的 Lipschitz 性给出显式 channel 系数}
+
+令 $\mathcal U_a\subset\R^{|P_a|}$ 是允许的父状态集合，并定义
+\[
+\Delta_a
+=
+\diam_\infty(\mathcal U_a)
+=
+\sup_{u,u'\in\mathcal U_a}\|u-u'\|_\infty.
+\]
+对 node delay 定义平移 TV 模量
+\[
+\omega_{D_a}(t)
+=
+\sup_{|h|\le t}
+\left\|
+\Law(D_a)-\Law(D_a+h)
+\right\|_{\TV},
+\qquad t\ge0.
+\]
+这是一个只依赖一维 node-delay 分布的量。若 $D_a$ 有密度 $g_a$，则
+\[
+\omega_{D_a}(t)
+=
+\sup_{|h|\le t}
+\frac12\int_\R|g_a(z)-g_a(z-h)|\,dz,
+\]
+可以用确定性一维积分计算。
+
+\begin{theorem}[max-plus channel 的显式 Dobrushin 上界]
+\label{thm:localch}
+在上述设定下，把 $K_a$ 限制在输入集合 $\mathcal U_a$，则
+\[
+\delta_a
+\le
+\omega_{D_a}(\Delta_a).
+\]
+若 $g_a$ 绝对连续且弱导数 $g_a'\in L^1(\R)$，则进一步有
+\[
+\delta_a
+\le
+\min\left\{
+1,\,
+\frac{\Delta_a}{2}\|g_a'\|_{L^1}
+\right\}.
+\]
+特别地，若 $D_a\sim\mathcal N(0,\sigma_a^2)$，则
+\[
+\delta_a
+\le
+2\Phi\left(\frac{\Delta_a}{2\sigma_a}\right)-1<1
+\qquad(\Delta_a<\infty),
+\]
+其中 $\Phi$ 是标准正态 CDF。若 $D_a\sim\mathrm{Uniform}[0,w_a]$，则
+\[
+\delta_a
+\le
+\min\left\{1,\frac{\Delta_a}{w_a}\right\}.
+\]
+\end{theorem}
+
+\begin{proof}
+对固定 edge-delay realization $e$，记
+\[
+z(u,e)=\max_{k\in P_a}(u_k+e_k).
+\]
+max 映射关于 $\ell_\infty$ 范数是 $1$-Lipschitz，因此
+\[
+|z(u,e)-z(u',e)|\le\|u-u'\|_\infty.
+\]
+在比较 $K_a(\cdot\mid u)$ 和 $K_a(\cdot\mid u')$ 时，对两边使用同一个
+edge-delay realization。由 TV 对混合分布的凸性，
+\[
+\begin{aligned}
+\|K_a(\cdot\mid u)-K_a(\cdot\mid u')\|_{\TV}
+&\le
+\E_{\mathcal E_a}
+\left[
+\left\|
+\Law(D_a+z(u,\mathcal E_a))
+-
+\Law(D_a+z(u',\mathcal E_a))
+\right\|_{\TV}
+\right]\\
+&\le
+\omega_{D_a}(\|u-u'\|_\infty).
+\end{aligned}
+\]
+对 $u,u'\in\mathcal U_a$ 取上确界得到第一式。
+
+若 $g_a'\in L^1$，则对任意 $h$，
+\[
+\begin{aligned}
+\frac12\int_\R|g_a(z)-g_a(z-h)|\,dz
+&=
+\frac12\int_\R
+\left|\int_{z-h}^{z}g_a'(s)\,ds\right|dz\\
+&\le
+\frac{|h|}{2}\|g_a'\|_{L^1}.
+\end{aligned}
+\]
+再使用 TV 不超过 $1$ 得第二式。Gaussian 和 uniform 的公式由两个平移密度
+的重叠面积直接计算得到。
+\end{proof}
+
+\begin{remark}[可改进性和紧性]
+该上界故意没有使用 edge noise 的额外平滑作用，因此容易计算但不一定最紧。
+在单父节点、edge delay 为常数、输入集合包含两个距离为 $\Delta_a$ 的状态时，
+channel 恰好退化为 $D_a$ 的两个平移；此时上界可以取等。因此，如果只知道
+$\Delta_a$ 和 $D_a$，一般不能得到统一更小的常数。若希望利用 edge noise，
+应从上面的局部条件 CDF 或密度直接计算 $\delta_a$。
+\end{remark}
+
+\begin{remark}[项目中的两类 delay]
+对于 uniform node delay，若父状态直径不小于区间宽度，则上述全局系数等于
+$1$，不产生严格 SDPI。对于项目使用的 log-skew-normal node delay，
+$\omega_{D_a}(t)$ 可由其一维密度平移积分确定性计算；只要 $t<\infty$ 且任意
+有限平移后的支撑仍有正重叠，$\omega_{D_a}(t)<1$。这只说明严格 contraction
+存在，不应在未计算该积分前宣称 contraction 很强
+\cite{PolyanskiyWu2016,Calmon2018}。
+\end{remark}
+
+\subsection{pair mutual information：共享父与独占父的分解}
+
+固定两个不同下游节点 $a,b$。把上一层父变量分成
+\[
+C_{ab}=X_{P_a\cap P_b},\qquad
+A_{ab}=X_{P_a\setminus P_b},\qquad
+B_{ab}=X_{P_b\setminus P_a}.
+\]
+其中任一向量都允许为空。对固定 $C_{ab}=c$，令
+$\delta_{a\mid c}^{\mathrm{ex}}$ 表示只改变 $A_{ab}$ 时，节点 $a$ 的条件
+channel Dobrushin 系数；类似定义
+$\delta_{b\mid c}^{\mathrm{ex}}$。令
+\[
+\bar\delta_a^{\mathrm{ex}}
+=
+\sup_c\delta_{a\mid c}^{\mathrm{ex}},
+\qquad
+\bar\delta_b^{\mathrm{ex}}
+=
+\sup_c\delta_{b\mid c}^{\mathrm{ex}}.
+\]
+若独占父状态集合的 $\ell_\infty$ 直径分别为
+$\Delta_a^{\mathrm{ex}}$ 和 $\Delta_b^{\mathrm{ex}}$，则上一条定理给出
+\[
+\bar\delta_a^{\mathrm{ex}}
+\le\omega_{D_a}(\Delta_a^{\mathrm{ex}}),
+\qquad
+\bar\delta_b^{\mathrm{ex}}
+\le\omega_{D_b}(\Delta_b^{\mathrm{ex}}).
+\]
+
+\begin{theorem}[连续共享父变量下的 pair 信息预算]
+\label{thm:pair}
+假设下式中的 mutual information 都有定义且有限。则
+\[
+\begin{aligned}
+I(Y_a;Y_b)
+\le{}&
+\min\{I(C_{ab};Y_a),I(C_{ab};Y_b)\}\\
+&+
+\min\{\bar\delta_a^{\mathrm{ex}},
+       \bar\delta_b^{\mathrm{ex}}\}
+I(A_{ab};B_{ab}\mid C_{ab}).
+\end{aligned}
+\]
+第一项是共享父变量实际传到两个输出中较弱一侧的信息；第二项是独占父之间
+剩余的条件依赖经过两个局部 max-plus channels 后最多保留的信息。
+\end{theorem}
+
+\begin{proof}
+由 chain rule 和 conditional mutual information 的非负性，
+\[
+\begin{aligned}
+I(Y_a;Y_b)
+&\le I(Y_a;Y_b,C_{ab})\\
+&=I(Y_a;C_{ab})+I(Y_a;Y_b\mid C_{ab}).
+\end{aligned}
+\]
+交换 $a,b$ 后也成立，所以共享父项可以取两者的最小值。固定
+$C_{ab}=c$ 后，由局部 delay 独立性得到 Markov chain
+\[
+Y_a-A_{ab}-B_{ab}-Y_b
+\qquad\text{在条件 }C_{ab}=c\text{ 下}.
+\]
+先对一侧使用 KL strong data-processing inequality，再对另一侧使用普通
+data-processing inequality，得到
+\[
+I(Y_a;Y_b\mid C_{ab}=c)
+\le
+\min\{\delta_{a\mid c}^{\mathrm{ex}},
+       \delta_{b\mid c}^{\mathrm{ex}}\}
+I(A_{ab};B_{ab}\mid C_{ab}=c).
+\]
+对 $c$ 平均并用统一上界即得结论。
+\end{proof}
+
+\begin{corollary}[有限状态 pair 的完全显式分解]
+若上一层父变量为有限状态变量，令
+\[
+U_a=X_{P_a},\qquad U_b=X_{P_b},
+\qquad
+\beta_{ab}=\min\{\delta_a,\delta_b\}.
+\]
+则
+\[
+\begin{aligned}
+I(Y_a;Y_b)
+&\le \beta_{ab}I(U_a;U_b)\\
+&=\beta_{ab}
+\left[
+H(C_{ab})
++
+I(A_{ab};B_{ab}\mid C_{ab})
+\right].
+\end{aligned}
+\]
+\end{corollary}
+
+\begin{proof}
+局部条件独立性给出 Markov chain
+\[
+Y_a-U_a-U_b-Y_b.
+\]
+分别从两侧使用 KL contraction coefficient 不超过 Dobrushin 系数的事实，
+得到第一行。第二行由有限状态 entropy chain rule：
+\[
+I((A_{ab},C_{ab});(B_{ab},C_{ab}))
+=H(C_{ab})+I(A_{ab};B_{ab}\mid C_{ab}).
+\]
+\end{proof}
+
+\subsection{整层 total correlation 与 fan-out 信息注入}
+
+本小节令上一层变量 $X_i$ 取值于有限集合 $\mathcal X_i\subset\R$。定义父块
+\[
+U_a=X_{P_a},
+\qquad
+\Pset=\bigcup_{a=1}^{K}P_a,
+\]
+以及父节点 $i\in\Pset$ 的 fan-out 次数
+\[
+\phi_i=|\{a:i\in P_a\}|.
+\]
+对任意随机向量 $Z=(Z_1,\ldots,Z_m)$，定义
+\begin{equation}
+\label{eq:tcdef}
+\TC(Z)
+=
+D_{\KL}\left(P_Z\middle\|\prod_{j=1}^{m}P_{Z_j}\right) .
+\end{equation}
+在标准 Borel 空间上该量恒有定义并取值于 $[0,\infty]$。当各 $Z_j$ 取有限
+多个值时它等于 entropy 差 $\sum_{j}H(Z_j)-H(Z)$；连续情形下不使用该
+entropy 表达式，因为各微分熵可能同时为 $\pm\infty$ 而使差式成为未定义的
+$\infty-\infty$。
+
+\begin{assumption}[父状态限制与支撑]
+\label{ass:support}
+定理 \ref{thm:localch} 中的系数 $\delta_a$ 是把 $K_a$ 限制在允许父状态集合
+$\mathcal U_a$ 上得到的。因此在下面使用 $\delta_a$ 的所有结论中，须假设
+被比较的父块分布支撑在 $\mathcal U_a$ 内，即
+\[
+\supp(P_{U_a})\subseteq\mathcal U_a,
+\qquad a=1,\ldots,K,
+\]
+从而联合分布 $P_U$ 与乘积分布 $Q_U=\prod_a P_{U_a}$ 都支撑在
+$\prod_{a=1}^{K}\mathcal U_a$ 内。若不作此限制而取全局上确界，则对常见
+additive-noise channel 往往有 $\delta_a=1$，结论退化为平凡。
+\end{assumption}
+
+由于 $Q_U$ 的各边缘与 $P_U$ 相同，$\supp(P_{U_a})\subseteq\mathcal U_a$
+已蕴含 $\supp(Q_U)\subseteq\prod_a\mathcal U_a$，故该假设只需对边缘核验。
+
+\begin{definition}[source-dependent KL contraction coefficient]
+\label{def:etasrc}
+对 Markov kernel $K$ 与参考分布 $Q$，定义
+\[
+\eta_{\KL}(K,Q)
+=
+\sup_{\substack{P\neq Q\\ 0<D_{\KL}(P\|Q)<\infty}}
+\frac{D_{\KL}(PK\|QK)}{D_{\KL}(P\|Q)},
+\qquad
+\eta_{\KL}(K)=\sup_{Q}\eta_{\KL}(K,Q),
+\]
+其中约定 $\sup\emptyset=0$。前者称为固定输入参考分布下的
+source-dependent（或 fixed-input）系数，
+后者称为 input-independent 系数。二者满足
+$\eta_{\KL}(K,Q)\le\eta_{\KL}(K)$，且由
+\cite[Theorem 1]{PolyanskiyWu2017} 与 \cite[Theorem 4.1]{Cohen1993}，
+对任意 $f$-divergence 有 $\eta_f(K)\le\eta_{\TV}(K)$，故
+\[
+\eta_{\KL}(K,Q)\;\le\;\eta_{\KL}(K)\;\le\;\eta_{\TV}(K).
+\]
+本文中 $\eta_{\TV}(K_a)$ 就是定理 \ref{thm:localch} 的 Dobrushin 系数
+$\delta_a$。
+\end{definition}
+
+\begin{remark}[退化参考分布]
+\label{rem:degenerate}
+$\sup\emptyset=0$ 的约定使 $\eta_{\KL}(K,Q)$ 对\emph{一切}参考分布有定义，
+包括点质量 $Q=\delta_u$。此时约束集
+$\{P\neq\delta_u:\;0<D_{\KL}(P\|\delta_u)<\infty\}$ 为空——任何
+$P\neq\delta_u$ 都不绝对连续于 $\delta_u$，故 $D_{\KL}(P\|\delta_u)=\infty$。
+因此
+\[
+\eta_{\KL}(K,\delta_u)=0 .
+\]
+这不是人为规定，而是定义在退化情形下的直接取值，且与其信息论含义一致：
+确定的输入不携带与其他输入的互信息，对应项应当为零。下面引理
+\ref{lem:tcsdpi} 与定理 \ref{thm:fanout} 中若某个父块 $U_a$ 退化
+（$P_{U_a}$ 为点质量），则 $\eta_a=0$，而该坐标本来也满足
+$I(U_a;U_{<a})=0$，两侧一致；等价地也可先把全部确定坐标删去再应用引理，
+所得的 $\max_a\eta_a$ 相同。
+\end{remark}
+
+\begin{lemma}[逐分量 SDPI 给出整层 total correlation 的收缩]
+\label{lem:tcsdpi}
+设 $U=(U_1,\ldots,U_K)$ 是任意（可以任意相关的）随机元组，$Y_a$ 由 $U_a$
+经 Markov kernel $K_a$ 生成，并设给定 $U$ 时 $Y_1,\ldots,Y_K$ 条件独立，
+即联合 channel 是乘积 $\Kprod=\bigotimes_aK_a$。记 $P_{U_a}$ 为 $U_a$ 的
+边缘分布，并按定义 \ref{def:etasrc} 令
+\[
+\eta_a=\eta_{\KL}(K_a,P_{U_a}).
+\]
+若 $\TC(U)<\infty$，则
+\[
+\TC(Y_1,\ldots,Y_K)
+\le
+\Big(\max_{1\le a\le K}\eta_a\Big)\,\TC(U_1,\ldots,U_K).
+\]
+\end{lemma}
+
+\begin{proof}
+固定任一坐标次序，记 $Y_{<a}=(Y_1,\ldots,Y_{a-1})$，
+$U_{<a}=(U_1,\ldots,U_{a-1})$，$a=1$ 时约定为空。
+
+\textbf{第零步（链式分解）。} 由\emph{相对熵}的链式法则直接作用于定义
+\eqref{eq:tcdef}，
+\begin{equation}
+\label{eq:tcchain}
+\TC(Y)
+=
+D_{\KL}\Bigl(P_Y\Bigm\|\textstyle\prod_{a}P_{Y_a}\Bigr)
+=
+\sum_{a=2}^{K}I(Y_a;Y_{<a}),
+\qquad
+\TC(U)=\sum_{a=2}^{K}I(U_a;U_{<a}).
+\end{equation}
+这里\emph{不}经过 entropy 差 $\sum_aH(Y_a)-H(Y)$：本引理允许 $Y_a$ 连续，
+此时各微分熵可能为 $\pm\infty$，该差式未必有定义。而 \eqref{eq:tcchain} 中
+每一项都是互信息，在一般标准 Borel 空间上按扩展非负实数理解，恒有定义；
+链式法则在 $[0,\infty]$ 中逐项成立，无需可积性假设。（引理已设
+$\TC(U)<\infty$，故右侧各项有限。）
+
+\textbf{第一步（条件独立结构）。} 把第 $a$ 个局部 channel 写成
+$Y_a=g_a(U_a,\zeta_a)$，其中 $\zeta_a$ 汇总该 channel 的全部噪声（本文设定
+中为 $(E_{ka})_{k\in P_a}$ 与 $D_a$）。按假设 $\zeta_1,\ldots,\zeta_K$ 相互
+独立且与 $U$ 独立。给定 $U_a$ 时 $\zeta_a$ 的条件分布不变，且仍与
+$(U_{<a},\zeta_{<a})$ 独立；而 $Y_{<a}$ 只是 $(U_{<a},\zeta_{<a})$ 的函数。
+因此 $Y_a\perp Y_{<a}\mid U_a$，即
+\[
+Y_{<a}\;\to\;U_a\;\to\;Y_a
+\]
+是 Markov 链。同理 $\zeta_{<a}$ 与 $U$ 独立给出
+\[
+U_a\;\to\;U_{<a}\;\to\;Y_{<a}
+\]
+也是 Markov 链。
+
+\textbf{第二步（对单个局部 channel 施加 SDPI）。} 由
+\cite[Theorem 4]{PolyanskiyWu2017}，source-dependent 系数具有互信息刻画
+\begin{equation}
+\label{eq:mikl}
+\eta_{\KL}(K_a,P_{U_a})
+=
+\sup\left\{
+\frac{I(\mathsf W;Y_a)}{I(\mathsf W;U_a)}
+:\;
+\mathsf W\to U_a\to Y_a,\;
+0<I(\mathsf W;U_a)<\infty
+\right\},
+\end{equation}
+其中上确界在联合分布 $P_{U_aY_a}=P_{U_a}\circ K_a$ 固定的条件下取。对
+$\mathsf W=Y_{<a}$ 应用 \eqref{eq:mikl}，
+\[
+I(Y_a;Y_{<a})\le\eta_a\,I(U_a;Y_{<a}).
+\]
+若 $I(U_a;Y_{<a})=0$，则由第一步的 Markov 链与普通 DPI 左侧亦为零，
+不等式自动成立。
+
+\textbf{第三步（回到上游）。} 对第一步的第二条 Markov 链用普通 DPI，
+\[
+I(U_a;Y_{<a})\le I(U_a;U_{<a}).
+\]
+
+合并三步并对 $a=2,\ldots,K$ 求和，
+\[
+\TC(Y)
+=\sum_{a=2}^{K}I(Y_a;Y_{<a})
+\le\sum_{a=2}^{K}\eta_a\,I(U_a;U_{<a})
+\le\Big(\max_a\eta_a\Big)\sum_{a=2}^{K}I(U_a;U_{<a})
+=\Big(\max_a\eta_a\Big)\TC(U).
+\]
+左右两端都与坐标次序无关，故结论对任一次序成立。
+\end{proof}
+
+\begin{remark}[本文\emph{不}使用“乘积信道全局 KL 系数等于各分量最大值”]
+\label{rem:notensorize}
+一个看似自然的捷径是先断言 input-independent 系数张量化，
+\begin{equation}
+\label{eq:badtensor}
+\eta_{\KL}(\Kprod)\;\overset{?}{=}\;\max_{1\le a\le K}\eta_{\KL}(K_a),
+\end{equation}
+再把它直接用到 $D_{\KL}(P_U\Kprod\|Q_U\Kprod)$ 上。等式
+\eqref{eq:badtensor} \emph{一般不成立}，本文明确不使用它。
+
+反例：取 $K_1=K_2=\mathrm{BSC}(0.1)$。由
+\cite[eq.~(16)]{PolyanskiyWu2017}，
+$\eta_{\KL}(\mathrm{BSC}(0.1))=(1-2\times0.1)^2=0.64$。令
+$U\sim\mathrm{Bern}(1/2)$ 并把同一比特重复送入两个信道（$X_1=X_2=U$，
+即一个二重 repetition code），则 $I(U;X_1,X_2)=1$，而
+\[
+I(U;Y_1,Y_2)
+=
+1-\left[
+0.82\,h_2\!\left(\frac{0.01}{0.82}\right)+0.18
+\right]
+=
+0.742085\ldots,
+\]
+其中 $h_2$ 是二元熵函数。由 input-independent 系数的互信息刻画
+\cite[eq.~(17)]{PolyanskiyWu2017} 得
+\[
+\eta_{\KL}\big(\mathrm{BSC}(0.1)^{\otimes2}\big)\ge0.742>0.64,
+\]
+\eqref{eq:badtensor} 被否定。更一般地，
+\cite[eq.~(39)--(40)]{PolyanskiyWu2017} 用 $n$ 重 repetition code 给出
+\[
+\eta_{\KL}\big(\mathrm{BSC}(\delta)^{\otimes n}\big)
+\ge
+1-\big(4\delta(1-\delta)\big)^{n/2+O(\log n)}
+\;\xrightarrow[n\to\infty]{}\;1,
+\]
+即乘积信道的 input-independent KL 系数随分量数趋于 $1$，而不是停在
+$\max_a\eta_{\KL}(K_a)$。
+
+失效的根源在于两个不同对象的混用：input-independent 系数要对乘积空间上
+\emph{所有}输入分布取上确界，其中包含让各输入坐标高度相关的分布（如上面的
+repetition）；而 $\eta_{\chi^2}$ 的最大相关刻画
+\cite[eq.~(9)]{PolyanskiyWu2017} 是对\emph{固定}输入边缘成立的，
+Witsenhausen 的最大相关张量化 \cite[Theorem 1]{Witsenhausen1975} 又只适用
+于\emph{相互独立}的随机对。因此不能先在独立乘积输入上张量化、再对所有
+（可相关的）输入取上确界。此外
+\cite{PolyanskiyWu2017} 明确指出，对 fixed-input 系数
+$\eta_{\KL}(K,Q)$ 并没有像 $\eta_{\KL}(K)=\eta_{\chi^2}(K)$
+\cite[Theorem 3]{PolyanskiyWu2017} 那样的 $\chi^2$ 归约，所以经
+$\eta_{\chi^2}$ 绕行的路线在 source-dependent 层面同样走不通。
+
+引理 \ref{lem:tcsdpi} 完全绕开了这个陷阱：它\emph{不}使用乘积信道的任何
+contraction coefficient，而是沿 total correlation 的链式分解，逐项对
+\emph{单个}局部 channel $K_a$ 施加固定输入边缘下的 SDPI
+\eqref{eq:mikl}。所需的量只是 $\eta_a=\eta_{\KL}(K_a,P_{U_a})$，
+它由局部 Dobrushin 系数控制（定义 \ref{def:etasrc}）。这样得到的收缩因子取
+$\max_a\eta_a$ 的形式，\emph{不含}随 $K$ 显式增长的 product-channel 惩罚因子，
+结论形式与 \eqref{eq:badtensor} 想要的相同，但推导成立。需要提醒：这\emph{不}是说
+$\max_a\eta_a$ 与层宽无关——向该层加入一个 $\eta$ 更大的 channel 会抬高这个最大值；
+只有在存在与层宽无关的一致上界 $\eta_a\le\bar\eta<1$（$\forall a$）时，才能得到
+宽度一致的系数界。
+\end{remark}
+
+\begin{remark}[TV 型系数与乘积信道]
+\label{rem:tvnotensor}
+用 maximal coupling 直接估计乘积信道的 Dobrushin 系数只能得到
+\[
+\eta_{\TV}(\Kprod)\le1-\prod_{a=1}^{K}(1-\delta_a),
+\]
+它随输出数 $K$ 增大趋于 $1$；该上界在各分量独立达到最坏情形时基本是紧的。
+由注 \ref{rem:notensorize}，KL 型的 input-independent 系数同样不张量化，
+所以“TV 不行、KL 行”并不是二者的分界。真正的分界在于\emph{是否固定输入
+参考分布}：固定边缘后逐分量施加 SDPI 可以避免对乘积输入取上确界，见引理
+\ref{lem:tcsdpi} 与注 \ref{rem:whymax}。
+\end{remark}
+
+\begin{theorem}[max-plus 层的 fan-out 信息预算]
+\label{thm:fanout}
+在假设 \ref{ass:support} 下，令 $P_{U_a}$ 为父块 $U_a=X_{P_a}$ 的边缘分布，
+并按定义 \ref{def:etasrc} 令
+\[
+\eta^{\star}=\max_{1\le a\le K}\eta_{\KL}(K_a,P_{U_a})
+\le
+\max_{1\le a\le K}\eta_{\KL}(K_a)
+\le
+\max_{1\le a\le K}\delta_a
+\;=:\;\delta^\star .
+\]
+则下游层的 total correlation 满足
+\[
+\TC(Y_1,\ldots,Y_K)
+\le
+\eta^{\star}
+\left[
+\sum_{a=1}^{K}H(X_{P_a})-H(X_{\Pset})
+\right]
+\le
+\delta^\star
+\left[
+\sum_{a=1}^{K}H(X_{P_a})-H(X_{\Pset})
+\right].
+\]
+进一步，
+\[
+\TC(Y_1,\ldots,Y_K)
+\le
+\delta^\star
+\left[
+\TC(X_{\Pset})
++
+\sum_{i\in\Pset}(\phi_i-1)H(X_i)
+\right].
+\]
+右侧第一项 $\TC(X_{\Pset})$ 是上一层已有依赖；第二项是同一个父变量被多个
+局部 channels 重复读取时产生的 fan-out 信息预算。三个系数
+$\eta^\star\le\max_a\eta_{\KL}(K_a)\le\delta^\star$ 都是各局部系数的最大值，
+其中\emph{不含随层宽 $K$ 显式增长的乘积信道惩罚因子}；但 $\max$ 本身当然
+取遍该层的全部 $K$ 个 channel，增加新 channel 可能抬高该最大值。要得到一个
+真正与 $K$ 无关的常数，需额外假设各局部系数有一致上界 $\delta_a\le\bar\delta$，
+此时整层系数也由同一个 $\bar\delta$ 控制。
+\end{theorem}
+
+\begin{proof}
+令 $P_U$ 是重叠父块元组 $(U_1,\ldots,U_K)$ 的联合分布。局部 delay 独立性
+说明给定 $U$ 时 $Y_1,\ldots,Y_K$ 条件独立，即从 $U$ 到 $Y$ 的联合 channel
+是乘积
+\[
+\Kprod=\bigotimes_{a=1}^{K}K_a,
+\]
+这正是引理 \ref{lem:tcsdpi} 的前提。于是
+\[
+\TC(Y)
+\le
+\Big(\max_{1\le a\le K}\eta_{\KL}(K_a,P_{U_a})\Big)\TC(U_1,\ldots,U_K)
+=
+\eta^\star\,\TC(U_1,\ldots,U_K).
+\]
+由定义 \ref{def:etasrc}，并由假设 \ref{ass:support}
+（$\supp(P_{U_a})\subseteq\mathcal U_a$，故定理 \ref{thm:localch} 的
+$\delta_a$ 适用），
+\[
+\eta_{\KL}(K_a,P_{U_a})\le\eta_{\KL}(K_a)\le\eta_{\TV}(K_a)=\delta_a
+\qquad\text{\cite[Theorem 1]{PolyanskiyWu2017}, \cite{Cohen1993}},
+\]
+故 $\eta^\star\le\delta^\star$。注意此处只用到\emph{单个}局部 channel
+$K_a$ 在其自身输入边缘下的系数，不需要乘积信道 $\Kprod$ 的 contraction
+coefficient；后者一般\emph{不}等于各分量的最大值，见注
+\ref{rem:notensorize}。
+
+从 $X_{\Pset}$ 到 $(U_1,\ldots,U_K)$ 的映射只是把坐标复制到各父块中。因为每个
+$i\in\Pset$ 至少出现一次，该映射在其像上可逆，故
+\[
+H(U_1,\ldots,U_K)=H(X_{\Pset}).
+\]
+因此
+\[
+\TC(U_1,\ldots,U_K)
+=
+\sum_{a=1}^{K}H(X_{P_a})-H(X_{\Pset}),
+\]
+得到第一式。最后由 entropy subadditivity，
+\[
+\sum_aH(X_{P_a})
+\le
+\sum_a\sum_{i\in P_a}H(X_i)
+=
+\sum_{i\in\Pset}\phi_iH(X_i).
+\]
+代入并使用
+$\TC(X_{\Pset})=\sum_{i\in\Pset}H(X_i)-H(X_{\Pset})$，得到第二式。
+\end{proof}
+
+\begin{remark}[为什么可以取 $\max$ 而不是 $1-\prod_a(1-\delta_a)$]
+\label{rem:whymax}
+用 maximal coupling 直接估计乘积信道的 Dobrushin 系数只能得到
+\[
+\eta_{\TV}(\Kprod)\le\Gamma:=1-\prod_{a=1}^{K}(1-\delta_a),
+\]
+它随输出数 $K$ 增大而趋于 $1$：即使每个 $\delta_a$ 都很小，宽层的整层
+界也会退化为平凡。定理 \ref{thm:fanout} 的 $\max$ 形式\emph{不是}靠断言
+乘积信道系数等于各分量最大值得到的（那一断言是错的，见注
+\ref{rem:notensorize}），而是靠把 total correlation 沿链式法则分解成
+$K-1$ 个两两互信息项，再对每一项单独使用\emph{一个}局部 channel 的
+固定输入 SDPI（引理 \ref{lem:tcsdpi}）。层宽 $K$ 只出现在求和项数上，而
+求和恰好重新组装成 $\TC(U)$，因此收缩系数中\emph{不含}随 $K$ 显式增长的
+惩罚因子。这仍不等于说该系数与层宽无关：加入一个 $\eta$ 更大的 channel 会
+抬高 $\max_a\eta_a$；宽度一致的结论需要一致上界 $\eta_a\le\bar\eta<1$。由于
+$\eta^\star\le\delta^\star\le\Gamma$（后一不等式对 $K\ge1$ 恒成立），
+定理 \ref{thm:fanout} 在任何情形下都不弱于 $\Gamma$ 版本，且在宽层时
+严格更强。保留 $\Gamma$ 只作为 TV 型对照。
+\end{remark}
+
+\begin{remark}[为什么 fan-out 项不是“凭空创造信息”]
+若上一层坐标相互独立，则 $\TC(X_{\Pset})=0$，而且
+\[
+\TC(U_1,\ldots,U_K)
+=
+\sum_{i\in\Pset}(\phi_i-1)H(X_i).
+\]
+这正是公共父节点被复制到多个局部输入块所产生的冗余。下游相关性来自这份
+已存在的父信息被多路读取；max-plus channel 只能按 $\delta^\star$ 进一步
+保留或压缩它。
+\end{remark}
+
+\begin{corollary}[有限状态多层累计信息界]
+\label{cor:multilayer}
+考虑 $L$ 层有限状态 max-plus DAG，且每层都满足假设 \ref{ass:support}。
+令第 $\ell$ 层输出为 $X^{(\ell)}$，
+\[
+\TCs_\ell=\TC(X^{(\ell)}).
+\]
+对从第 $\ell-1$ 层到第 $\ell$ 层的传播，令
+$\phi_{\ell i}$ 为上一层节点 $i$ 的 fan-out，令
+\[
+B_\ell
+=
+\sum_{i\in\Pset_\ell}
+(\phi_{\ell i}-1)H(X_i^{(\ell-1)}),
+\]
+并令
+\[
+\delta^\star_\ell
+=
+\max_{a\in V_\ell}\delta_{\ell,a}.
+\]
+则
+\[
+\TCs_\ell
+\le
+\delta^\star_\ell(\TCs_{\ell-1}+B_\ell),
+\]
+并且
+\[
+\TCs_L
+\le
+\TCs_0\prod_{j=1}^{L}\delta^\star_j
++
+\sum_{\ell=1}^{L}
+B_\ell
+\prod_{j=\ell}^{L}\delta^\star_j.
+\]
+特别地，收缩因子 $\delta^\star_\ell=\max_{a\in V_\ell}\delta_{\ell,a}$
+只取决于该层中最弱的单个局部 channel：它是各局部系数的最大值，
+\emph{不含任何随层宽 $|V_\ell|$ 显式增长的乘积信道惩罚因子}
+（对照注 \ref{rem:tvnotensor} 中 $\Gamma\to1$ 的 TV 型上界）。
+需要强调这\emph{不}等于说 $\delta^\star_\ell$ 与层宽无关：向该层加入一个
+局部系数更大的 channel 会抬高这个最大值（与定理 \ref{thm:fanout} 后的
+同一说明一致）。准确的表述是：若存在与层宽无关的一致上界
+$\delta_{\ell,a}\le\bar\delta<1$（$\forall a\in V_\ell$），则单纯扩大层宽
+本身不会改变该一致上界，因而 \eqref{eq:floor} 型结论对任意宽度成立。
+
+若进一步存在一致上界 $\delta^\star_\ell\le\bar\delta<1$ 与
+$B_\ell\le\bar B$，则
+\begin{equation}
+\label{eq:floor}
+\TCs_L
+\;\le\;
+\bar\delta^{\,L}\,\TCs_0
++
+\frac{\bar\delta\bar B}{1-\bar\delta}\bigl(1-\bar\delta^{\,L}\bigr)
+\;\xrightarrow[L\to\infty]{}\;
+\frac{\bar\delta\bar B}{1-\bar\delta} .
+\end{equation}
+\end{corollary}
+
+\begin{remark}[几何衰减的是初始依赖，不是总界]
+\label{rem:floor}
+式 \eqref{eq:floor} 的两项必须分开读，不能笼统说“累计界随层数几何衰减”。
+\begin{enumerate}[label=(\arabic*)]
+\item 初始依赖 $\TCs_0$ 的贡献按 $\bar\delta^{\,L}$ 几何衰减；任一\emph{固定}
+早期层注入的 $B_\ell$ 对远端层的贡献同样按 $\bar\delta^{\,L-\ell+1}$ 几何
+衰减。这两点是收缩性的真实内容。
+\item 但每层都会注入新的 fan-out 项 $B_\ell$。若这些注入不衰减，累计上界
+一般收敛到\emph{非零渐近上界} $\bar\delta\bar B/(1-\bar\delta)$，而不是零。
+取 $\bar\delta=\frac12$、$B_\ell\equiv B>0$、$\TCs_0=0$ 即得
+$\TCs_L\le B(1-2^{-L})$，随 $L$ 单调\emph{上升}趋于 $B$。这里说的是
+\eqref{eq:floor} 右端这一\emph{上界表达式}的极限为正常数；它\emph{不}蕴含
+实际的 $\TCs_L$ 不趋于零——把它读成误差下界是错误的。为避免这一误读，
+下文一律称之为“上界残余项”或“非零渐近上界”，不使用“误差地板”。
+\item 要得到 $\TCs_L\to0$，需要额外条件：或者 $B_\ell=0$（无 fan-out，即
+每层每个父节点至多被读取一次），或者 $B_\ell\to0$。后者足够：
+$\sum_{\ell\le L}B_\ell\bar\delta^{\,L-\ell+1}$ 是有界零序列与可和核的
+卷积，故也趋于零。
+\end{enumerate}
+换言之，本文的多层结论是“上一层依赖被几何遗忘、每层新增依赖被一致压缩到
+一个可控的上界残余项”，而非“多层之后依赖消失”。
+\end{remark}
+
+\begin{proof}
+由定理 \ref{thm:fanout}，
+\[
+\TCs_\ell
+\le
+\delta^\star_\ell
+\left[
+\TC(X_{\Pset_\ell}^{(\ell-1)})+B_\ell
+\right].
+\]
+total correlation 在删除坐标时不增加，这是 KL data processing 的直接结果，
+所以
+\[
+\TC(X_{\Pset_\ell}^{(\ell-1)})\le \TCs_{\ell-1}.
+\]
+得到单层递推式。对该递推式逐层代入即得累计式。式 \eqref{eq:floor} 则由
+在累计式中把 $\delta^\star_j$ 换成 $\bar\delta$、$B_\ell$ 换成 $\bar B$，
+再对几何级数
+$\sum_{\ell=1}^{L}\bar\delta^{\,L-\ell+1}
+=\bar\delta(1-\bar\delta^{\,L})/(1-\bar\delta)$
+求和得到。
+\end{proof}
+
+\subsection{量化窗口：有限状态界何时非平凡}
+\label{sec:window}
+
+定理 \ref{thm:fanout} 与推论 \ref{cor:multilayer} 都是有限状态结论，需要先
+把连续变量量化。本小节明确指出：量化间距同时出现在界的两个因子中，且方向
+相反，因此必须显式给出非平凡性条件，不能默认“取足够细的网格”就能同时改善
+两侧。
+
+本小节把量化\emph{半径}记为 $\Rq>0$，以免与层数 $L$（推论
+\ref{cor:multilayer}）冲突：全文中 $L$ 一律是层数，$\Rq$ 一律是量化范围
+$[-\Rq,\Rq]$ 的半径。
+
+设\emph{每一层}的坐标都被量化到同一个以 $-\Rq$ 为起点、间距为 $\varepsilon$、
+含于 $[-\Rq,\Rq]$ 的均匀网格
+\begin{equation}
+\label{eq:gridset}
+\mathcal Y^{\mathrm{q}}
+:=\Bigl\{-\Rq+j\varepsilon\ :\ 0\le j\le\bigl\lfloor 2\Rq/\varepsilon\bigr\rfloor\Bigr\}
+\subset[-\Rq,\Rq] .
+\end{equation}
+（注意 $\varepsilon$ 一般不整除 $2\Rq$，此时右端点 $\Rq$ 不一定是格点，网格直径
+$\lfloor2\Rq/\varepsilon\rfloor\varepsilon$ 只是\emph{至多}为 $2\Rq$；下文只用到
+“直径 $\le2\Rq$”这一侧。）为避免“bins 还是 grid points”的歧义，下文一律令
+\begin{equation}
+\label{eq:Ndef}
+N:=\bigl|\mathcal Y^{\mathrm{q}}\bigr|
+=\text{该网格的\emph{格点}个数}
+=\Bigl\lfloor\frac{2\Rq}{\varepsilon}\Bigr\rfloor+1,
+\end{equation}
+即每个坐标量化后取值于一个基数为 $N$ 的有限集合；本小节全程假设
+$N\ge2$（等价地 $\varepsilon\le 2\Rq$）与 $K\ge2$，此时 $\log N>0$。所有
+关于熵的估计只用到基数 $N$ 这一件事，不再出现 $\log(2\Rq/\varepsilon)+O(1)$
+之类的渐近替代。
+
+\paragraph{量化映射。}
+仅给出网格集合 \eqref{eq:gridset} 并不足以定义一个有限状态随机过程：还必须
+指定实数被送到哪个格点。把网格点按升序记为
+$y_j:=-\Rq+j\varepsilon$（$0\le j\le N-1$），
+$y_{\min}:=y_0=-\Rq$、$y_{\max}:=y_{N-1}$。定义\emph{带饱和的逐坐标量化器}
+\begin{equation}
+\label{eq:quantizer}
+q_{\Rq,\varepsilon}:\R\to\mathcal Y^{\mathrm{q}},
+\qquad
+q_{\Rq,\varepsilon}(u)
+:=
+\begin{cases}
+y_{\min}, & u\le y_{\min},\\[2pt]
+y_{\min}+\varepsilon\bigl\lceil (u-y_{\min})/\varepsilon\bigr\rceil,
+& y_{\min}<u\le y_{\max},\\[2pt]
+y_{\max}, & u>y_{\max},
+\end{cases}
+\end{equation}
+即区间内部取\emph{右侧最近}格点（上取整），区间外部\emph{饱和}到最近端点而
+不是丢弃或另开 overflow bin。等价地，$q_{\Rq,\varepsilon}$ 的取值 cell 为
+\begin{equation}
+\label{eq:qcells}
+C_0=(-\infty,\,y_0],
+\qquad
+C_j=(y_{j-1},\,y_j]\ \ (1\le j\le N-2),
+\qquad
+C_{N-1}=(y_{N-2},\,+\infty),
+\end{equation}
+即 $q_{\Rq,\varepsilon}(u)=y_j\iff u\in C_j$。饱和保证
+$q_{\Rq,\varepsilon}$ 处处有定义且值域恰为 $\mathcal Y^{\mathrm{q}}$，从而量化
+后的变量确实取值于一个基数为 $N$ 的字母表——本小节所有熵估计只用到这一点。
+向量情形逐坐标作用，仍记为 $q_{\Rq,\varepsilon}$。
+
+这里采用\emph{上取整}而非“取最近格点”是一个有实质后果的选择，需要说明理由。
+两种约定给出的字母表与熵估计完全相同，但 cell 的端点不同：上取整给出的
+\eqref{eq:qcells} 是\emph{左开右闭}区间，且端点恰好落在网格点 $y_j$ 上，
+因此量化后的 PMF 是联合 CDF 在\emph{已有网格阈值}上的普通混合有限差分
+（见 \eqref{eq:pmfdiff}），既不需要在格点之外补算 CDF 值，也不需要用左极限
+处理边界上的原子；而“取最近格点”给出的 cell 端点是相邻格点的中点
+$(y_{j-1}+y_j)/2$，它们一般\emph{不}属于输出网格 $\mathcal Y_a$，恢复 PMF 时
+必须额外在中点上求值，并且由于该约定的 cell 是左闭右开的，含原子时还须使用
+CDF 的左极限。在量化窗口\emph{内部}（即 $u\in[y_{\min},y_{\max}]$），两种约定
+的量化误差 $|q_{\Rq,\varepsilon}(u)-u|$ 分别为至多 $\varepsilon$ 与至多
+$\varepsilon/2$；窗口\emph{外部}两种约定都取饱和值，误差为 $u-y_{\max}$ 或
+$y_{\min}-u$，随 $|u|\to\infty$ 无界，没有统一的点态上界，只能由有界支撑、
+尾概率或截断矩条件另行控制（这一饱和截断与量化窗口的张力见注
+\ref{rem:windowtension}；它与假设 \ref{ass:clip} 无关，后者只规定近似 edge CDF
+$\widehat F_{ka}$ 的值域与 clipping，并不定义任何截断误差，且作用于与输出量化器
+不同的随机对象）。
+无论如何，本文所有结论都不使用量化误差，只使用字母表基数 $N$ 与父状态直径
+$\Delta_a\le2\Rq$，故按与数值网格对齐的便利性选择上取整。
+
+\paragraph{量化后的层变量与量化 channel。}
+设第 $\ell$ 层由 \eqref{eq:maxplus} 的连续 max-plus 动力学产生原始输出
+$\bar X^{(\ell)}\in\R^{K}$，其条件律由局部 channel $K_a$（定理
+\ref{thm:localch}）给出。令
+\begin{equation}
+\label{eq:qlayer}
+X^{(\ell)}:=q_{\Rq,\varepsilon}\bigl(\bar X^{(\ell)}\bigr)
+\in(\mathcal Y^{\mathrm{q}})^{K},
+\end{equation}
+并约定：\emph{先}执行连续 max-plus 运算（含 edge delay 与 node delay），
+\emph{再}量化其输出；下一层以量化后的 $X^{(\ell)}$ 作为输入。（另一种约定
+是先量化各加数再取 max-plus；两者给出的有限状态过程一般不同，本文一律采用
+前者，因为它使量化只出现在层与层之间的接口上。）记 $\Qq$ 为
+$q_{\Rq,\varepsilon}$ 诱导的确定性 Markov kernel
+$\Qq(u,\cdot)=\delta_{q_{\Rq,\varepsilon}(u)}(\cdot)$（本文用 $\Qq$ 而不用
+$Q$，因为 $Q$ 已分别表示分位数函数、source-dependent 系数中的参考分布、
+$\calT(T_Y)$ 中的一般树分布以及层分布 $Q_\ell$），则第 $a$ 个坐标的
+\emph{量化 channel} 为复合
+\begin{equation}
+\label{eq:qchannel}
+K_a^{\mathrm{q}}:=K_a\Qq,
+\qquad
+K_a^{\mathrm{q}}(u,\cdot)=\Qq\bigl(K_a(u,\cdot)\bigr)
+=\Law\bigl(q_{\Rq,\varepsilon}(\bar X_a)\mid X_{P_a}=u\bigr).
+\end{equation}
+由于 $\Qq$ 不依赖于输入 $u$，$K_a^{\mathrm{q}}$ 是 $K_a$ 与一个固定
+（确定性）后处理的复合，故 data processing 给出
+\begin{equation}
+\label{eq:qdpi}
+\eta_{\TV}\bigl(K_a^{\mathrm{q}}\bigr)\le\eta_{\TV}(K_a),
+\qquad
+\eta_{\KL}\bigl(K_a^{\mathrm{q}},P_{U_a}\bigr)\le\eta_{\KL}(K_a,P_{U_a}).
+\end{equation}
+理由是：对任意两个输入分布 $\mu,\nu$，
+$\|\mu K_a\Qq-\nu K_a\Qq\|_{\TV}\le\|\mu K_a-\nu K_a\|_{\TV}$（$\Qq$ 是 Markov
+kernel，TV 在 Markov 作用下非扩张），除以 $\|\mu-\nu\|_{\TV}$ 后取上确界即得
+第一式；KL 版本同理由 $\KL(\mu K_a\Qq\|\nu K_a\Qq)\le\KL(\mu K_a\|\nu K_a)$ 得到。
+因此定理 \ref{thm:localch} 给出的 $\delta_a\le\omega_{D_a}(\Delta_a)$ 型
+Dobrushin 上界对量化 channel 依然成立，本小节以及定理 \ref{thm:fanout}、
+推论 \ref{cor:multilayer} 中的 $\delta^\star_\ell$ 都可以直接读作
+$K_a^{\mathrm{q}}$ 的系数。
+
+这里必须是逐层量化而非
+只量化输入层：下文的平凡上界 $\TCs_\ell\le(K-1)\log N$ 用的是第 $\ell$ 层
+\emph{输出}的状态数，仅假设上一层输入被量化到 $N$ 个状态并不能推出输出也
+只有 $N$ 个状态。在多层递推（推论 \ref{cor:multilayer}）中第 $\ell$ 层输出
+就是第 $\ell+1$ 层输入，因此逐层量化本来就是该递推所需的设定。
+
+\begin{remark}[各层网格不同的情形]
+\label{rem:perlayerN}
+若第 $\ell$ 层的输出网格格点数为 $N_\ell\ge2$、输出坐标数为 $K_\ell\ge2$，
+则\emph{不能}简单地把下文的 $N$ 一律读作 $N_\ell$：注入项
+$B_\ell=\sum_{i\in\Pset_\ell}(\phi_{\ell i}-1)H(X_i^{(\ell-1)})$ 中的熵是
+\emph{上一层}坐标的熵，受 $\log N_{\ell-1}$ 控制，而平凡上界用的是本层
+输出的状态数 $N_\ell$。正确的写法是
+\begin{equation}
+\label{eq:windowrecmix}
+\TCs_\ell\;\le\;\delta^\star_\ell\bigl(\TCs_{\ell-1}+\rho_\ell\log N_{\ell-1}\bigr),
+\qquad
+\TCs_\ell\le(K_\ell-1)\log N_\ell ,
+\end{equation}
+相应的非平凡性条件为
+\begin{equation}
+\label{eq:windowcondmix}
+\delta^\star_\ell
+\Bigl(\frac{\TCs_{\ell-1}}{\log N_\ell}
++\rho_\ell\frac{\log N_{\ell-1}}{\log N_\ell}\Bigr)
+\;<\;K_\ell-1 .
+\end{equation}
+下文的推论 \ref{cor:window} 只处理 $N_\ell\equiv N$、$K_\ell\equiv K$ 的
+同一网格情形，此时 \eqref{eq:windowcondmix} 退化为 \eqref{eq:windowcond}。
+\end{remark}
+
+\begin{corollary}[量化后的界与非平凡性条件]
+\label{cor:window}
+在上述量化下（$N$ 由 \eqref{eq:Ndef} 定义，$N\ge2$，$K\ge2$），
+\begin{enumerate}[label=(\arabic*)]
+\item 熵项至多按 $\log N$ 增长：$H(X_i)\le\log N$，从而
+\[
+B_\ell
+\le
+\rho_\ell\log N,
+\qquad
+\rho_\ell:=\sum_{i\in\Pset_\ell}(\phi_{\ell i}-1)\ \ge 0 .
+\]
+由 \eqref{eq:Ndef}，$\varepsilon\downarrow0$ 时 $N\uparrow\infty$，故该
+\emph{上界}发散。发散的不是 $B_\ell$ 本身：$\log N$ 只是有限状态熵的最坏
+情形上界，$\varepsilon\to0$ 只说明该上界失去内容。对本身离散或退化的上游
+分布，实际量化熵可以保持有界（极端情形下 $X_i$ 只取有限多个值，熵与
+$\varepsilon$ 无关）；对具有足够正则密度的连续变量，实际量化熵通常也按
+$\log(1/\varepsilon)$ 增长，此时上界的定性结论才反映真实行为。
+\item 收缩因子由父状态集合的 $\ell_\infty$ 直径控制，而该直径由量化\emph{范围}
+而非间距决定：$\Delta_a\le 2\Rq $，故
+\[
+\delta^\star_\ell\le\max_a\omega_{D_a}(2\Rq ),
+\]
+与 $\varepsilon$ 无关。
+\end{enumerate}
+因此单层界的乘积形式给出
+\begin{equation}
+\label{eq:windowrec}
+\TCs_\ell
+\;\le\;
+\delta^\star_\ell\bigl(\TCs_{\ell-1}+\rho_\ell\log N\bigr),
+\qquad
+\delta^\star_\ell\le\max_a\omega_{D_a}(2\Rq ).
+\end{equation}
+该界非平凡（即 \eqref{eq:windowrec} 右侧\emph{严格}小于平凡上界
+$(K-1)\log N$，见下面证明第 (3) 步）的充分必要条件是
+\begin{equation}
+\label{eq:windowcond}
+\delta^\star_\ell\Bigl(\frac{\TCs_{\ell-1}}{\log N}+\rho_\ell\Bigr)
+\;<\;K-1 .
+\end{equation}
+分两种情形读 \eqref{eq:windowcond}：
+\begin{itemize}
+\item 若 $\TCs_{\ell-1}/\log N+\rho_\ell>0$，则 \eqref{eq:windowcond} 等价于
+\begin{equation}
+\label{eq:windowcond2}
+\delta^\star_\ell
+\;<\;
+\frac{K-1}{\,\TCs_{\ell-1}/\log N+\rho_\ell\,} ;
+\end{equation}
+一个只用 $\delta^\star_\ell$ 上界即可核验的充分条件是把左端换成
+$\max_a\omega_{D_a}(2\Rq )$。
+\item 退化情形 $\TCs_{\ell-1}/\log N+\rho_\ell=0$（等价于 $\TCs_{\ell-1}=0$
+且 $\rho_\ell=0$，即上一层已无依赖且本层无 fan-out 复制）：此时
+\eqref{eq:windowcond} 的左端为 $0<K-1$ 自动成立（$K\ge2$），不需对
+$\delta^\star_\ell$ 作任何限制；事实上 \eqref{eq:windowrec} 直接给出
+$\TCs_\ell\le0$，即输出各坐标独立。
+\end{itemize}
+上述推导中每一步都是精确不等式变形，不涉及 $O(1)$ 项或“同阶”替换：
+除以 $\log N>0$ 是等价变形，这正是要求 $N\ge2$ 的原因；
+要求 $K\ge2$ 则是因为 $K=1$ 时平凡上界本身为 $0$，任何界都不可能严格更小。
+特别地，当 fan-out 总量 $\rho_\ell$ 与输出数 $K$ 同阶时，
+\eqref{eq:windowcond2} 退化为要求
+$\delta^\star_\ell$ 一致小于某个与 $\varepsilon$ 无关的常数。
+最后强调 \eqref{eq:windowcond} 是把 $B_\ell$ 换成其最坏情形上界
+$\rho_\ell\log N$ 之后得到的：若实际量化熵远小于 $\log N$，则该条件不满足时
+界仍可能非平凡。
+\end{corollary}
+
+\begin{proof}
+(1) 有限状态熵不超过 $\log$（状态数）。(2) 定理 \ref{thm:localch} 中的
+$\delta_a\le\omega_{D_a}(\Delta_a)$ 只用到父状态集合的 $\ell_\infty$ 直径；
+由 \eqref{eq:gridset}，量化网格的直径至多为 $2\Rq $（与间距 $\varepsilon$ 无关），
+而 $\omega_{D_a}$ 非降，故 $\delta_a\le\omega_{D_a}(2\Rq )$。把两者代入推论
+\ref{cor:multilayer} 的单层递推式即得。
+
+(3) 平凡上界：第 $\ell$ 层的 $K$ 个输出坐标各取至多 $N$ 个值，故
+\[
+\TCs_\ell
+=\sum_{a=1}^{K}H(X^{(\ell)}_a)-H(X^{(\ell)})
+\le
+\sum_{a=1}^{K}H(X^{(\ell)}_a)-\max_{a}H(X^{(\ell)}_a)
+\le
+(K-1)\log N,
+\]
+其中用到 $H(X^{(\ell)})\ge\max_aH(X^{(\ell)}_a)$（离散熵在增加坐标时不减）。
+这比 $K\log N$ 紧一个 $\log N$，且在 $K=1$ 时给出正确的 $\TCs_\ell=0$
+（这也是非平凡性讨论要求 $K\ge2$ 的原因）。
+把 \eqref{eq:windowrec} 的右端与 $(K-1)\log N$ 比较、两边同除
+$\log N>0$（由 $N\ge2$），即得 \eqref{eq:windowcond}；这是等价变形，故
+\eqref{eq:windowcond} 既充分又必要。
+\end{proof}
+
+\begin{remark}[两个方向相反的推动力]
+\label{rem:windowtension}
+推论 \ref{cor:window} 说明：细化网格（$\varepsilon\downarrow$）会放大目前
+可得的最坏情形 entropy 上界 $\log N$，却完全\emph{不}改善
+$\delta^\star_\ell$；反过来，
+缩小量化范围 $\Rq$ 能改善 $\delta^\star_\ell$，但会加重
+\eqref{eq:quantizer} 的饱和：落在 $[-\Rq,\Rq]$ 之外的质量被压到两个端点
+格点上，量化后的过程与原连续过程的偏差随之增大（有限状态结论本身仍然成立，
+因为 $q_{\Rq,\varepsilon}$ 处处有定义，但它描述的已经是一个被显著截断的
+代理过程）。需要强调这里的张力发生在\emph{界}的层面：
+没有额外分布假设时，不能由 $\log N\uparrow$ 推出实际 $B_\ell$ 必然增大或
+发散；对具有足够正则密度的连续变量，实际量化熵通常也按 $\log(1/\varepsilon)$
+增长，此时张力才是实质的。因此该有限状态界的正确用法是：先由问题
+本身确定一个物理合理的取值范围 $\Rq$（例如高概率截断区间），检验
+$\max_a\omega_{D_a}(2\Rq )$ 是否满足上述条件，再选取满足计算预算的
+$\varepsilon$。把 $\varepsilon\to0$ 当作“逼近连续极限”会使界发散，得不到
+连续版本的结论。
+
+这也解释了为什么本文把连续 pair 界（定理 \ref{thm:pair}）与有限状态整层界
+（定理 \ref{thm:fanout}）分开陈述：前者不经过量化，因而不受本小节的
+张力影响。
+\end{remark}
+
+\subsection{与 tree projection 的连接：经典恒等式和新预算的组合}
+\label{sec:treeproj}
+
+本小节的对象是\emph{概率质量函数}，不是 CDF 数值表。沿用 \S\ref{sec:window}
+的量化器 \eqref{eq:quantizer}，令
+\begin{equation}
+\label{eq:Rpmf}
+R(y):=\Prob\bigl[q_{\Rq,\varepsilon}(Y)=y\bigr],
+\qquad
+y\in(\mathcal Y^{\mathrm{q}})^{K},
+\end{equation}
+即量化后输出向量的 PMF；它非负且 $\sum_yR(y)=1$（因为
+$q_{\Rq,\varepsilon}$ 处处有定义且取值于 $\mathcal Y^{\mathrm{q}}$）。本节
+出现的 $\TC_R$、$I_R$、$D_{\KL}$ 全部按这个 PMF 计算。这一点必须显式说明：
+本文前面各节计算的数值对象是网格上的联合 CDF 表 $\widehat F_M$、
+$\widehat F_Y$，而 entropy、mutual information 与 KL projection 需要的是归一
+化非负的 PMF，直接把 CDF 表当成 PMF 会得到错误的熵与 KL。若实现从 CDF 表
+出发，则相应的 PMF 应由网格 cell 上的\emph{混合有限差分}得到。这里必须把两个
+对象分开：由\emph{真实}联合 CDF $F_Y$ 差分得到的是精确 PMF \eqref{eq:Rpmf}，
+由\emph{数值} CDF 表 $\widehat F_Y$ 差分得到的只是它的一个数值近似。对
+$y=(y_1,\ldots,y_K)$，前者为
+\begin{equation}
+\label{eq:pmfdiff}
+R(y)
+=
+\sum_{\sigma\in\{0,1\}^{K}}(-1)^{K-|\sigma|}
+F_Y\bigl(y_1-(1-\sigma_1)\varepsilon,\ldots,
+y_K-(1-\sigma_K)\varepsilon\bigr),
+\end{equation}
+后者为
+\begin{equation}
+\label{eq:pmfdiffhat}
+\widehat R(y)
+:=
+\sum_{\sigma\in\{0,1\}^{K}}(-1)^{K-|\sigma|}
+\widehat F_Y\bigl(y_1-(1-\sigma_1)\varepsilon,\ldots,
+y_K-(1-\sigma_K)\varepsilon\bigr).
+\end{equation}
+\eqref{eq:pmfdiff} 是一条恒等式（下段给出证明），而 \eqref{eq:pmfdiffhat} 只是
+一个定义：除非 $\widehat F_Y=F_Y$，一般 $\widehat R\ne R$，二者的差距见注
+\ref{rem:pmfstab}。两式中最外侧 cell 按 \eqref{eq:quantizer} 的饱和规则读取：
+最小格点
+$y_a=y_{\min}$ 处的那一维取整条左尾（把 $y_a-\varepsilon$ 读作 $-\infty$、
+相应 CDF 值读作 $0$），最大格点 $y_a=y_{\max}$ 处的那一维取整条右尾（把该
+维阈值读作 $+\infty$、相应 CDF 值读作对其余坐标的边缘）。
+
+\eqref{eq:pmfdiff} 与 \eqref{eq:quantizer} 是\emph{逐点相容}的，而不是仅在
+无原子时近似相容：由 \eqref{eq:qcells}，量化器把第 $a$ 维的取值 cell 取成
+左开右闭区间 $(y_a-\varepsilon,\,y_a]$（最外两个 cell 分别延伸到
+$-\infty$ 与 $+\infty$），故
+\[
+\{q_{\Rq,\varepsilon}(Y)=y\}
+=\Bigl\{Y\in\prod_{a=1}^{K}(y_a-\varepsilon,\,y_a]\Bigr\}
+\]
+（同样按上述尾部约定理解最外侧 cell），其概率恰为矩形上的容斥式
+\eqref{eq:pmfdiff}。这里全部阈值 $y_a-\varepsilon,y_a$ 都是网格点
+\eqref{eq:gridset} 本身，因此不需要在格点之外补算 CDF；又因为 cell 右端闭、
+左端开，$F_Y(u)=\Prob[Y\le u]$ 的右连续版本直接给出所需概率，即使 $Y$ 在格点
+上带原子也不需要左极限。若改用“取最近格点”的量化器，cell 端点变为中点
+$(y_{a}-\varepsilon/2,\,y_a+\varepsilon/2)$，两条性质都会失效——这正是本文在
+\eqref{eq:quantizer} 中选择上取整的原因。
+
+这里需要把两件性质分开。\emph{总质量自动成立}：在上述 $-\infty/+\infty$ 尾部
+约定下，把 \eqref{eq:pmfdiffhat} 对全部 $N^{K}$ 个格点求和时，每一维的差分依次
+telescoping，含 $-\infty$ 的下边界项取 $0$、含 $+\infty$ 的上边界项取相应边缘，
+故
+\[
+\sum_{y\in(\mathcal Y^{\mathrm q})^{K}}\widehat R(y)
+=\widehat F_Y(+\infty,\ldots,+\infty)=1 ,
+\]
+且该恒等式\emph{不}要求 $\widehat F_Y$ 是 $K$-增函数，也不要求它在网格内部数值
+准确——它只要求实现严格采用了上述边界约定。\emph{非负性则可能失败}：数值 CDF
+表未必是合法的 $K$-增函数（假设 \ref{ass:clip} 下的截断、求积与 clipping 都不
+保证这一点），因此 \eqref{eq:pmfdiffhat} 得到的 $\widehat R$ 可能出现负 cell，
+仍然不是合法 PMF。于是实现中的检验应这样理解：非负性是\emph{实质}条件，必须
+显式检验，否则以 $\widehat R$ 代入本小节的信息量根本没有定义；而求和是否为 $1$
+只用来检查实现是否真的遵守了尾部约定以及浮点舍入的累积量级，若它显著偏离 $1$，
+说明顶角未按 $\widehat F_Y(+\infty,\ldots,+\infty)=1$ 读取，而不是公式本身不
+归一。
+
+\begin{remark}[数值差分的误差放大：本小节预算的适用边界]
+\label{rem:pmfstab}
+必须强调，本小节的 tree budget（命题 \ref{prop:treebudget} 及其推论）的理论
+对象是\emph{精确}量化 PMF \eqref{eq:Rpmf}（等价地 \eqref{eq:pmfdiff}），而不是
+由数值 CDF 表差分得到的 $\widehat R$（式 \eqref{eq:pmfdiffhat}）。二者的差距不
+由前文的 CDF 误差预算自动控制：把 \eqref{eq:pmfdiffhat} 与 \eqref{eq:pmfdiff}
+逐项相减，$2^{K}$ 个符号项给出的直接界只是
+\[
+\bigl|\widehat R(y)-R(y)\bigr|
+\;\le\;2^{K}\,\bigl\|\widehat F_Y-F_Y\bigr\|_\infty ,
+\]
+把它对全部 $N^{K}$ 个格点求和以估计
+$\|\widehat R-R\|_{1}$ 时还要再乘以 cell 数目。因此
+$\|\widehat F_Y-F_Y\|_\infty$ 的小并不蕴含 $\widehat R$ 的 entropy、mutual
+information 或 KL 与 $R$ 的相应量接近，而且熵与 KL 在 $\ell_1$ 下的稳定性也
+不是同一件事：
+\begin{itemize}
+\item 有限字母表上的熵有 Fannes--Audenaert 型一致连续性估计，它由
+$\|\widehat R-R\|_1$（连同字母表大小 $N^{K}$）控制 $|H(\widehat R)-H(R)|$；
+mutual information 与 total correlation 是有限多个熵的线性组合，因而同样可控。
+但使用该估计有一个前提：$H(\widehat R)$ 只有在 $\widehat R$ 已经通过非负性检验
+（从而是合法 PMF）时才有定义。若 $\widehat R$ 含负 cell，应先按下文的方式得到
+合法化的 $\widehat R^{+}$，把连续性估计用于 $|H(\widehat R^{+})-H(R)|$，并把
+合法化本身引入的偏差 $\|\widehat R^{+}-\widehat R\|_1$ 一并计入误差。
+\item KL 则\emph{没有}这种由 $\ell_1$ 小推出的上界。Pinsker/Csisz\'ar--Kullback
+不等式 $\KL(P\|Q)\ge2\|P-Q\|_{\TV}^{2}$ 的方向恰好相反——它由 KL 小推出 TV 小，
+不能反用。事实上取 $P_\delta=(\delta,1-\delta)$、$Q=(0,1)$ 有
+$\|P_\delta-Q\|_{\TV}=\delta\to0$ 而 $\KL(P_\delta\|Q)=+\infty$。要得到 KL 的
+上连续性，必须另加共同支撑、参考分布的正下界或似然比一致有界之类的条件。
+\end{itemize}
+要把定理 \ref{thm:fullbudget} 的闭合 CDF 预算真正接到本小节的信息量上，必须
+另行给出（i）从 CDF sup 误差到 PMF $\ell_1$ 误差的、与 $N^{K}$ 相容的稳定性
+论证，或（ii）一个受控的合法化投影：先把可能带负值的 $\widehat R$ 化为一个
+合法 PMF——注意此时不能直接谈“KL 最近点投影”，因为 $\KL$ 对含负分量的
+signed array 未定义；可行的做法是在 $\ell_1$ 或 Euclidean（欧氏）距离下投影到
+概率单纯形
+（或取正部后归一化），得到非负的 $\widehat R^{+}$ 之后，才可以再讨论以
+$\widehat R^{+}$ 为参考的 KL 投影及其方向与支撑约束——并对合法化引入的额外
+$\ell_1$ 偏差给出显式界。仅检验非负性（连同尾部约定与求和的舍入量级）只保证
+信息量\emph{有定义}，不给出任何误差上界。本文不声称已完成 (i) 或 (ii)；本小节的
+所有结论都在精确 $R$ 上陈述。
+\end{remark}
+
+设 $T_Y$ 是\emph{下游输出坐标}
+$\{1,\ldots,K\}$ 上的一棵连通树（例如由 Chow--Liu 从数据估计得到），它与
+承载上游 TTNS 的树 $T$ 一般不是同一个对象，本节全程用 $T_Y$ 以避免混淆。
+把 $T_Y$ 任意定向为以某个 $\mathrm{r}\in\{1,\ldots,K\}$ 为根的有根树，
+记 $\pa(v)$ 为 $v$ 在该定向下的父节点。定义按 $T_Y$ 分解的分布族为
+\begin{equation}
+\label{eq:treefamily}
+\calT(T_Y)
+:=
+\Bigl\{
+Q:\;
+Q(y)=Q_{\mathrm r}(y_{\mathrm r})
+\prod_{v\ne \mathrm r}
+Q_{v\mid\pa(v)}\bigl(y_v\mid y_{\pa(v)}\bigr)
+\Bigr\},
+\end{equation}
+其中 $Q_{\mathrm r}$ 是 $\mathcal Y^{\mathrm{q}}$ 上的任一 PMF，
+$Q_{v\mid\pa(v)}(\cdot\mid u)$ 是对每个 $u\in\mathcal Y^{\mathrm{q}}$ 给定的
+一个 PMF。这里刻意采用\emph{有根条件分解}而不是对称形式
+$\prod_aQ_a(y_a)\prod_{(a,b)\in E(T_Y)}Q_{ab}(y_a,y_b)/(Q_a(y_a)Q_b(y_b))$：
+后者在 $Q_a(y_a)=0$ 的状态上出现 $0/0$，因而在含零概率状态的有限字母表上
+\emph{没有定义}（例如 $K=2$、全部质量集中在 $(0,0)$ 时，状态 $(1,1)$ 处即为
+$0/0$），而离散化后出现零 cell 是常态，不能靠附加“严格正”假设排除。
+\eqref{eq:treefamily} 处处有定义：当 $Q_{\pa(v)}(u)=0$ 时该父状态不可达，
+$Q_{v\mid\pa(v)}(\cdot\mid u)$ 可任意指定而不改变联合分布 $Q$，因而
+$\calT(T_Y)$ 作为分布集合是良定义的；在 $Q$ 严格正时
+\eqref{eq:treefamily} 与上述对称形式逐点相等，故经典 Chow--Liu 结论不受
+影响。约定 $K=1$ 时 $E(T_Y)=\varnothing$、$\calT(T_Y)$ 为全体 PMF。
+
+用 $R$ 的真实节点
+marginals 和 tree-edge marginals 构造的 tree projection 记为
+$R^{T_Y}\in\calT(T_Y)$，即取
+$R^{T_Y}_{\mathrm r}=R_{\mathrm r}$、
+$R^{T_Y}_{v\mid\pa(v)}(\cdot\mid u)=R_{v\mid\pa(v)}(\cdot\mid u)$
+（在 $R_{\pa(v)}(u)=0$ 的不可达父状态上任意取一个 PMF）；它同时是 $R$ 在
+$\calT(T_Y)$ 上的 KL projection
+\cite{ChowLiu1968}。经典 Chow--Liu 恒等式为 \cite{ChowLiu1968}
+\[
+D_{\KL}(R\|R^{T_Y})
+=
+\TC_R(Y_1,\ldots,Y_K)
+-
+\sum_{(a,b)\in E(T_Y)}I_R(Y_a;Y_b).
+\]
+它本身不是本文原创。
+
+对每条候选 tree edge 定义有限状态父信息预算
+\[
+\mathcal B_{ab}
+=
+\beta_{ab}
+\left[
+H(C_{ab})
++
+I(A_{ab};B_{ab}\mid C_{ab})
+\right].
+\]
+
+\begin{proposition}[tree 结构损失的预算区间]
+\label{prop:treebudget}
+在上述条件下，
+\[
+\begin{aligned}
+\max\left\{
+0,\,
+\TC_R(Y)-\sum_{(a,b)\in E(T_Y)}\mathcal B_{ab}
+\right\}
+&\le
+D_{\KL}(R\|R^{T_Y})\\
+&\le
+\TC_R(Y)\\
+&\le
+\delta^\star
+\left[
+\TC(X_{\Pset})+\sum_{i\in\Pset}(\phi_i-1)H(X_i)
+\right].
+\end{aligned}
+\]
+\end{proposition}
+
+\begin{proof}
+pair 信息预算给出
+$I_R(Y_a;Y_b)\le\mathcal B_{ab}$。把它代入 Chow--Liu 恒等式，并使用
+KL 非负性，得到第一行。第二行来自 tree-edge mutual information 非负；
+第三行是 fan-out 信息预算定理 \ref{thm:fanout}。
+\end{proof}
+
+\section{相关工作}
+\label{sec:related}
+
+本节给出定位而非完整综述。以下条目按来源分别核对：\emph{期刊与会议条目}
+的作者、卷期页码与 DOI 按 Crossref 记录核对；\emph{预印本条目}
+（\cite{Ando2019,Ando2026,Mishagli2024,Yuan2026}）
+按 arXiv 原始记录核对，其 DOI 由 DataCite 而非 Crossref 注册。
+\cite{RoaVillescas2024} 与 \cite{Peng2023} 均已正式发表于
+\emph{Physical Review Research}（以正式版为准，同时保留 arXiv 号）；\cite{Dmitriev2026} 已被 COLT 2026
+接收，正文按接收状态引用，会议论文集页码待出版后补。正式投稿时仍需
+按目标期刊的引用格式重排，核对其余预印本是否已有正式出版版本，并核对是否有
+更新的版本或勘误。
+
+\subsection{max-plus 系统与随机最长路}
+
+max-plus 代数与 $(\max,+)$ 线性系统的系统性处理见 Baccelli、Cohen、
+Olsder 与 Quadrat 的专著 \cite{Baccelli1992}。本文的层间映射
+$Y_a=\max_{k\in P_a}(X_k+E_{ka})+D_a$ 正是随机 $(\max,+)$ 递推的单层形式，
+区别在于：该专著关注 Lyapunov 指数与遍历性等长时行为，本文关注固定层数
+下\emph{联合分布}的可计算表示与误差。
+
+随机最长路分布的近似有很长的历史。Clark \cite{Clark1961} 给出相关正态
+变量最大值的矩公式，是后续 statistical static timing analysis（SSTA）中
+矩传播方法的源头；Blaauw 等的综述 \cite{Blaauw2008} 总结了 EDA 领域从
+矩传播到 canonical form 的工程做法。Mishagli、Koskin 与 Blokhina
+\cite{Mishagli2024} 在 gate-level SSTA 中给出了 block-based 传播的\emph{精确}
+解析解：其设定是相关高斯 arrival signals 经过一个 gate，gate delay 单独给定，
+所得的 gate 输出（$\max$ 之后再加 delay）分布被精确地写成非高斯形式，并用
+高斯梳（Gaussian comb）分解把该非高斯分布重新表示为若干高斯分量之和，
+以便继续向下一级传播。这说明“在 max-plus/SSTA 中精确传播
+非高斯分布”本身已有直接相关工作，本文不主张这一点为新。两者的区别在于：
+\cite{Mishagli2024} 的上游是逐 gate 给定的相关高斯 arrival signals（低维
+参数化），传播沿电路图逐级
+进行；本文的上游是一个\emph{给定的 TTNS 张量表示}，并且输出是含共享父的
+多维 joint CDF，其计算代价由联合结构图的树宽给出条件性上界。
+
+Hagstrom \cite{Hagstrom1988} 证明了
+PERT 网络完工时间分布的精确计算在计算上是难的，这是注
+\ref{rem:twhard} 中不平凡性讨论的依据。\textbf{树宽已被用于随机最长路分布，
+本文不主张这一点为新。}Ando \cite{Ando2019} 已经研究常数树宽 DAG 上随机
+边长的最长路长度\emph{分布函数}：该文给出一个确定性 FPTAS（在树宽
+$\le k$ 为常数时以
+$O\!\bigl(k^2n(16(k+1)mn^2/\epsilon)^{4k^2+6k+2}\bigr)$ 计算
+$\Pr[X_{\max}\le x]$ 的 $\epsilon$-近似）、一个至多 $n-1$ 重的重复定积分表示，
+以及在 edge 长度服从 i.i.d.\ 标准指数分布时的
+$((4k+2)mn)^{O(k)}$ \emph{精确}算法。与本文的区别是：
+\cite{Ando2019} 的对象是单个标量 $s$--$t$ 最长路长度的一维分布函数，参数图
+是问题图本身，随机性只来自 edge 长度；本文的对象是一层的\emph{多维联合}
+CDF（含 node delay 与共享父引起的输出间相关），参数图是把 TTNS 树、
+fan-in/fan-out 与输出集合合成的联合结构图 $\Gcal_S/\Gcal_S^{+}$，上游随机性
+由一个给定的 TTNS 张量表示携带。
+
+与本文时间上最接近的工作是 Ando
+\cite{Ando2026}：它把 \#P-难性从离散 edge 长度推广到 i.i.d.\ 连续 edge
+长度，并给出以底层无向图树宽 $k$ 为参数的 $O(n^{2k^2+2k+2})$ 算法。该结果
+与本文定理 \ref{thm:tw} 的对象、随机性来源、参数图与指数形式均不相同，
+详细对比见注 \ref{rem:ando}；它是本文非平凡性的背景，而非本文结论的特例。
+与整条 SSTA 路线相比，本文不做矩近似，而在 CDF 域给出精确恒等式
+（定理 \ref{thm:exact}），并把可计算性归结为单一结构参数
+（定理 \ref{thm:tw}）。
+
+\subsection{张量网络密度表示}
+
+TT 分解与其现代形式见 Oseledets \cite{Oseledets2011}；把张量列车用于密度
+估计的代表工作是 TTDE \cite{Novikov2021}。张量网络与概率图模型的结构对应
+（含非负分解与 treewidth 的关系）见 Robeva 与 Seigal
+\cite{RobevaSeigal2019}；基于张量列车的高维分布逼近与采样见 Dolgov、
+Anaya-Izquierdo、Fox 与 Scheichl \cite{Dolgov2020}。Roa-Villescas 等
+\cite{RoaVillescas2024} 给出了以张量网络收缩统一处理概率图模型推断
+（配分函数、边缘分布、MAP）并结合可微编程的一般框架，说明
+“用张量网络收缩做概率推断、边缘化与复杂度分析”已是成熟框架，本文不主张
+这一点为新。本文与这一路线的关系
+是：把 TTNS 作为\emph{给定}的上游表示，研究它经过 max-plus 层之后的像如何
+精确刻画与近似——被收缩的因子中含有由 $\max$ 运算与 node delay 生成的
+edge-CDF 因子
+$\Phi_{ka}(\xi_k,\upsilon_a)=F_{ka}\bigl(y^{(a)}_{\upsilon_a}-x^{(k)}_{\xi_k}\bigr)$。
+标准 PGM$\to$TN 字典允许一般的局部因子，因而完全\emph{能够}容纳这类二元
+因子；本文的工作不是扩展该字典的表达能力，而是从共享父的 max-plus 事件中
+系统地推导出这些 edge-CDF 因子，并分析由此得到的特定联合结构图。定理
+\ref{thm:tw} 使用的 sum-product 与 treewidth 论证本身是这一领域的标准工具。
+
+与本文更近的一条线是把\emph{多元函数的局部因子结构}直接编译成张量网络、
+再据此分析高维积分复杂度。Peng、Gray 与 Chan \cite{Peng2023} 把多变量函数的
+arithmetic circuit 映射为张量网络，并按 circuit 结构给出高维积分的收缩代价
+分析。本文 \S\ref{sec:tw} 的联合结构图属于同类思路：局部因子（这里是
+edge-CDF 因子 $\Phi_{ka}$）决定图，图的 treewidth 决定收缩代价。区别在于
+本文的因子不是给定 circuit 的算术门，而是由共享父的 max-plus 事件
+$\{Y_a\le y_a\}$ 推导出来的，且上游被限定为一个给定的 TTNS 密度；该文不含
+本文的共享父 stochastic max-plus joint-CDF 定理。
+
+还需要区分两种同名的“max-plus”。\cite{RoaVillescas2024} 等工作中的
+tropical / max-plus 张量网络指的是把张量元素取在 $(\max,+)$ 半环上、用
+半环收缩求解 MPE/MAP 一类\emph{优化}问题：那里 $\max$ 出现在\emph{收缩算子}
+里。本文的 max-plus 是\emph{随机动力学} \eqref{eq:maxplus}
+$Y_a=\max_{k\in P_a}(X_k+E_{ka})+D_a$：$\max$ 出现在被建模的随机变量里，
+而一旦把事件 $\{Y_a\le y_a\}$ 转写成 edge-CDF 因子的乘积
+（定理 \ref{thm:exact}），实际执行的收缩就是普通的 sum-product 积分，半环
+仍是 $(+,\times)$。二者名称相似但数学角色不同，本文并不是把张量网络的半环
+换成 max-plus。
+
+\subsection{信息收缩与强数据处理不等式}
+
+Dobrushin 系数与 KL contraction 的经典关系见 Cohen 等
+\cite{Cohen1993}；带输入约束的强数据处理不等式（SDPI）与
+$F_I$ 曲线见 Polyanskiy 与 Wu \cite{PolyanskiyWu2016,PolyanskiyWu2017} 以及
+Calmon、Polyanskiy 与 Wu \cite{Calmon2018}。引理 \ref{lem:tcsdpi} 依赖的
+唯一外部结果是固定输入 contraction coefficient 的互信息刻画
+\cite[Theorem 4]{PolyanskiyWu2017}（其 input-independent 版本为该文
+eq.~(17)，有限字母表情形见 \cite[Exercise III.3.12]{CsiszarKorner1981}）。
+本文\emph{不}使用乘积信道的 input-independent 系数张量化；该等式一般不成立，
+反例与失效机理见注 \ref{rem:notensorize}，其中也说明为何经
+$\eta_{\KL}=\eta_{\chi^2}$ \cite[Theorem 3]{PolyanskiyWu2017} 与最大相关张量化
+\cite[Theorem 1]{Witsenhausen1975} 的路线不能用于此处。噪声计算电路中的信息衰减
+（Evans 与 Schulman \cite{EvansSchulman1999}）给出了“每层收缩、多层累计”
+这一论证模式的早期范例，本文推论 \ref{cor:multilayer} 属于同一模式在
+max-plus 层上的实例。SDPI 与 $\Phi$-Sobolev 不等式的系统处理见 Raginsky
+\cite{Raginsky2016}。total correlation 的定义与基本性质见 Watanabe
+\cite{Watanabe1960}，tree 逼近的 KL 恒等式见 Chow 与 Liu
+\cite{ChowLiu1968}。
+
+\textbf{“total correlation $+$ 逐维 SDPI”这一组合本身不是本文首创。}
+Yuan、Jeong 与 Aghazadeh \cite{Yuan2026} 在离散扩散模型的误差分析中，
+已经把乘积转移核 $q_{t\mid s}^{\otimes D}$ 与 source-dependent KL
+contraction coefficient $\eta_{\KL}(p_s,q_{t\mid s})$ 用于逐维 KL 误差
+传播（其 Theorem 3.1 给出 masking/uniform 两类前向过程的收缩系数），
+并在附录的多维推广中引入 total-correlation 型修正项以刻画“各维近似独立时
+误差收缩最有效”这一现象；其 SDPI 依据同样是 Raginsky \cite{Raginsky2016}。
+Dmitriev、Huang 与 Wei \cite{Dmitriev2026} 则在离散扩散的 $\tau$-leaping
+采样复杂度分析中引入 \emph{effective total correlation}，并证明该量控制
+masking 扩散的收敛速率（可远小于平凡界 $d\log S$）。二者都表明
+“total correlation 这一泛函 $+$ 逐维收缩系数”的组合在别处已被使用。
+本文与 \cite{Yuan2026} 的具体区别有三点：
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{是否存在复制结构}。\cite{Yuan2026} 的乘积转移把 $D$ 个维度
+\emph{一一对应}地映射，输入维与输出维之间没有 fan-out；本文的 max-plus 层
+允许同一个父块 $X_i$ 被 $\phi_i$ 个不同的下游节点同时读取，正是这一复制
+结构产生了定理 \ref{thm:fanout} 中的注入项
+$\sum_i(\phi_i-1)H(X_i)$——该项在无复制时为零，因而在 \cite{Yuan2026}
+的设定下不出现。
+\item \textbf{局部信道的来源}。\cite{Yuan2026} 的局部信道是扩散过程的
+逐维转移核；本文的局部信道是 $Y_a=\max_{k\in P_a}(X_k+E_{ka})+D_a$，其
+contraction 系数由 max 映射的 $\ell_\infty$ 非扩张性与 node-delay 分布的
+平移 TV 模量显式给出（定理 \ref{thm:localch}），是一个可由建模量直接
+计算的界，而非抽象假设。
+\item \textbf{结论用途}。\cite{Yuan2026} 用于解释随机性的纠错效应；本文用于
+给出层间依赖的预算与多层非零上界残余项（推论 \ref{cor:multilayer}），并进一步
+接到 Chow--Liu 恒等式上界定 tree projection 的结构损失。
+\end{enumerate}
+因此本文可主张的是 (i)--(iii) 这一具体组合在 max-plus fan-out 场景下的量化，
+而不是“total correlation 经局部信道收缩”这一一般思路。需要说明的是：
+\cite{Yuan2026,Dmitriev2026} 都没有证明本文引理 \ref{lem:tcsdpi} 形式的
+不等式 $\TC(Y)\le(\max_a\eta_a)\TC(U)$；把该结论归给它们同样是不准确的。
+准确的表述只是：total-correlation 型修正项与逐维 SDPI 已被用于乘积转移的
+多维 KL 误差分析与采样复杂度分析。
+
+\subsection{本文的定位}
+\label{sec:positioning}
+
+上述四条线索中，$(\max,+)$ 递推、张量网络收缩、SDPI 与 Chow--Liu 恒等式
+都是成熟工具，本文不主张其中任何一件为新结果。可以合理主张的\emph{只有}
+它们在本设定下的具体组合与量化，即下面四条：
+\begin{enumerate}[label=(\arabic*)]
+\item 在\emph{给定}的 TTNS 表示下，构造含共享父节点的多输出 max-plus 层的
+精确 joint-CDF 收缩表示（定理 \ref{thm:exact}），以及 node-delay 的张量积
+分解（命题 \ref{prop:tensorconv}）；
+\item 把局部投影误差、TTNS sensitivity、node-delay 求积、输出网格插值与
+边界钳制组织成一个闭合的单层误差预算（定理 \ref{thm:fullbudget}），并给出
+该预算在固定网格点数下的显式正下界（命题 \ref{prop:gridfloor}）；
+\item 构造为本文 TTNS max-plus 设定定义的联合结构图 $\Gcal_S/\Gcal_S^{+}$（定义
+\ref{def:joint}），使 TTNS 树结构、fan-in/fan-out 与输出集合 $S$ 共同以单一
+参数进入复杂度结论（定理 \ref{thm:tw}）：树宽给出一个条件性的收缩复杂度
+上界，并可同时恢复与完整输出规模一致的下界（注 \ref{rem:twtight}）；
+\item 在 max-plus fan-out 场景中，把固定输入 SDPI 与父块复制结构结合，得到
+具体的信息预算（定理 \ref{thm:fanout}）与多层非零上界残余项（推论
+\ref{cor:multilayer}），并显式界定其有限状态版本的非平凡量化窗口
+（推论 \ref{cor:window}）。
+\end{enumerate}
+
+\textbf{本文明确不主张为原创的内容。}为避免误读，以下各项均为已有结果或
+标准工具，本文只是使用它们：Fubini 定理与独立分量的卷积表示；
+张量网络收缩代价受 treewidth 控制（\cite{RobevaSeigal2019,RoaVillescas2024}）；
+树宽可用于随机最长路的\emph{分布}计算（\cite{Ando2019,Ando2026}）；
+Dobrushin 系数、数据处理不等式、强数据处理不等式与 total correlation 的
+链式法则（\cite{Cohen1993,PolyanskiyWu2016,PolyanskiyWu2017,Raginsky2016,Watanabe1960}）；
+Chow--Liu 恒等式（\cite{ChowLiu1968}）；
+以及 source-dependent KL contraction coefficient 与 total-correlation 型
+修正项在乘积转移多维误差分析中的使用
+（\cite{Yuan2026,Dmitriev2026}）；在 max-plus/SSTA 中精确传播非高斯分布
+（\cite{Mishagli2024}）。
+
+本文不使用“首次”“首个”“此前无人提出”或等价措辞。若在后续版本中使用
+``to the best of our knowledge''，必须紧跟上面 (1)--(4) 中某一条被精确限定的
+对象（例如“据我们所知，尚无工作把 TTNS 树结构、fan-out 与输出集合合成
+单一联合结构图并以其树宽给出多输出 max-plus 层 joint CDF 计算代价的条件性
+上界”），
+而不能用于本小节列出的任何一般性工具。
+
+\section{适用范围与局限}
+\label{sec:limits}
+
+\subsection{本文结论的适用范围}
+
+四条定理共同支持以下层间传播主张。
+
+\begin{itemize}
+\item 若上游层已经由 TTNS 表示，则 max-plus 层的 joint CDF 有精确收缩公式
+（定理 \ref{thm:exact}）；共享父节点不破坏局部一维投影，共享依赖保留在同一
+个局部积分变量中。
+\item 当 node delay 各分量独立时，外层期望是逐轴卷积算子的张量积
+（命题 \ref{prop:tensorconv}）。该分解带来的节省有一个必须保留的限定：
+在\emph{已持有}完整的 $G^K$ 中间数组 $\widehat F_M$、且每轴用 $n_D$ 个求积点
+的前提下，\emph{额外}的逐轴卷积代价为 $O(K n_D G^K)$ 而非 $O(n_D^K G^K)$，
+即对 $K$ 为线性而非指数。这不等于整个 joint CDF 的计算对 $K$ 是线性的——
+完整输出数组本身仍有 $G^K$ 个元素，其代价由定理 \ref{thm:tw} 支配。若只需
+单个 joint CDF 点、又不持有 $\widehat F_M$ 或其他低秩表示，仅凭 Fubini
+分解一般不能把函数求值次数从 $n_D^K$ 降到 $K n_D$。
+\item 局部投影近似误差按 TTNS sensitivity 加权进入 CDF 误差；同一输入
+配置下的全部 sensitivity 可由两次 sweep 同时算出（命题 \ref{prop:sweep}），
+而误差预算实际需要的\emph{有序 hybrid} sensitivity 在把 telescoping 顺序取为
+后序遍历后可由三次 sweep 同时算出（命题 \ref{prop:hybsweep}），因此该误差
+分解可以作为可执行的自适应精化判据。
+\item 截断、局部求积与 edge CDF 近似（三者经 sensitivity 加权，合为
+$\varepsilon^{\mathrm{loc}}$），加上外层 node-delay 求积、卷积网格插值与
+边界钳制（三者经非扩张算子 telescoping 直接相加，即
+$\varepsilon^{\mathrm{nq}},\varepsilon^{\mathrm{grid}},
+\varepsilon^{\mathrm{bdry}}$），合成一个
+闭合的单层预算（定理 \ref{thm:fullbudget}），并给出显式收敛率
+（推论 \ref{cor:convergence}）。
+\item 联合 CDF 的计算代价有一个由联合结构图树宽参数化的条件性上界（定理
+\ref{thm:tw}），并可同时恢复与完整输出规模一致的下界（注 \ref{rem:twtight}）；
+平方 TTNS 不改变联合结构图及其 treewidth 指数；它把 rank 与物理域大小从
+$r,m$ 替换为 $r^{2},m^{2}$，故若把代价重新表示成原始 $r,m$ 的函数，相应幂次
+加倍
+（推论 \ref{cor:squared}）。这里的下界来自材料化整张输出表所需的 $G^{s}$ 个
+元素，\emph{不}是对实例复杂度的一般 treewidth 下界：特殊因子即使联合图树宽
+很高也可能容易收缩。凡需要精确复杂度处应引用定理 \ref{thm:tw} 的
+分项表达式；把两项合并成单一指数时须取 $W^{\tw(\Gcal_S^{+})+2}$ 而非
+$+1$（注 \ref{rem:twexp}）。表 \S\ref{sec:twtable} 给出的具体拓扑数值由
+一个确定性审计脚本生成，联合结构图顶点数超过 $21$ 时为上界而非精确树宽。
+\item 在局部 delay 独立且父状态直径有限时，max-plus channel 的信息
+contraction 由一维 node-delay 平移 TV 模量显式控制（定理
+\ref{thm:localch}）。
+\item 整层 total correlation 的收缩因子可取为各局部 channel 在其自身输入
+边缘下 KL contraction coefficient 的最大值（引理 \ref{lem:tcsdpi}、定理
+\ref{thm:fanout}），\emph{不含随层宽显式增长的惩罚因子}；多层累计中初始
+依赖按层数几何衰减，但每层新增的 fan-out 注入使总上界一般停在一个非零
+渐近上界（上界残余项）上（推论 \ref{cor:multilayer} 与注 \ref{rem:floor}）；
+该残余项是上界表达式的极限，不蕴含实际 total correlation 的非零下界。该结论
+\emph{不}依赖乘积信道 input-independent 系数
+的张量化（后者一般不成立，见注 \ref{rem:notensorize}）。
+\item 在有限网格上，经典 tree projection 恒等式可以与上述信息预算组合，
+得到 tree 结构损失的上下预算区间。
+\end{itemize}
+
+\subsection{不由本文结论推出的内容}
+
+以下几条本文明确不予主张，列出以便读者界定范围。
+
+\begin{itemize}
+\item 本文不涉及非凸 TTNS 参数优化的全局收敛性；
+$R_\ell^{T_Y}\to Q_\ell$ 一步是优化问题，不在本文三条主线之内。
+\item 不在缺少 $C^2$ 光滑性时宣称梯形公式有二阶收敛（注
+\ref{rem:secondorder}）。
+\item Chow--Liu 恒等式、Pinsker 不等式、DPI/SDPI、Dobrushin 系数与
+product-channel contraction 均为经典工具，本文不主张其为新结果。
+\item 不从 $\delta_a\le1$ 推出严格信息衰减；严格衰减需验证 $\delta_a<1$，
+或使用 source-dependent／nonlinear SDPI。
+\item 不把有限网格 total correlation 界直接当作原始连续 TTNS 分布的界；
+两者的关系受推论 \ref{cor:window} 的量化窗口约束。
+\item 定理 \ref{thm:tw} 是“给定树分解即可达到”的条件性上界；精确计算树宽
+本身是 NP-难的（注 \ref{rem:twhard}）。
+\end{itemize}
+
+\subsection{必须保留的技术边界}
+
+\begin{enumerate}
+\item \textbf{局部噪声独立性。}
+定理 \ref{thm:exact} 允许 node-delay 向量相关，因为它只对 $D$ 的联合分布
+取外层期望；但命题 \ref{prop:tensorconv} 的张量积分解与定理
+\ref{thm:fanout} 的信息预算都要求不同输出的局部 delay 随机源独立。若
+$D_a=D_b=Z$ 是同一个非退化随机变量，而父输入都是常数，则
+$I(U_a;U_b)=0$，但 $Y_a=Y_b=Z$ 且
+$I(Y_a;Y_b)=H(Z)>0$（离散 $Z$ 时）。因此相关公共噪声可以自行注入输出依赖，
+原信息预算不再成立。
+
+\item \textbf{连续共享父变量。}
+若 $U_a$ 和 $U_b$ 精确共享一个非原子连续变量，则
+$I(U_a;U_b)$ 通常为无穷，因为联合分布位于 product space 的对角子流形上。
+所以不能把有限状态公式
+\[
+I(U_a;U_b)=H(C_{ab})+I(A_{ab};B_{ab}\mid C_{ab})
+\]
+机械改成 differential entropy。连续情形应使用本文给出的
+$I(C_{ab};Y_a)$、$I(C_{ab};Y_b)$ 和 conditional MI 版本，或者先明确量化
+尺度再分析有限网格变量。
+
+\item \textbf{compact-support noise 的退化界。}
+若 $D_a\sim\mathrm{Uniform}[0,w_a]$ 且 $\Delta_a\ge w_a$，则平移模量上界为
+$1$。这不是证明失败，而是说明仅凭全局直径和该 node noise 无法保证严格
+contraction。此时可以从局部条件 CDF 直接计算更紧的 $\delta_a$，但不能假设
+edge noise 必然把它降到 $1$ 以下。
+
+\item \textbf{无界输入。}
+若 $\Delta_a=\infty$，则全局 Dobrushin 系数对常见 additive-noise channels
+往往等于 $1$。这时应使用有限支撑/高概率截断后的定理，或引用带 input
+constraint 的 nonlinear SDPI；不能写全局指数衰减
+\cite{PolyanskiyWu2016,Calmon2018}。
+
+\item \textbf{没有普适的正下界。}
+仅凭上一层 total correlation 和 DAG topology，无法给下一层
+$\TC(Y)$ 或 tree 损失提供正下界：把独立 node noise 放大到足够强，可以让
+各输出任意接近独立。因此 tree 损失下界中保留实际
+$\TC_R(Y)$ 不是形式缺陷，而是一般情形下不可消除的信息。
+
+\item \textbf{TTNS 与信息定理的角色。}
+定理 \ref{thm:fanout} 与推论 \ref{cor:multilayer} 对任何上一层分布成立，
+并不依赖 TTNS。TTNS 的作用是：在相关联合结构图具有可控 treewidth、
+或所需目标只涉及低维 marginal／pair table 时，使局部 channel、marginals、
+pair tables 与有限网格 entropy 可以通过结构化收缩计算（定理
+\ref{thm:tw}）。TTNS 表示本身\emph{不}保证高维完整联合 PMF 或其 entropy
+可高效计算——完整 $K$ 维输出表仍有 $G^K$ 个元素。不应把一个一般的
+channel theorem 说成“只有 TTNS 才成立”。相应地，真正依赖 TTNS 的是定理
+\ref{thm:exact}、\ref{thm:fullbudget} 与 \ref{thm:tw}。
+
+\item \textbf{量化窗口。}
+有限状态整层界的非平凡性受推论 \ref{cor:window} 的约束：细化网格会放大
+fan-out 熵项目前可得的最坏情形上界，而完全不改善收缩因子。使用该界时必须
+先固定物理合理的取值范围，
+再选取量化间距，不能把 $\varepsilon\to0$ 当作趋向连续极限。注
+\ref{rem:windowtension} 同时指出，这条张力发生在界的层面，不是关于实际
+量化熵的断言。
+\end{enumerate}
+
+\subsection{可以扩张的方向}
+
+本文定理可以自然扩张到以下情况，但正式论文中应逐一声明条件。
+
+\begin{itemize}
+\item 上游不是单棵 TTNS，而是 independent TTNS forest；此时 $\mathcal C_T$
+替换为 forest 中各棵树收缩的乘积。
+\item 对精确 CDF 收缩，node-delay 向量 $D$ 可以有联合分布；若要使用信息预算，
+则需把公共噪声显式作为共享 latent variable 加入右侧预算。
+\item $K$ 可以是任意有限正整数；完整 joint table 审计中的 $K=3$ 只是计算限制。
+\item 平方 TTNS 密度 $p=\psi^2/Z$ 可以通过 doubled network 得到同类收缩公式，
+但 sensitivity 常数应针对 doubled contraction 重新定义。
+\item 连续变量的 tree projection 可以写成密度版本，但 KL、微分熵和共享父
+奇异性更容易产生技术细节；正文建议把 fan-out 累计界和 tree 预算明确写成
+有限网格版本，把连续 pair 条件互信息界单列。
+\item 若希望在 uniform delay 下获得非平凡系数，可以研究基于实际 source
+distribution 的 $\eta_{\KL}(K_a,P_{U_a})$ 或 nonlinear $F_I$ curve；这需要
+新的证明或可验证有限维优化，不能把全局 $\delta_a$ 直接替换成经验数。
+\end{itemize}
+
+\subsection{尚待完成的工作}
+\label{sec:todo}
+
+以下几项是本文有意留待后续的，列出以便界定当前稿件的完成度。
+
+\begin{itemize}
+\item 数值实验。本文只做理论；与实现的一致性核对（注 \ref{rem:implconv}、
+\ref{rem:sweepgain}、推论 \ref{cor:s1}--\ref{cor:forest}）是对现有代码的
+只读比对，不构成对定理 \ref{thm:tw} 复杂度标度的实测。定理
+\ref{thm:fullbudget} 各项常数的实际量级、推论 \ref{cor:squared} 的平方
+标度、命题 \ref{prop:sweep} 与 \ref{prop:hybsweep} 的实测加速比都需要独立实验。
+\S\ref{sec:twtable} 的树宽表是唯一的例外：它只是小图组合计算，已由确定性
+审计脚本给出可复算入口，但它核对的是\emph{图的树宽}，不是实际运行时间。
+\item 顶点数超过 $21$ 的联合结构图的精确树宽。\S\ref{sec:twtable} 后八行为 min-fill／min-degree
+上界；若要把“该拓扑至少这么贵”写成结论，需要接入专门的精确树宽求解器
+（如 BT/QuickBB 或 PACE 参赛实现），本文未做。
+\item 引理 \ref{lem:tcsdpi} 只用到 \cite[Theorem 4]{PolyanskiyWu2017} 对
+一般（非有限）字母表的版本；该文 Appendix A.3 给出一般情形的证明，本文按其
+陈述使用。若审稿要求，可把本文的有限状态推论（推论 \ref{cor:multilayer}、
+\ref{cor:window}）显式限制到有限字母表以规避该技术条件。
+\item $\eta_{\KL}(K_a,P_{U_a})$ 的可计算上界。本文只用
+$\eta_{\KL}(K_a,P_{U_a})\le\delta_a$；固定输入系数的更紧估计（如经
+$\eta_{\chi^2}$ 与 \cite[Theorem 11]{MakurZheng2015} 的加权界）尚未纳入。
+\item \S\ref{sec:related} 的 bib 条目：现有条目已按 \S\ref{sec:related}
+开头说明的来源（期刊条目经 Crossref、预印本经 arXiv/DataCite）核对，
+尚待完成的是投稿时按目标期刊格式重排，以及跟踪各预印本是否已正式出版。
+\item 英文版本。
+\end{itemize}
+
+\subsection{主线的两种组织方式}
+
+本文按“精确收缩 $\to$ 误差预算 $\to$ 复杂度 $\to$ 信息预算”的顺序展开，
+便于逐步引入记号。投稿时若篇幅受限，建议改为如下顺序，把最不依赖附加
+假设的结果前置：
+\[
+\begin{aligned}
+&\text{(1) TTNS max-plus 精确 CDF 收缩（定理 \ref{thm:exact}）}\\
+&\quad\to
+\text{(2) 树宽复杂度判据（定理 \ref{thm:tw}）}\\
+&\quad\to
+\text{(3) 闭合单层误差预算（定理 \ref{thm:fullbudget}）}\\
+&\quad\to
+\text{(4) 连续 pair 信息预算（定理 \ref{thm:pair}）}\\
+&\quad\to
+\text{(5) 有限状态整层与多层界（定理 \ref{thm:fanout}、推论
+\ref{cor:multilayer}）}.
+\end{aligned}
+\]
+理由是 (1)--(4) 都不需要量化，而 (5) 受推论 \ref{cor:window} 的量化窗口
+约束；把连续 pair 界置于有限状态界之前，可以让读者先看到不受该约束影响的
+结论。命题 \ref{prop:sweep}、\ref{prop:hybsweep}、\ref{prop:tensorconv}
+与局部误差的细节
+（定理 \ref{thm:localerr} 及其推论）适合放入附录。Chow--Liu 恒等式全程标为
+经典结果。
+
+\section{符号表}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.24\textwidth}
+                  >{\raggedright\arraybackslash}p{0.66\textwidth}}
+\toprule
+符号 & 含义\\
+\midrule
+\endhead
+$X$ & 上游随机向量。\\
+$Y$ & 单层 max-plus 传播后的下游随机向量。\\
+$d$ & 上游维数。本文中 $d$ 只表示维数，不再表示 node-delay 取值。\\
+$K$ & 单层下游输出维数。\\
+$t=(t_1,\ldots,t_K)$ & node-delay 向量 $D$ 的一个实现值。\\
+$P_a$ & 下游节点 $a$ 的父节点集合。\\
+$\Pset$ & 全部父节点的并集 $\bigcup_a P_a$。\\
+$H_k$ & 受上游节点 $k$ 影响的下游节点集合。\\
+$E_{ka}$ & 从上游节点 $k$ 到下游节点 $a$ 的 edge delay。\\
+$D_a$ & 下游节点 $a$ 的 node delay。\\
+$F_{ka}$ & edge delay $E_{ka}$ 的 CDF。\\
+$\widehat F_{ka}$ & $F_{ka}$ 的数值近似，取值限定在 $[0,1]$（假设
+\ref{ass:clip}）。\\
+$b_{k,i}$ & 上游坐标 $k$ 的第 $i$ 个一维基函数。\\
+$A$ & TTNS core 收缩诱导的完整系数张量。\\
+$\mathcal C_T$ & TTNS 多线性收缩函数。\\
+$T=(V,E)$ & 承载 TTNS 的树结构。\\
+$M_{k,i}(y,t)$ & max-plus CDF 的第 $k$ 个局部投影向量的第 $i$ 个分量。\\
+$S_k$ & 第 $k$ 个局部投影的 TTNS sensitivity 向量。\\
+$\delta_T(k),\deg_T(k)$ & 树 $T$ 中与节点 $k$ 相邻的边集合及其基数。\\
+$\deg_T^{\max}$ & 树 $T$ 的最大度数 $\max_k\deg_T(k)$。\\
+$U_{k\to k'}$ & environment sweep 中沿树边 $\{k,k'\}$ 的消息（命题
+\ref{prop:sweep}）。\\
+$\widehat U_{c\to\pa(c)}$ & 用近似输入 $\widehat z$ 计算的上行消息（命题
+\ref{prop:hybsweep}）。\\
+$V_{p\to c}$ & hybrid 下行消息：路径祖先取 $z$、编号在前的兄弟子树取
+$\widehat z$、在后的取 $z$（命题 \ref{prop:hybsweep}）。\\
+$u_{-k}^{\mathrm{hyb}}$ & 第 $k$ 个有序 hybrid 环境
+$(\widehat z_1,\ldots,\widehat z_{k-1},z_{k+1},\ldots,z_d)$，标号取
+$T$ 的后序遍历。\\
+$I_{k,i}=[\alpha_{k,i},\beta_{k,i}]$ & 局部投影积分使用的截断区间。\\
+$h_{k,i}$ & 局部投影求积步长。\\
+$B_{k,i}^{(2)}$ & 局部 integrand 二阶导数上界。\\
+$\ecdf_{k,i,a}$ & edge CDF 插值或近似误差。\\
+$\tau_{k,i}$ & 截断区间外的基函数绝对质量（尾部项）。\\
+$\Lambda_{k,i}$ & 梯形权重下的基函数绝对质量。\\
+$\Eerr_k(y,t)$ & 第 $k$ 个坐标上三类局部误差之和。\\
+$F_M,\widehat F_M$ & 加 node delay 之前的中间联合 CDF 及其数值近似
+（命题 \ref{prop:tensorconv}）。\\
+$\mathcal K_{\mu_a}^{(a)}$ & 沿第 $a$ 轴与 $\mu_a$ 的精确卷积算子；
+$\mathcal K_{\widehat\mu_a}^{(a)}$ 为把 $\mu_a$ 换成离散近似 $\widehat\mu_a$
+后的版本。\\
+$\mathcal Y_a$ & 第 $a$ 个输出坐标轴上的有限计算网格
+$\{y_a^{(1)}<\cdots<y_a^{(G)}\}$；$h_a^{\mathrm{out}}$ 为其最大间距。\\
+$\pi_a$ & 把第 $a$ 坐标钳制到 $[y_a^{\min},y_a^{\max}]$ 的点映射
+（定义 \ref{def:implop}）。\\
+$\Pi_a$ & 沿第 $a$ 轴在 $\mathcal Y_a$ 上的分段线性插值算子。\\
+$\widetilde{\mathcal K}_a$ & 实现所使用的逐轴卷积算子
+$\widetilde{\mathcal K}_a=$（离散求积）$\circ\,\Pi_a\circ\pi_a$
+（定义 \ref{def:implop}）；$\widetilde F_Y=\widetilde{\mathcal K}_K\circ
+\cdots\circ\widetilde{\mathcal K}_1\widehat F_M$ 为实现实际输出的近似。\\
+$\theta_a^-(G),\theta_a^+(G)$ & 函数 $G$ 在第 $a$ 轴网格左端以下、右端以上
+的振幅（越界钳制的代价，引理 \ref{lem:gridbd}）。\\
+$\widehat L_a$ & $\widehat F_M$ 关于第 $a$ 坐标的 Lipschitz 常数。\\
+$\varrho_a(n_D)$ & $W_1$ 距离 $W_1(\mu_a,\widehat\mu_a)$ 本身，$n_D$ 为该轴
+求积点数（其速率上界见式 \eqref{eq:w1rate}）。\\
+$\varepsilon^{\mathrm{loc}}$ & 局部投影误差经 sensitivity 加权后的贡献。\\
+$\varepsilon^{\mathrm{nq}}$ & node-delay 外层求积误差
+$\sum_a\widehat L_a\varrho_a(n_D)$。\\
+$\varepsilon^{\mathrm{grid}}$ & 逐轴卷积内部使用有限网格分段线性插值产生的
+误差。\\
+$\varepsilon^{\mathrm{bdry}}$ & 把网格外求值钳制到首尾网格点产生的误差
+$\sum_a[\theta_a^-+\theta_a^+]$。\\
+$\varepsilon^{\mathrm{itp}}$ & 从计算网格插值到其他求值点的最终插值误差
+（定理 \ref{thm:fullbudget} 的可选附加项）。\\
+$K_a$ & 下游节点 $a$ 的局部 max-plus Markov kernel。\\
+$\Kprod$ & 整层乘积信道 $\prod_a K_a$。\\
+$\mathcal K_\ell$ & 第 $\ell$ 层传播诱导的 Markov kernel。\\
+$\delta_a$ & 局部 channel $K_a$ 的 Dobrushin coefficient
+$\eta_{\TV}(K_a)$。\\
+$\eta_{\KL}(K_a)$ & 局部 channel 的 input-independent KL contraction
+coefficient；$\eta_{\KL}(K_a)\le\delta_a$。\\
+$\eta_{\KL}(K_a,Q)$ & 局部 channel 在固定输入参考分布 $Q$ 下的
+source-dependent KL contraction coefficient（定义 \ref{def:etasrc}）；
+$\eta_{\KL}(K_a,Q)\le\eta_{\KL}(K_a)$。\\
+$\eta_{\KL}(\Kprod)$ & 整层乘积信道的 input-independent KL contraction
+coefficient。本文\emph{不}使用它，且它一般\emph{不}等于
+$\max_a\eta_{\KL}(K_a)$（注 \ref{rem:notensorize}）。\\
+$\eta^\star$ & 整层 KL 收缩因子 $\max_a\eta_{\KL}(K_a,P_{U_a})$
+（定理 \ref{thm:fanout}）。\\
+$\delta^\star$ & 整层 Dobrushin 上界 $\max_a\delta_a$，满足
+$\eta^\star\le\delta^\star$。\\
+$\mathcal U_a$ & 节点 $a$ 允许的父状态集合（假设 \ref{ass:support}）。\\
+$\Delta_a$ & 允许父状态集合 $\mathcal U_a$ 的 $\ell_\infty$ 直径。\\
+$\omega_{D_a}(t)$ & node delay 分布在平移距离不超过 $t$ 时的最大 TV。\\
+$A_{ab},B_{ab},C_{ab}$ & 节点 $a,b$ 的独占父变量和共享父变量。\\
+$\phi_i$ & 上一层父节点 $i$ 被多少个下游节点读取，即 fan-out。\\
+$\Gamma$ & 整层 product channel 的 Dobrushin 上界
+$1-\prod_a(1-\delta_a)$。\\
+$B_\ell$ & 第 $\ell$ 层的 fan-out entropy 注入上界。\\
+$\TCs_\ell$ & 第 $\ell$ 层输出的 total correlation。\\
+$L$ & 层数（推论 \ref{cor:multilayer}）。本文中 $L$ 只表示层数；
+$L_a,\widehat L_a$ 是带下标的 Lipschitz 常数。\\
+$\Rq,\varepsilon$ & 量化半径与量化间距：网格
+$\mathcal Y^{\mathrm{q}}\subset[-\Rq,\Rq]$（式 \eqref{eq:gridset}），
+格点数 $N=\lfloor2\Rq/\varepsilon\rfloor+1$（式 \eqref{eq:Ndef}）。\\
+$q_{\Rq,\varepsilon}$ & 带饱和的\emph{上取整}逐坐标量化器
+$\R\to\mathcal Y^{\mathrm{q}}$（式 \eqref{eq:quantizer}），取值 cell 为左开
+右闭区间（式 \eqref{eq:qcells}），与式 \eqref{eq:pmfdiff} 的混合有限差分逐点
+相容。\\
+$\Qq$ & $q_{\Rq,\varepsilon}$ 诱导的确定性 Markov kernel
+$\Qq(u,\cdot)=\delta_{q_{\Rq,\varepsilon}(u)}$。不写作 $Q$，以免与层分布
+$Q_\ell$、分位数函数、$\eta_{\KL}(K_a,Q)$ 中的参考分布及
+$Q\in\calT(T_Y)$ 冲突。\\
+$K_a^{\mathrm{q}}$ & 量化 channel $K_a\Qq$（式 \eqref{eq:qchannel}），满足
+$\eta_{\TV}(K_a^{\mathrm{q}})\le\eta_{\TV}(K_a)$（式 \eqref{eq:qdpi}）。\\
+$q,G$ & 上游一维求积点数与每个输出坐标轴上的网格点数。\\
+$\widetilde G^{(k)}$ & 投影 core（定义 \ref{def:projcore}）。\\
+$\xi_k,\alpha_e,\upsilon_a$ & 离散化 sum-product 中的上游求积指标、bond
+指标与输出网格指标。\\
+$\Gcal_S$ & 关于输出子集 $S$ 的联合结构图（定义 \ref{def:joint}）；
+$\Gcal_S^{+}$ 为额外把 $\{\upsilon_a\}_{a\in S}$ 补成团后所得的图。\\
+$\tw(\cdot)$ & 图的树宽。\\
+$r,m$ & 最大 bond dimension $r=\max_{e\in E}r_e$（$E=\varnothing$ 时约定
+$r=1$，见式 \eqref{eq:rmdef}）与最大物理维 $m=\max_k m_k$。\\
+$W$ & 最大变量域大小 $\max\{q,r,m,G\}$（式 \eqref{eq:rmW}）；平方 TTNS
+情形记 $W_2=\max\{q,r^2,m^2,G\}$（推论 \ref{cor:squared}）。\\
+$\mathsf W$ & \eqref{eq:mikl} 中 SDPI 变分刻画所用的辅助随机变量（与
+$W$ 无关）。\\
+$\Delta_T^{\max}$ & 树 $T$ 的最大度数，等于 $\deg_T^{\max}$。\\
+$R$ & 量化后输出向量的\emph{精确} PMF
+$R(y)=\Prob[q_{\Rq,\varepsilon}(Y)=y]$（式 \eqref{eq:Rpmf}，等价地由真实
+$F_Y$ 差分的式 \eqref{eq:pmfdiff}），不是 CDF 数值表。\\
+$\widehat R$ & 由\emph{数值} CDF 表 $\widehat F_Y$ 差分得到的\emph{数值混合差分
+数组}（式 \eqref{eq:pmfdiffhat}），即一个 PMF candidate：尾部约定下其总和自动
+为 $1$，但未必非负，故只有通过非负性检验后才可称为 PMF；一般
+$\widehat R\ne R$，适用边界见注 \ref{rem:pmfstab}。\\
+$T_Y$ & 下游输出坐标上的 tree projection 树，与上游 TTNS 树 $T$ 不同。\\
+$\calT(T_Y)$ & 按树 $T_Y$ 分解的分布族，用有根条件分解定义
+（式 \eqref{eq:treefamily}，含零概率状态时仍良定义）。\\
+$R^{T_Y}$ & $R$ 到 tree family $\calT(T_Y)$ 的 KL projection。\\
+$D_{\KL}$ & Kullback-Leibler divergence。\\
+$\TV$ & total variation distance。\\
+$\TC$ & total correlation。\\
+\bottomrule
+\end{longtable}
+
+\begin{thebibliography}{99}
+\sloppy
+
+\bibitem{Ando2019}
+E. Ando.
+\newblock The distribution function of the longest path length in constant
+treewidth DAGs with random edge length.
+\newblock arXiv preprint arXiv:1910.09791, 2019 (rev.\ 2022).
+\newblock \href{https://arxiv.org/abs/1910.09791}{arXiv:1910.09791}.
+
+\bibitem{Ando2026}
+E. Ando.
+\newblock The complexity of computing path length distributions with edges
+i.i.d.\ random via local uniformity.
+\newblock arXiv preprint arXiv:2607.10195, 2026.
+\newblock \href{https://arxiv.org/abs/2607.10195}{arXiv:2607.10195}.
+
+\bibitem{Baccelli1992}
+F. Baccelli, G. Cohen, G. J. Olsder, and J.-P. Quadrat.
+\newblock \emph{Synchronization and Linearity: An Algebra for Discrete Event
+Systems}.
+\newblock Wiley, Chichester, 1992.
+\newblock 作者提供的在线版本见
+\href{https://www.rocq.inria.fr/metalau/cohen/SED/book-online.html}
+{book-online}。
+
+\bibitem{Blaauw2008}
+D. Blaauw, K. Chopra, A. Srivastava, and L. Scheffer.
+\newblock Statistical timing analysis: From basic principles to state of
+the art.
+\newblock \emph{IEEE Transactions on Computer-Aided Design of Integrated
+Circuits and Systems}, 27(4):589--607, 2008.
+\newblock DOI: \href{https://doi.org/10.1109/TCAD.2007.907047}
+{10.1109/TCAD.2007.907047}.
+
+\bibitem{Clark1961}
+C. E. Clark.
+\newblock The greatest of a finite set of random variables.
+\newblock \emph{Operations Research}, 9(2):145--162, 1961.
+\newblock DOI: \href{https://doi.org/10.1287/opre.9.2.145}
+{10.1287/opre.9.2.145}.
+
+\bibitem{ChowLiu1968}
+C. K. Chow and C. N. Liu.
+\newblock Approximating discrete probability distributions with dependence trees.
+\newblock \emph{IEEE Transactions on Information Theory}, 14(3):462--467, 1968.
+\newblock DOI: \href{https://doi.org/10.1109/TIT.1968.1054142}
+{10.1109/TIT.1968.1054142}.
+
+\bibitem{Cohen1993}
+J. E. Cohen, Y. Iwasa, Gh. Rautu, M. B. Ruskai, E. Seneta, and Gh. Zbaganu.
+\newblock Relative entropy under mappings by stochastic matrices.
+\newblock \emph{Linear Algebra and its Applications}, 179:211--235, 1993.
+\newblock DOI: \href{https://doi.org/10.1016/0024-3795(93)90331-H}
+{10.1016/0024-3795(93)90331-H}.
+
+\bibitem{CsiszarKorner1981}
+I. Csisz\'ar and J. K\"orner.
+\newblock \emph{Information Theory: Coding Theorems for Discrete Memoryless
+Systems}.
+\newblock Academic Press, New York, 1981.
+
+\bibitem{MakurZheng2015}
+A. Makur and L. Zheng.
+\newblock Bounds between contraction coefficients.
+\newblock In \emph{53rd Annual Allerton Conference on Communication, Control,
+and Computing}, pages 1422--1429, 2015.
+\newblock DOI: \href{https://doi.org/10.1109/ALLERTON.2015.7447178}
+{10.1109/\allowbreak ALLERTON.2015.\allowbreak 7447178}.
+
+\bibitem{PolyanskiyWu2016}
+Y. Polyanskiy and Y. Wu.
+\newblock Dissipation of information in channels with input constraints.
+\newblock \emph{IEEE Transactions on Information Theory}, 62(1):35--55, 2016.
+\newblock DOI: \href{https://doi.org/10.1109/TIT.2015.2482978}
+{10.1109/\allowbreak TIT.2015.\allowbreak 2482978}.
+
+\bibitem{PolyanskiyWu2017}
+Y. Polyanskiy and Y. Wu.
+\newblock Strong data-processing inequalities for channels and Bayesian networks.
+\newblock In \emph{Convexity and Concentration}, pages 211--249. Springer, 2017.
+\newblock DOI: \href{https://doi.org/10.1007/978-1-4939-7005-6_7}
+{10.1007/978-1-4939-7005-6\_7}.
+
+\bibitem{Calmon2018}
+F. P. Calmon, Y. Polyanskiy, and Y. Wu.
+\newblock Strong data processing inequalities for input constrained additive noise channels.
+\newblock \emph{IEEE Transactions on Information Theory}, 64(3):1879--1892, 2018.
+\newblock DOI: \href{https://doi.org/10.1109/TIT.2017.2782359}
+{10.1109/TIT.2017.2782359}.
+
+\bibitem{Dmitriev2026}
+D. Dmitriev, Z. Huang, and Y. Wei.
+\newblock Efficient sampling with discrete diffusion models: sharp and
+adaptive guarantees.
+\newblock To appear in {\em Proceedings of the Conference on Learning Theory
+(COLT)}, 2026.
+\newblock \href{https://arxiv.org/abs/2602.15008}{arXiv:2602.15008}.
+
+\bibitem{Dolgov2020}
+S. Dolgov, K. Anaya-Izquierdo, C. Fox, and R. Scheichl.
+\newblock Approximation and sampling of multivariate probability
+distributions in the tensor train decomposition.
+\newblock \emph{Statistics and Computing}, 30(3):603--625, 2020.
+\newblock DOI: \href{https://doi.org/10.1007/s11222-019-09910-z}
+{10.1007/s11222-019-09910-z}.
+
+\bibitem{EvansSchulman1999}
+W. S. Evans and L. J. Schulman.
+\newblock Signal propagation and noisy circuits.
+\newblock \emph{IEEE Transactions on Information Theory}, 45(7):2367--2373,
+1999.
+\newblock DOI: \href{https://doi.org/10.1109/18.796377}{10.1109/18.796377}.
+
+\bibitem{Hagstrom1988}
+J. N. Hagstrom.
+\newblock Computational complexity of PERT problems.
+\newblock \emph{Networks}, 18(2):139--147, 1988.
+\newblock DOI: \href{https://doi.org/10.1002/net.3230180206}
+{10.1002/net.3230180206}.
+
+\bibitem{Mishagli2024}
+D. Mishagli, E. Koskin, and E. Blokhina.
+\newblock Gate-level statistical timing analysis: Exact solutions,
+approximations and algorithms.
+\newblock arXiv preprint arXiv:2401.03588, 2024.
+\newblock \href{https://arxiv.org/abs/2401.03588}{arXiv:2401.03588}.
+
+\bibitem{Novikov2021}
+G. S. Novikov, M. E. Panov, and I. V. Oseledets.
+\newblock Tensor-train density estimation.
+\newblock In \emph{Proceedings of UAI 2021}, PMLR 161:1321--1331, 2021.
+\newblock \href{https://proceedings.mlr.press/v161/novikov21a.html}
+{Proceedings page}.
+
+\bibitem{Oseledets2011}
+I. V. Oseledets.
+\newblock Tensor-train decomposition.
+\newblock \emph{SIAM Journal on Scientific Computing}, 33(5):2295--2317, 2011.
+\newblock DOI: \href{https://doi.org/10.1137/090752286}{10.1137/090752286}.
+
+\bibitem{Peng2023}
+R. Peng, J. Gray, and G. K.-L. Chan.
+\newblock Arithmetic circuit tensor networks, multivariable function
+representation, and high-dimensional integration.
+\newblock {\em Physical Review Research}, 5(1):013156, 2023.
+\newblock \href{https://doi.org/10.1103/PhysRevResearch.5.013156}%
+{doi:10.1103/PhysRevResearch.5.013156}；预印本
+\href{https://arxiv.org/abs/2209.07410}{arXiv:2209.07410}.
+
+\bibitem{Raginsky2016}
+M. Raginsky.
+\newblock Strong data processing inequalities and $\Phi$-Sobolev inequalities
+for discrete channels.
+\newblock \emph{IEEE Transactions on Information Theory}, 62(6):3355--3389,
+2016.
+\newblock DOI: \href{https://doi.org/10.1109/TIT.2016.2549542}
+{10.1109/TIT.2016.2549542}.
+
+\bibitem{RoaVillescas2024}
+M. Roa-Villescas, X. Gao, S. Stuijk, H. Corporaal, and J.-G. Liu.
+\newblock Probabilistic inference in the era of tensor networks and
+differential programming.
+\newblock {\em Physical Review Research}, 6(3):033261, 2024.
+\newblock \href{https://doi.org/10.1103/PhysRevResearch.6.033261}%
+{doi:10.1103/PhysRevResearch.6.033261}；预印本
+\href{https://arxiv.org/abs/2405.14060}{arXiv:2405.14060}.
+
+\bibitem{RobevaSeigal2019}
+E. Robeva and A. Seigal.
+\newblock Duality of graphical models and tensor networks.
+\newblock \emph{Information and Inference: A Journal of the IMA},
+8(2):273--288, 2019.
+\newblock DOI: \href{https://doi.org/10.1093/imaiai/iay009}
+{10.1093/imaiai/iay009}.
+
+\bibitem{Watanabe1960}
+S. Watanabe.
+\newblock Information theoretical analysis of multivariate correlation.
+\newblock \emph{IBM Journal of Research and Development}, 4(1):66--82, 1960.
+\newblock DOI: \href{https://doi.org/10.1147/rd.41.0066}{10.1147/rd.41.0066}.
+
+\bibitem{Witsenhausen1975}
+H. S. Witsenhausen.
+\newblock On sequences of pairs of dependent random variables.
+\newblock \emph{SIAM Journal on Applied Mathematics}, 28(1):100--113, 1975.
+\newblock DOI: \href{https://doi.org/10.1137/0128010}{10.1137/0128010}.
+
+\bibitem{Yuan2026}
+W. Yuan, S. Jeong, and A. Aghazadeh.
+\newblock On the error-correcting effects of stochasticity in discrete
+diffusion.
+\newblock arXiv preprint arXiv:2605.26582, 2026.
+\newblock \href{https://arxiv.org/abs/2605.26582}{arXiv:2605.26582}.
+
+\end{thebibliography}
+
+\end{document}
