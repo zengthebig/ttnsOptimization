@@ -1,0 +1,2140 @@
+{
+  "schema_version": 1,
+  "experiment": "deterministic_multilayer_ttns_maxplus_error_audit",
+  "status": "pass",
+  "scope": {
+    "continuous_single_layer": "K=3 full joint on a common finite output grid",
+    "finite_state_multilayer": "K=3, L=4 exact probability-mass propagation",
+    "not_claimed": [
+      "continuous high-dimensional TV certification",
+      "statistical significance",
+      "large-scale runtime scaling",
+      "general quadrature convergence order"
+    ]
+  },
+  "continuous_single_layer": {
+    "configuration": {
+      "K": 3,
+      "input_density": "two-component mixture of product Beta densities",
+      "mixture_weights": [
+        0.45,
+        0.55
+      ],
+      "output_parents": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "edge_delay": {
+        "kind": "uniform",
+        "lo": 0.0,
+        "hi": 0.3
+      },
+      "node_delay": "zero",
+      "output_grid_points": 31,
+      "output_grid_range": [
+        -0.1,
+        1.4
+      ],
+      "q_grid_default": 401,
+      "q_grid_reference": 4001,
+      "tree_rank_limit": 3,
+      "materialization": "nonnegative rank-limited conditional factorizations; these induce an explicit tree tensor network with bond rank at most the rank limit",
+      "nmf_steps": 600,
+      "conditional_probability_floor": 1e-12,
+      "seed": 20260727
+    },
+    "error_definition": "TV between normalized cell-mass tables obtained from a common output CDF grid; this is a grid-estimated/discretized error, not a certified continuous TV bound",
+    "tree_parent": [
+      -1,
+      2,
+      0
+    ],
+    "tree_edge_weights_mutual_information": [
+      [
+        1.0,
+        0.0041497914709608934,
+        0.08364504324311228
+      ],
+      [
+        0.0041497914709608934,
+        1.0,
+        0.11392925633568965
+      ],
+      [
+        0.08364504324311228,
+        0.11392925633568965,
+        1.0
+      ]
+    ],
+    "quantitative_structure": {
+      "kl_to_chow_liu_tree": 0.09987655233239562,
+      "total_correlation": 0.29745085191119713,
+      "selected_edge_mutual_information_sum": 0.19757429957880193,
+      "tc_minus_edge_mi": 0.0998765523323952,
+      "conditional_mutual_information_terms": [
+        {
+          "node": 2,
+          "tree_parent": 0,
+          "omitted_previous_nodes": [],
+          "conditional_mutual_information": 0.0
+        },
+        {
+          "node": 1,
+          "tree_parent": 2,
+          "omitted_previous_nodes": [
+            0
+          ],
+          "conditional_mutual_information": 0.09987655233239412
+        }
+      ],
+      "conditional_mutual_information_sum": 0.09987655233239412,
+      "kl_identity_abs_error": 4.163336342344337e-16,
+      "cmi_identity_abs_error": 1.4988010832439613e-15,
+      "pinsker_tv_upper_bound": 0.22346873644024082,
+      "actual_structural_tv": 0.13626580865047355,
+      "reference_tree_parent": [
+        -1,
+        2,
+        0
+      ],
+      "max_edge_mi_estimation_abs_error": 8.373685401491526e-06,
+      "true_mi_weight_of_reference_optimal_tree": 0.1975617610664318,
+      "true_mi_weight_of_selected_tree": 0.1975617610664318,
+      "tree_selection_true_mi_regret": 0.0,
+      "tree_selection_regret_upper_bound": 3.3494741605966105e-05,
+      "tree_selection_bound_violation": 0.0
+    },
+    "quantitative_rank": {
+      "rank_limit": 3,
+      "edge_cut_spectra": [
+        {
+          "edge": [
+            2,
+            1
+          ],
+          "cut_left": [
+            1
+          ],
+          "cut_right": [
+            0,
+            2
+          ],
+          "singular_values": [
+            0.022635051404788945,
+            0.006553680284931974,
+            0.00232199961766192,
+            0.0006527200795794098,
+            0.0004071060325231083,
+            0.0003602832562631384,
+            0.00014766904018102204,
+            0.00012368391007767942,
+            0.00010982427895184773,
+            6.365477993802832e-05,
+            3.870962469111563e-05,
+            1.9630232784520518e-05,
+            1.6119046778563244e-05,
+            7.952738573296066e-06,
+            6.949597756013451e-06,
+            6.257286779471546e-06,
+            2.169284808561754e-06,
+            8.97639732075282e-07,
+            8.339813151489704e-07,
+            3.445981915409589e-07,
+            2.8899210218798154e-07,
+            2.1622369773174558e-08,
+            1.2616647125806048e-09,
+            3.6587632943161225e-11,
+            2.188824873756487e-13,
+            2.495530751596331e-17,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rank_tail_frobenius": 0.000881533163417189,
+          "rank_tail_energy": 7.771007182043163e-07
+        },
+        {
+          "edge": [
+            0,
+            2
+          ],
+          "cut_left": [
+            1,
+            2
+          ],
+          "cut_right": [
+            0
+          ],
+          "singular_values": [
+            0.022885206790685817,
+            0.005726800267806572,
+            0.0020853205849188173,
+            0.0006138706868338022,
+            0.00030829306005169594,
+            0.00027156152549642087,
+            0.00014612032971965286,
+            9.279420855650486e-05,
+            8.18677822183749e-05,
+            5.4853692721582934e-05,
+            3.764623543796739e-05,
+            2.0521520896559138e-05,
+            1.5285934765825054e-05,
+            1.1764968069820049e-05,
+            6.3772878197368e-06,
+            3.4275354849751765e-06,
+            1.733186430278889e-06,
+            7.699471679503461e-07,
+            2.799309493022172e-07,
+            7.59228847907335e-08,
+            1.512813769037944e-08,
+            2.8200602873568843e-09,
+            3.139563493476472e-10,
+            1.4435090231032497e-11,
+            1.2792374917077687e-13,
+            2.316534006983198e-17,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rank_tail_frobenius": 0.0007665293311302991,
+          "rank_tail_energy": 5.875672154830638e-07
+        }
+      ],
+      "best_possible_frobenius_lower_bound": 0.000881533163417189,
+      "tree_svd_tail_upper_bound": 0.0011681900246481222,
+      "constructed_unconstrained_tt_svd_frobenius": 0.0011630347457801426,
+      "actual_nonnegative_materialization_frobenius": 0.0015595926384806434,
+      "nonnegative_materialization_minus_lower_bound": 0.0006780594750634545,
+      "tt_svd_bound_violation": 0.0,
+      "rank_lower_bound_violation": 0.0
+    },
+    "quantitative_nonnegative_fit": {
+      "per_edge": [
+        {
+          "edge": [
+            2,
+            1
+          ],
+          "parent_weighted_conditional_tv": 0.02817577062785135,
+          "supremum_conditional_tv": 0.21432724852043877,
+          "parent_weighted_conditional_kl": 0.014325196779981992,
+          "conditional_pinsker_tv_upper_bound": 0.08463213568137694
+        },
+        {
+          "edge": [
+            0,
+            2
+          ],
+          "parent_weighted_conditional_tv": 0.023634444010035238,
+          "supremum_conditional_tv": 0.20548943182335783,
+          "parent_weighted_conditional_kl": 0.006585888185140695,
+          "conditional_pinsker_tv_upper_bound": 0.057384179810905614
+        }
+      ],
+      "parent_weighted_sum_bound": 0.051810214637886584,
+      "supremum_sum_bound": 0.4198166803437966,
+      "conditional_kl_sum": 0.020911084965122687,
+      "joint_fit_kl": 0.020911084965122378,
+      "factorized_kl_identity_abs_error": 3.0878077872387166e-16,
+      "joint_pinsker_tv_upper_bound": 0.10225234707605096,
+      "cross_entropy_excess_nats": 0.020911084965122687,
+      "joint_cell_count": 29791,
+      "joint_frobenius_error": 0.0015595926384806434,
+      "frobenius_to_tv_upper_bound": 0.13459338685250086,
+      "actual_fit_tv": 0.04014403304101749,
+      "weighted_bound_violation": 0.0,
+      "supremum_bound_violation": 0.0,
+      "joint_pinsker_bound_violation": 0.0,
+      "frobenius_to_tv_bound_violation": 0.0
+    },
+    "fully_explicit_local_bound": {
+      "numerical_grid_tv": 4.2114269693312994e-05,
+      "structural_kl_nats": 0.09987655233239562,
+      "structural_pinsker_tv": 0.22346873644024082,
+      "fit_conditional_kl_nats": 0.020911084965122687,
+      "fit_pinsker_tv": 0.10225234707605096,
+      "fit_hybrid_conditional_tv": 0.051810214637886584,
+      "fit_bound_used": 0.051810214637886584,
+      "total_upper_bound": 0.2753210653478207
+    },
+    "errors": {
+      "eta_numeric_grid_tv": 4.2114269693312994e-05,
+      "eta_structure_grid_tv": 0.13626580865047355,
+      "eta_fit_grid_tv": 0.04014403304101749,
+      "actual_total_grid_tv": 0.1426858508416457,
+      "triangle_sum_bound": 0.17645195596118435,
+      "triangle_slack": 0.03376610511953865,
+      "actual_total_grid_l2": 0.00545956135631875
+    },
+    "diagnostics": {
+      "reference_pmf": {
+        "raw_sum": 1.0,
+        "raw_min": 0.0,
+        "negative_mass_before_clipping": -0.0,
+        "normalization_abs_error_after": 0.0
+      },
+      "default_pmf": {
+        "raw_sum": 1.0,
+        "raw_min": 0.0,
+        "negative_mass_before_clipping": -0.0,
+        "normalization_abs_error_after": 0.0
+      },
+      "reference_cdf_min": 0.0,
+      "reference_cdf_max": 1.0,
+      "reference_cdf_monotonicity_violation": 0.0,
+      "marginal_consistency_max_abs": 1.1102230246251565e-16,
+      "pair_consistency_max_abs": 2.220446049250313e-16,
+      "output_permutation_max_abs": 0.0,
+      "nmf_conditional_frobenius_residuals": {
+        "1": 0.021330751726421588,
+        "2": 0.016800290633703547
+      }
+    },
+    "runtime_seconds": 0.7722784580000006
+  },
+  "finite_state_multilayer": {
+    "configuration": {
+      "K": 3,
+      "L": 4,
+      "state_grid": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "initial_distribution": "two-component mixture of product discrete Gaussian profiles",
+      "output_parents": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "edge_delay_pmf": [
+        0.65,
+        0.35
+      ],
+      "upper_boundary": "saturated at state 16",
+      "global_dobrushin_coefficient": 1.0,
+      "global_dobrushin_witness": {
+        "input_state_a": [
+          0,
+          0,
+          0
+        ],
+        "input_state_b": [
+          16,
+          16,
+          16
+        ],
+        "reason": "their conditional output supports are disjoint"
+      },
+      "node_delay": "zero",
+      "tree_rank_limit": 3,
+      "materialization": "nonnegative rank-limited conditional factorizations; these induce an explicit tree tensor network with bond rank at most the rank limit",
+      "nmf_steps": 600,
+      "conditional_probability_floor": 1e-12,
+      "seed_base": 20260727
+    },
+    "error_definition": "exact total variation between normalized finite-state probability mass tables",
+    "layers": [
+      {
+        "layer": 1,
+        "tree_parent": [
+          -1,
+          2,
+          0
+        ],
+        "tree_edge_weights_mutual_information": [
+          [
+            1.0,
+            0.10166441362198823,
+            0.2992981535417686
+          ],
+          [
+            0.10166441362198823,
+            1.0,
+            0.13512905828223162
+          ],
+          [
+            0.2992981535417686,
+            0.13512905828223162,
+            1.0
+          ]
+        ],
+        "quantitative_structure": {
+          "kl_to_chow_liu_tree": 0.10748840259187867,
+          "total_correlation": 0.5419156144158768,
+          "selected_edge_mutual_information_sum": 0.43442721182400024,
+          "tc_minus_edge_mi": 0.10748840259187653,
+          "conditional_mutual_information_terms": [
+            {
+              "node": 2,
+              "tree_parent": 0,
+              "omitted_previous_nodes": [],
+              "conditional_mutual_information": 0.0
+            },
+            {
+              "node": 1,
+              "tree_parent": 2,
+              "omitted_previous_nodes": [
+                0
+              ],
+              "conditional_mutual_information": 0.1074884025918772
+            }
+          ],
+          "conditional_mutual_information_sum": 0.1074884025918772,
+          "kl_identity_abs_error": 2.1371793224034263e-15,
+          "cmi_identity_abs_error": 1.4710455076283324e-15,
+          "pinsker_tv_upper_bound": 0.23182795624328686,
+          "actual_structural_tv": 0.11817041035197348
+        },
+        "quantitative_rank": {
+          "rank_limit": 3,
+          "edge_cut_spectra": [
+            {
+              "edge": [
+                2,
+                1
+              ],
+              "cut_left": [
+                1
+              ],
+              "cut_right": [
+                0,
+                2
+              ],
+              "singular_values": [
+                0.1532004742072652,
+                0.04740985921548968,
+                0.016282501234348115,
+                0.004435692261749786,
+                0.0014135445102192953,
+                8.90396946594838e-05,
+                4.9459411681694406e-05,
+                1.57852294900347e-05,
+                2.2816691557228091e-07,
+                3.888614363230564e-10,
+                1.9712788148971168e-13,
+                4.2323926543557914e-17,
+                3.413013255278434e-33,
+                8.27783774369189e-49,
+                2.790914150589459e-64,
+                5.883656379074757e-80,
+                1.5890136469073137e-95
+              ],
+              "rank_tail_frobenius": 0.004656618671254641,
+              "rank_tail_energy": 2.1684097449477335e-05
+            },
+            {
+              "edge": [
+                0,
+                2
+              ],
+              "cut_left": [
+                1,
+                2
+              ],
+              "cut_right": [
+                0
+              ],
+              "singular_values": [
+                0.14266879589043363,
+                0.07065545935989372,
+                0.024351022168944136,
+                0.007952692355488497,
+                0.001427943527392586,
+                0.00021881012759764995,
+                1.4932893191984136e-05,
+                3.71889238426008e-06,
+                3.024327934816229e-07,
+                2.4561576018369925e-10,
+                3.8272450676527836e-14,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rank_tail_frobenius": 0.00808284932454714,
+              "rank_tail_energy": 6.533245320333217e-05
+            }
+          ],
+          "best_possible_frobenius_lower_bound": 0.00808284932454714,
+          "tree_svd_tail_upper_bound": 0.009328266219014631,
+          "constructed_unconstrained_tt_svd_frobenius": 0.009201592641151715,
+          "actual_nonnegative_materialization_frobenius": 0.014013268628709266,
+          "nonnegative_materialization_minus_lower_bound": 0.005930419304162125,
+          "tt_svd_bound_violation": 0.0,
+          "rank_lower_bound_violation": 0.0
+        },
+        "quantitative_nonnegative_fit": {
+          "per_edge": [
+            {
+              "edge": [
+                2,
+                1
+              ],
+              "parent_weighted_conditional_tv": 0.023427386359824047,
+              "supremum_conditional_tv": 0.8696188297238603,
+              "parent_weighted_conditional_kl": 0.018459895083271748,
+              "conditional_pinsker_tv_upper_bound": 0.09607261598205742
+            },
+            {
+              "edge": [
+                0,
+                2
+              ],
+              "parent_weighted_conditional_tv": 0.04684851206276794,
+              "supremum_conditional_tv": 0.9994493316466075,
+              "parent_weighted_conditional_kl": 0.027421982094358366,
+              "conditional_pinsker_tv_upper_bound": 0.11709394112070523
+            }
+          ],
+          "parent_weighted_sum_bound": 0.07027589842259199,
+          "supremum_sum_bound": 1.8690681613704678,
+          "conditional_kl_sum": 0.045881877177630113,
+          "joint_fit_kl": 0.045881877177629454,
+          "factorized_kl_identity_abs_error": 6.591949208711867e-16,
+          "joint_pinsker_tv_upper_bound": 0.1514626640093681,
+          "cross_entropy_excess_nats": 0.045881877177630113,
+          "joint_cell_count": 4913,
+          "joint_frobenius_error": 0.014013268628709266,
+          "frobenius_to_tv_upper_bound": 0.4911145870887425,
+          "actual_fit_tv": 0.059350885494078534,
+          "weighted_bound_violation": 0.0,
+          "supremum_bound_violation": 0.0,
+          "joint_pinsker_bound_violation": 0.0,
+          "frobenius_to_tv_bound_violation": 0.0
+        },
+        "fully_explicit_local_bound": {
+          "numerical_tv": 0.0,
+          "numerical_reason": "finite-state max-plus propagation is evaluated by exact finite sums",
+          "structural_kl_nats": 0.10748840259187867,
+          "structural_pinsker_tv": 0.23182795624328686,
+          "fit_conditional_kl_nats": 0.045881877177630113,
+          "fit_pinsker_tv": 0.1514626640093681,
+          "fit_hybrid_conditional_tv": 0.07027589842259199,
+          "fit_bound_used": 0.07027589842259199,
+          "local_upper_bound": 0.30210385466587886
+        },
+        "errors": {
+          "inherited_tv": 0.0,
+          "propagated_tv_before_materialization": 0.0,
+          "eta_structure_tv": 0.11817041035197348,
+          "eta_fit_tv": 0.059350885494078534,
+          "eta_local_total_tv": 0.14104870851809007,
+          "eta_structure_plus_fit_bound": 0.17752129584605203,
+          "actual_global_tv": 0.14104870851809007,
+          "one_step_bound": 0.14104870851809007,
+          "cumulative_bound": 0.14104870851809007,
+          "observed_distribution_pair_contraction_ratio": 0.0,
+          "quantitative_local_upper_bound": 0.30210385466587886,
+          "quantitative_one_step_bound": 0.30210385466587886,
+          "sharpened_quantitative_bound_using_observed_propagated_tv": 0.30210385466587886,
+          "quantitative_cumulative_bound": 0.30210385466587886,
+          "recurrence_slack": 0.0,
+          "cumulative_slack": 0.0
+        },
+        "diagnostics": {
+          "true_pmf": {
+            "raw_sum": 0.999999999999999,
+            "raw_min": -3.3306690738754696e-16,
+            "negative_mass_before_clipping": 2.3869795029440866e-15,
+            "normalization_abs_error_after": 0.0
+          },
+          "propagated_approx_pmf": {
+            "raw_sum": 0.999999999999999,
+            "raw_min": -3.3306690738754696e-16,
+            "negative_mass_before_clipping": 2.3869795029440866e-15,
+            "normalization_abs_error_after": 0.0
+          },
+          "true_cdf_min": 1.4208674973458473e-05,
+          "true_cdf_max": 0.9999999999999989,
+          "true_cdf_monotonicity_violation": 0.0,
+          "approx_cdf_monotonicity_violation": 0.0,
+          "marginal_consistency_max_abs": 1.3322676295501878e-15,
+          "pair_consistency_max_abs": 1.5543122344752192e-15,
+          "output_permutation_max_abs": 8.673617379884035e-19,
+          "nmf_conditional_frobenius_residuals": {
+            "1": 0.034337513106526454,
+            "2": 0.07999654330029378
+          }
+        },
+        "check_violations": {
+          "markov_contraction": 0.0,
+          "local_triangle": 0.0,
+          "one_step_recurrence": 0.0,
+          "cumulative_bound": 0.0,
+          "quantitative_one_step_bound": 0.0,
+          "sharpened_quantitative_bound": 0.0,
+          "quantitative_cumulative_bound": 0.0
+        }
+      },
+      {
+        "layer": 2,
+        "tree_parent": [
+          -1,
+          2,
+          0
+        ],
+        "tree_edge_weights_mutual_information": [
+          [
+            1.0,
+            0.24059102515070843,
+            0.27554414988128534
+          ],
+          [
+            0.24059102515070843,
+            1.0,
+            0.293095248602561
+          ],
+          [
+            0.27554414988128534,
+            0.293095248602561,
+            1.0
+          ]
+        ],
+        "quantitative_structure": {
+          "kl_to_chow_liu_tree": 0.11631298836905668,
+          "total_correlation": 0.6849523868529026,
+          "selected_edge_mutual_information_sum": 0.5686393984838463,
+          "tc_minus_edge_mi": 0.11631298836905635,
+          "conditional_mutual_information_terms": [
+            {
+              "node": 2,
+              "tree_parent": 0,
+              "omitted_previous_nodes": [],
+              "conditional_mutual_information": 0.0
+            },
+            {
+              "node": 1,
+              "tree_parent": 2,
+              "omitted_previous_nodes": [
+                0
+              ],
+              "conditional_mutual_information": 0.11631298836905568
+            }
+          ],
+          "conditional_mutual_information_sum": 0.11631298836905568,
+          "kl_identity_abs_error": 3.3306690738754696e-16,
+          "cmi_identity_abs_error": 9.992007221626409e-16,
+          "pinsker_tv_upper_bound": 0.24115657607564497,
+          "actual_structural_tv": 0.12579361118040136
+        },
+        "quantitative_rank": {
+          "rank_limit": 3,
+          "edge_cut_spectra": [
+            {
+              "edge": [
+                2,
+                1
+              ],
+              "cut_left": [
+                1
+              ],
+              "cut_right": [
+                0,
+                2
+              ],
+              "singular_values": [
+                0.1493104875083746,
+                0.07099971629239533,
+                0.02653047754334328,
+                0.007224055187231612,
+                0.0023993825930172133,
+                0.00022807210432647582,
+                2.744102320526548e-05,
+                7.006710077680924e-07,
+                7.432471808162729e-08,
+                1.3496536509796564e-10,
+                3.453033658824828e-13,
+                3.3096937607001466e-13,
+                2.0575567233091233e-13,
+                1.3609382121765795e-13,
+                7.71526612448189e-14,
+                3.39172367531869e-14,
+                8.67732083921511e-16
+              ],
+              "rank_tail_frobenius": 0.007615561736788198,
+              "rank_tail_energy": 5.7996780566832475e-05
+            },
+            {
+              "edge": [
+                0,
+                2
+              ],
+              "cut_left": [
+                1,
+                2
+              ],
+              "cut_right": [
+                0
+              ],
+              "singular_values": [
+                0.15123789804997737,
+                0.06759737836070066,
+                0.024437002677946337,
+                0.007049367150275284,
+                0.002669671375381013,
+                0.00038244085341747943,
+                5.1002608705398875e-05,
+                1.898377008207169e-05,
+                9.416111473218815e-08,
+                9.230910527995677e-10,
+                8.608684360897334e-11,
+                2.4119607174207073e-13,
+                1.1424961730396492e-14,
+                2.508823052229081e-16,
+                1.5490542357283195e-16,
+                2.945469564395688e-17,
+                1.1401052192389892e-27
+              ],
+              "rank_tail_frobenius": 0.007547843740881245,
+              "rank_tail_energy": 5.6969945136760186e-05
+            }
+          ],
+          "best_possible_frobenius_lower_bound": 0.007615561736788198,
+          "tree_svd_tail_upper_bound": 0.01072225376045506,
+          "constructed_unconstrained_tt_svd_frobenius": 0.010610108117045155,
+          "actual_nonnegative_materialization_frobenius": 0.019790608681602442,
+          "nonnegative_materialization_minus_lower_bound": 0.012175046944814244,
+          "tt_svd_bound_violation": 0.0,
+          "rank_lower_bound_violation": 0.0
+        },
+        "quantitative_nonnegative_fit": {
+          "per_edge": [
+            {
+              "edge": [
+                2,
+                1
+              ],
+              "parent_weighted_conditional_tv": 0.04457005593696998,
+              "supremum_conditional_tv": 0.948650984115914,
+              "parent_weighted_conditional_kl": 0.019727562891928986,
+              "conditional_pinsker_tv_upper_bound": 0.09931657185970774
+            },
+            {
+              "edge": [
+                0,
+                2
+              ],
+              "parent_weighted_conditional_tv": 0.05373175044096234,
+              "supremum_conditional_tv": 0.6606286258090504,
+              "parent_weighted_conditional_kl": 0.02380054392293008,
+              "conditional_pinsker_tv_upper_bound": 0.10908836767256645
+            }
+          ],
+          "parent_weighted_sum_bound": 0.09830180637793232,
+          "supremum_sum_bound": 1.6092796099249642,
+          "conditional_kl_sum": 0.043528106814859066,
+          "joint_fit_kl": 0.04352810681485847,
+          "factorized_kl_identity_abs_error": 5.967448757360216e-16,
+          "joint_pinsker_tv_upper_bound": 0.14752644985706542,
+          "cross_entropy_excess_nats": 0.043528106814859066,
+          "joint_cell_count": 4913,
+          "joint_frobenius_error": 0.019790608681602442,
+          "frobenius_to_tv_upper_bound": 0.6935895449108582,
+          "actual_fit_tv": 0.0774868452108619,
+          "weighted_bound_violation": 0.0,
+          "supremum_bound_violation": 0.0,
+          "joint_pinsker_bound_violation": 0.0,
+          "frobenius_to_tv_bound_violation": 0.0
+        },
+        "fully_explicit_local_bound": {
+          "numerical_tv": 0.0,
+          "numerical_reason": "finite-state max-plus propagation is evaluated by exact finite sums",
+          "structural_kl_nats": 0.11631298836905668,
+          "structural_pinsker_tv": 0.24115657607564497,
+          "fit_conditional_kl_nats": 0.043528106814859066,
+          "fit_pinsker_tv": 0.14752644985706542,
+          "fit_hybrid_conditional_tv": 0.09830180637793232,
+          "fit_bound_used": 0.09830180637793232,
+          "local_upper_bound": 0.3394583824535773
+        },
+        "errors": {
+          "inherited_tv": 0.14104870851809007,
+          "propagated_tv_before_materialization": 0.07169752009176786,
+          "eta_structure_tv": 0.12579361118040136,
+          "eta_fit_tv": 0.0774868452108619,
+          "eta_local_total_tv": 0.14661030218205348,
+          "eta_structure_plus_fit_bound": 0.20328045639126324,
+          "actual_global_tv": 0.18069277432811368,
+          "one_step_bound": 0.28765901070014355,
+          "cumulative_bound": 0.28765901070014355,
+          "observed_distribution_pair_contraction_ratio": 0.5083174517870354,
+          "quantitative_local_upper_bound": 0.3394583824535773,
+          "quantitative_one_step_bound": 0.4805070909716673,
+          "sharpened_quantitative_bound_using_observed_propagated_tv": 0.4111559025453452,
+          "quantitative_cumulative_bound": 0.6415622371194561,
+          "recurrence_slack": 0.10696623637202987,
+          "cumulative_slack": 0.10696623637202987
+        },
+        "diagnostics": {
+          "true_pmf": {
+            "raw_sum": 0.9999999999999988,
+            "raw_min": -1.1102230246251565e-16,
+            "negative_mass_before_clipping": 2.220446049250313e-16,
+            "normalization_abs_error_after": 0.0
+          },
+          "propagated_approx_pmf": {
+            "raw_sum": 0.9999999999999839,
+            "raw_min": -4.440892098500626e-16,
+            "negative_mass_before_clipping": 6.994405055138486e-15,
+            "normalization_abs_error_after": 1.1102230246251565e-16
+          },
+          "true_cdf_min": 1.0716025037494384e-06,
+          "true_cdf_max": 0.9999999999999988,
+          "true_cdf_monotonicity_violation": 0.0,
+          "approx_cdf_monotonicity_violation": 0.0,
+          "marginal_consistency_max_abs": 1.6209256159527285e-14,
+          "pair_consistency_max_abs": 1.6431300764452317e-14,
+          "output_permutation_max_abs": 5.551115123125783e-17,
+          "nmf_conditional_frobenius_residuals": {
+            "1": 0.06262903546517697,
+            "2": 0.074178825452296
+          }
+        },
+        "check_violations": {
+          "markov_contraction": 0.0,
+          "local_triangle": 0.0,
+          "one_step_recurrence": 0.0,
+          "cumulative_bound": 0.0,
+          "quantitative_one_step_bound": 0.0,
+          "sharpened_quantitative_bound": 0.0,
+          "quantitative_cumulative_bound": 0.0
+        }
+      },
+      {
+        "layer": 3,
+        "tree_parent": [
+          -1,
+          0,
+          0
+        ],
+        "tree_edge_weights_mutual_information": [
+          [
+            1.0,
+            0.31148651792427606,
+            0.3000714520883695
+          ],
+          [
+            0.31148651792427606,
+            1.0,
+            0.28667922567166854
+          ],
+          [
+            0.3000714520883695,
+            0.28667922567166854,
+            1.0
+          ]
+        ],
+        "quantitative_structure": {
+          "kl_to_chow_liu_tree": 0.13006584925654152,
+          "total_correlation": 0.7416238192691864,
+          "selected_edge_mutual_information_sum": 0.6115579700126456,
+          "tc_minus_edge_mi": 0.13006584925654086,
+          "conditional_mutual_information_terms": [
+            {
+              "node": 1,
+              "tree_parent": 0,
+              "omitted_previous_nodes": [],
+              "conditional_mutual_information": 0.0
+            },
+            {
+              "node": 2,
+              "tree_parent": 0,
+              "omitted_previous_nodes": [
+                1
+              ],
+              "conditional_mutual_information": 0.13006584925654163
+            }
+          ],
+          "conditional_mutual_information_sum": 0.13006584925654163,
+          "kl_identity_abs_error": 6.661338147750939e-16,
+          "cmi_identity_abs_error": 1.1102230246251565e-16,
+          "pinsker_tv_upper_bound": 0.25501553801341353,
+          "actual_structural_tv": 0.13968316036907188
+        },
+        "quantitative_rank": {
+          "rank_limit": 3,
+          "edge_cut_spectra": [
+            {
+              "edge": [
+                0,
+                1
+              ],
+              "cut_left": [
+                1
+              ],
+              "cut_right": [
+                0,
+                2
+              ],
+              "singular_values": [
+                0.14739870514732376,
+                0.06841560074384126,
+                0.0272145534189833,
+                0.00932509564175839,
+                0.003250383774556127,
+                0.00035647243413122,
+                0.00016367330919588816,
+                1.0475311651785318e-05,
+                3.6655910598174103e-08,
+                1.4030433570809795e-08,
+                4.7816063592850405e-11,
+                9.763904424898975e-13,
+                4.3467800825942525e-13,
+                2.917560234817617e-13,
+                1.7022693297846444e-13,
+                7.45143642233969e-14,
+                2.2903129100315403e-18
+              ],
+              "rank_tail_frobenius": 0.00988313587339425,
+              "rank_tail_energy": 9.767637469197235e-05
+            },
+            {
+              "edge": [
+                0,
+                2
+              ],
+              "cut_left": [
+                2
+              ],
+              "cut_right": [
+                0,
+                1
+              ],
+              "singular_values": [
+                0.14807390373744864,
+                0.06739197820071213,
+                0.026510085392264925,
+                0.008272067933749567,
+                0.002543624864183036,
+                0.00032495479714130074,
+                0.00018396578637780805,
+                1.004956577739217e-05,
+                4.9344513100966416e-08,
+                1.4865303258047418e-08,
+                5.096320923393905e-11,
+                1.0517187870544301e-12,
+                4.968284061536515e-13,
+                3.2395330569927895e-13,
+                1.8930821816294073e-13,
+                8.271968847343721e-14,
+                2.291173970048097e-18
+              ],
+              "rank_tail_frobenius": 0.008662371232949377,
+              "rank_tail_energy": 7.503667537742891e-05
+            }
+          ],
+          "best_possible_frobenius_lower_bound": 0.00988313587339425,
+          "tree_svd_tail_upper_bound": 0.013142033711317334,
+          "constructed_unconstrained_tt_svd_frobenius": 0.013002445942619378,
+          "actual_nonnegative_materialization_frobenius": 0.02452402252529616,
+          "nonnegative_materialization_minus_lower_bound": 0.01464088665190191,
+          "tt_svd_bound_violation": 0.0,
+          "rank_lower_bound_violation": 0.0
+        },
+        "quantitative_nonnegative_fit": {
+          "per_edge": [
+            {
+              "edge": [
+                0,
+                1
+              ],
+              "parent_weighted_conditional_tv": 0.06583867604917167,
+              "supremum_conditional_tv": 0.5097836416454569,
+              "parent_weighted_conditional_kl": 0.035553705102687634,
+              "conditional_pinsker_tv_upper_bound": 0.13332986368906186
+            },
+            {
+              "edge": [
+                0,
+                2
+              ],
+              "parent_weighted_conditional_tv": 0.057919494156386,
+              "supremum_conditional_tv": 0.6157898199099954,
+              "parent_weighted_conditional_kl": 0.03207282028540893,
+              "conditional_pinsker_tv_upper_bound": 0.1266349483464358
+            }
+          ],
+          "parent_weighted_sum_bound": 0.12375817020555767,
+          "supremum_sum_bound": 1.1255734615554522,
+          "conditional_kl_sum": 0.06762652538809656,
+          "joint_fit_kl": 0.06762652538809624,
+          "factorized_kl_identity_abs_error": 3.191891195797325e-16,
+          "joint_pinsker_tv_upper_bound": 0.18388382934355083,
+          "cross_entropy_excess_nats": 0.06762652538809656,
+          "joint_cell_count": 4913,
+          "joint_frobenius_error": 0.02452402252529616,
+          "frobenius_to_tv_upper_bound": 0.8594786495129939,
+          "actual_fit_tv": 0.09216799230577057,
+          "weighted_bound_violation": 0.0,
+          "supremum_bound_violation": 0.0,
+          "joint_pinsker_bound_violation": 0.0,
+          "frobenius_to_tv_bound_violation": 0.0
+        },
+        "fully_explicit_local_bound": {
+          "numerical_tv": 0.0,
+          "numerical_reason": "finite-state max-plus propagation is evaluated by exact finite sums",
+          "structural_kl_nats": 0.13006584925654152,
+          "structural_pinsker_tv": 0.25501553801341353,
+          "fit_conditional_kl_nats": 0.06762652538809656,
+          "fit_pinsker_tv": 0.18388382934355083,
+          "fit_hybrid_conditional_tv": 0.12375817020555767,
+          "fit_bound_used": 0.12375817020555767,
+          "local_upper_bound": 0.3787737082189712
+        },
+        "errors": {
+          "inherited_tv": 0.18069277432811368,
+          "propagated_tv_before_materialization": 0.0916270741241176,
+          "eta_structure_tv": 0.13968316036907188,
+          "eta_fit_tv": 0.09216799230577057,
+          "eta_local_total_tv": 0.17256235246710924,
+          "eta_structure_plus_fit_bound": 0.23185115267484246,
+          "actual_global_tv": 0.21906997162197697,
+          "one_step_bound": 0.3532551267952229,
+          "cumulative_bound": 0.4602213631672528,
+          "observed_distribution_pair_contraction_ratio": 0.5070876489932863,
+          "quantitative_local_upper_bound": 0.3787737082189712,
+          "quantitative_one_step_bound": 0.5594664825470849,
+          "sharpened_quantitative_bound_using_observed_propagated_tv": 0.4704007823430888,
+          "quantitative_cumulative_bound": 1.0203359453384273,
+          "recurrence_slack": 0.13418515517324595,
+          "cumulative_slack": 0.24115139154527584
+        },
+        "diagnostics": {
+          "true_pmf": {
+            "raw_sum": 1.0,
+            "raw_min": -3.3306690738754696e-16,
+            "negative_mass_before_clipping": 9.992007221626409e-16,
+            "normalization_abs_error_after": 2.220446049250313e-16
+          },
+          "propagated_approx_pmf": {
+            "raw_sum": 0.9999999999999922,
+            "raw_min": -5.551115123125783e-16,
+            "negative_mass_before_clipping": 7.105427357601002e-15,
+            "normalization_abs_error_after": 0.0
+          },
+          "true_cdf_min": 8.081907202375515e-08,
+          "true_cdf_max": 1.0,
+          "true_cdf_monotonicity_violation": 0.0,
+          "approx_cdf_monotonicity_violation": 0.0,
+          "marginal_consistency_max_abs": 8.659739592076221e-15,
+          "pair_consistency_max_abs": 7.993605777301127e-15,
+          "output_permutation_max_abs": 1.3877787807814457e-17,
+          "nmf_conditional_frobenius_residuals": {
+            "1": 0.08104579320669077,
+            "2": 0.06875912348064889
+          }
+        },
+        "check_violations": {
+          "markov_contraction": 0.0,
+          "local_triangle": 0.0,
+          "one_step_recurrence": 0.0,
+          "cumulative_bound": 0.0,
+          "quantitative_one_step_bound": 0.0,
+          "sharpened_quantitative_bound": 0.0,
+          "quantitative_cumulative_bound": 0.0
+        }
+      },
+      {
+        "layer": 4,
+        "tree_parent": [
+          -1,
+          0,
+          1
+        ],
+        "tree_edge_weights_mutual_information": [
+          [
+            1.0,
+            0.3397897092675425,
+            0.26448872316271377
+          ],
+          [
+            0.3397897092675425,
+            1.0,
+            0.3331655057303861
+          ],
+          [
+            0.26448872316271377,
+            0.3331655057303861,
+            1.0
+          ]
+        ],
+        "quantitative_structure": {
+          "kl_to_chow_liu_tree": 0.10943443692759747,
+          "total_correlation": 0.7823896519255253,
+          "selected_edge_mutual_information_sum": 0.6729552149979285,
+          "tc_minus_edge_mi": 0.1094344369275968,
+          "conditional_mutual_information_terms": [
+            {
+              "node": 1,
+              "tree_parent": 0,
+              "omitted_previous_nodes": [],
+              "conditional_mutual_information": 0.0
+            },
+            {
+              "node": 2,
+              "tree_parent": 1,
+              "omitted_previous_nodes": [
+                0
+              ],
+              "conditional_mutual_information": 0.10943443692759658
+            }
+          ],
+          "conditional_mutual_information_sum": 0.10943443692759658,
+          "kl_identity_abs_error": 6.661338147750939e-16,
+          "cmi_identity_abs_error": 8.881784197001252e-16,
+          "pinsker_tv_upper_bound": 0.2339171187916753,
+          "actual_structural_tv": 0.11970436019551851
+        },
+        "quantitative_rank": {
+          "rank_limit": 3,
+          "edge_cut_spectra": [
+            {
+              "edge": [
+                0,
+                1
+              ],
+              "cut_left": [
+                1,
+                2
+              ],
+              "cut_right": [
+                0
+              ],
+              "singular_values": [
+                0.142388032418032,
+                0.06860638034836068,
+                0.029363696112616328,
+                0.011340326863384865,
+                0.003219892785483471,
+                0.0008488450747709677,
+                0.00021053570005673464,
+                7.810646972303838e-06,
+                3.169933609588829e-07,
+                2.1027531125315084e-08,
+                2.8434430884338648e-11,
+                1.1138702029112863e-12,
+                4.053392415264863e-13,
+                2.53832136529672e-13,
+                1.0571459733133565e-13,
+                8.517767673744556e-16,
+                9.360854232042431e-26
+              ],
+              "rank_tail_frobenius": 0.01182098334604661,
+              "rank_tail_energy": 0.0001397356472675113
+            },
+            {
+              "edge": [
+                1,
+                2
+              ],
+              "cut_left": [
+                2
+              ],
+              "cut_right": [
+                0,
+                1
+              ],
+              "singular_values": [
+                0.1427957903703292,
+                0.0679341086476001,
+                0.029186338116917385,
+                0.010796435250793797,
+                0.0028895514427454785,
+                0.0008187909263300392,
+                0.00020807345566178055,
+                8.013909761669667e-06,
+                3.2552192023965383e-07,
+                2.35922783796106e-08,
+                2.695295223268299e-11,
+                1.0656476030063779e-12,
+                4.1025474216207915e-13,
+                2.540551777355632e-13,
+                1.0385151311405247e-13,
+                8.432577547296899e-16,
+                6.094603508338283e-18
+              ],
+              "rank_tail_frobenius": 0.011208313840097342,
+              "rank_tail_energy": 0.00012562629913811762
+            }
+          ],
+          "best_possible_frobenius_lower_bound": 0.01182098334604661,
+          "tree_svd_tail_upper_bound": 0.01628993389813565,
+          "constructed_unconstrained_tt_svd_frobenius": 0.016122999669825805,
+          "actual_nonnegative_materialization_frobenius": 0.025118582041415802,
+          "nonnegative_materialization_minus_lower_bound": 0.013297598695369192,
+          "tt_svd_bound_violation": 0.0,
+          "rank_lower_bound_violation": 0.0
+        },
+        "quantitative_nonnegative_fit": {
+          "per_edge": [
+            {
+              "edge": [
+                0,
+                1
+              ],
+              "parent_weighted_conditional_tv": 0.06957373726116123,
+              "supremum_conditional_tv": 0.6661917582000959,
+              "parent_weighted_conditional_kl": 0.034099569184856716,
+              "conditional_pinsker_tv_upper_bound": 0.1305748237311786
+            },
+            {
+              "edge": [
+                1,
+                2
+              ],
+              "parent_weighted_conditional_tv": 0.06177491499725141,
+              "supremum_conditional_tv": 0.6641065200113081,
+              "parent_weighted_conditional_kl": 0.03954358044945128,
+              "conditional_pinsker_tv_upper_bound": 0.14061219799407745
+            }
+          ],
+          "parent_weighted_sum_bound": 0.13134865225841263,
+          "supremum_sum_bound": 1.3302982782114041,
+          "conditional_kl_sum": 0.07364314963430799,
+          "joint_fit_kl": 0.07364314963430796,
+          "factorized_kl_identity_abs_error": 2.7755575615628914e-17,
+          "joint_pinsker_tv_upper_bound": 0.19188948594739103,
+          "cross_entropy_excess_nats": 0.07364314963430799,
+          "joint_cell_count": 4913,
+          "joint_frobenius_error": 0.025118582041415802,
+          "frobenius_to_tv_upper_bound": 0.8803158188412519,
+          "actual_fit_tv": 0.09819399492306818,
+          "weighted_bound_violation": 0.0,
+          "supremum_bound_violation": 0.0,
+          "joint_pinsker_bound_violation": 0.0,
+          "frobenius_to_tv_bound_violation": 0.0
+        },
+        "fully_explicit_local_bound": {
+          "numerical_tv": 0.0,
+          "numerical_reason": "finite-state max-plus propagation is evaluated by exact finite sums",
+          "structural_kl_nats": 0.10943443692759747,
+          "structural_pinsker_tv": 0.2339171187916753,
+          "fit_conditional_kl_nats": 0.07364314963430799,
+          "fit_pinsker_tv": 0.19188948594739103,
+          "fit_hybrid_conditional_tv": 0.13134865225841263,
+          "fit_bound_used": 0.13134865225841263,
+          "local_upper_bound": 0.36526577105008795
+        },
+        "errors": {
+          "inherited_tv": 0.21906997162197697,
+          "propagated_tv_before_materialization": 0.11397145568753447,
+          "eta_structure_tv": 0.11970436019551851,
+          "eta_fit_tv": 0.09819399492306818,
+          "eta_local_total_tv": 0.16469181167236216,
+          "eta_structure_plus_fit_bound": 0.21789835511858668,
+          "actual_global_tv": 0.2261520824822047,
+          "one_step_bound": 0.38376178329433913,
+          "cumulative_bound": 0.624913174839615,
+          "observed_distribution_pair_contraction_ratio": 0.5202513828969745,
+          "quantitative_local_upper_bound": 0.36526577105008795,
+          "quantitative_one_step_bound": 0.5843357426720649,
+          "sharpened_quantitative_bound_using_observed_propagated_tv": 0.4792372267376224,
+          "quantitative_cumulative_bound": 1.3856017163885153,
+          "recurrence_slack": 0.15760970081213443,
+          "cumulative_slack": 0.39876109235741025
+        },
+        "diagnostics": {
+          "true_pmf": {
+            "raw_sum": 1.0000000000000002,
+            "raw_min": -1.1102230246251565e-16,
+            "negative_mass_before_clipping": 3.3306690738754696e-16,
+            "normalization_abs_error_after": 2.220446049250313e-16
+          },
+          "propagated_approx_pmf": {
+            "raw_sum": 0.9999999999999991,
+            "raw_min": -8.881784197001252e-16,
+            "negative_mass_before_clipping": 5.88418203051333e-15,
+            "normalization_abs_error_after": 2.220446049250313e-16
+          },
+          "true_cdf_min": 6.095284753373584e-09,
+          "true_cdf_max": 1.0000000000000002,
+          "true_cdf_monotonicity_violation": 0.0,
+          "approx_cdf_monotonicity_violation": 0.0,
+          "marginal_consistency_max_abs": 1.887379141862766e-15,
+          "pair_consistency_max_abs": 1.887379141862766e-15,
+          "output_permutation_max_abs": 6.938893903907228e-18,
+          "nmf_conditional_frobenius_residuals": {
+            "1": 0.08640417311051575,
+            "2": 0.0766642336243231
+          }
+        },
+        "check_violations": {
+          "markov_contraction": 0.0,
+          "local_triangle": 0.0,
+          "one_step_recurrence": 0.0,
+          "cumulative_bound": 0.0,
+          "quantitative_one_step_bound": 0.0,
+          "sharpened_quantitative_bound": 0.0,
+          "quantitative_cumulative_bound": 0.0
+        }
+      }
+    ],
+    "maximum_inequality_violation": 2.1371793224034263e-15,
+    "runtime_seconds": 1.6506142910000001
+  },
+  "checks": [
+    {
+      "name": "single_layer_triangle_inequality",
+      "value": 0.1426858508416457,
+      "relation": "<=",
+      "threshold": 0.17645195601118435,
+      "passed": true
+    },
+    {
+      "name": "single_layer_reference_cdf_lower_range",
+      "value": -0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_reference_cdf_upper_range",
+      "value": 1.0,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "single_layer_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_marginal_consistency",
+      "value": 1.1102230246251565e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_pair_consistency",
+      "value": 2.220446049250313e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_output_permutation",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_normalization",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_reference_negative_mass",
+      "value": -0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_default_negative_mass",
+      "value": -0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_structural_error_nonzero",
+      "value": 0.13626580865047355,
+      "relation": ">",
+      "threshold": 1e-06,
+      "passed": true
+    },
+    {
+      "name": "single_layer_numeric_below_structural",
+      "value": 4.2114269693312994e-05,
+      "relation": "<=",
+      "threshold": 0.13626580865047355,
+      "passed": true
+    },
+    {
+      "name": "single_layer_structural_kl_identity",
+      "value": 4.163336342344337e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_structural_cmi_identity",
+      "value": 1.4988010832439613e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_structural_pinsker",
+      "value": 0.13626580865047355,
+      "relation": "<=",
+      "threshold": 0.22346873649024082,
+      "passed": true
+    },
+    {
+      "name": "single_layer_tree_selection_mi_regret",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 3.34947916059661e-05,
+      "passed": true
+    },
+    {
+      "name": "single_layer_tt_svd_tail_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_rank_lower_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_weighted_conditional_fit_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_supremum_conditional_fit_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_factorized_fit_kl_identity",
+      "value": 3.0878077872387166e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_joint_fit_pinsker",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "single_layer_frobenius_to_tv",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "multilayer_all_inequalities",
+      "value": 2.1371793224034263e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_true_cdf_lower_range",
+      "value": -1.4208674973458473e-05,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_true_cdf_upper_range",
+      "value": 0.9999999999999989,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L1_true_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_approx_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_marginal_consistency",
+      "value": 1.3322676295501878e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_pair_consistency",
+      "value": 1.5543122344752192e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_output_permutation",
+      "value": 8.673617379884035e-19,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_true_normalization",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_approx_normalization",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_true_negative_mass",
+      "value": 2.3869795029440866e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_approx_negative_mass",
+      "value": 2.3869795029440866e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_structural_kl_identity",
+      "value": 2.1371793224034263e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_structural_cmi_identity",
+      "value": 1.4710455076283324e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_structural_pinsker",
+      "value": 0.11817041035197348,
+      "relation": "<=",
+      "threshold": 0.23182795629328687,
+      "passed": true
+    },
+    {
+      "name": "L1_tt_svd_tail_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_rank_lower_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_weighted_conditional_fit_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_factorized_fit_kl_identity",
+      "value": 6.591949208711867e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_joint_fit_pinsker",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_frobenius_to_tv",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_observed_contraction_ratio",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L1_quantitative_one_step_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L1_quantitative_cumulative_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_true_cdf_lower_range",
+      "value": -1.0716025037494384e-06,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_true_cdf_upper_range",
+      "value": 0.9999999999999988,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L2_true_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_approx_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_marginal_consistency",
+      "value": 1.6209256159527285e-14,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_pair_consistency",
+      "value": 1.6431300764452317e-14,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_output_permutation",
+      "value": 5.551115123125783e-17,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_true_normalization",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_approx_normalization",
+      "value": 1.1102230246251565e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_true_negative_mass",
+      "value": 2.220446049250313e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_approx_negative_mass",
+      "value": 6.994405055138486e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_structural_kl_identity",
+      "value": 3.3306690738754696e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_structural_cmi_identity",
+      "value": 9.992007221626409e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_structural_pinsker",
+      "value": 0.12579361118040136,
+      "relation": "<=",
+      "threshold": 0.24115657612564498,
+      "passed": true
+    },
+    {
+      "name": "L2_tt_svd_tail_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_rank_lower_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_weighted_conditional_fit_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_factorized_fit_kl_identity",
+      "value": 5.967448757360216e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_joint_fit_pinsker",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_frobenius_to_tv",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_observed_contraction_ratio",
+      "value": 0.5083174517870354,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L2_quantitative_one_step_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L2_quantitative_cumulative_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_true_cdf_lower_range",
+      "value": -8.081907202375515e-08,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_true_cdf_upper_range",
+      "value": 1.0,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L3_true_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_approx_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_marginal_consistency",
+      "value": 8.659739592076221e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_pair_consistency",
+      "value": 7.993605777301127e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_output_permutation",
+      "value": 1.3877787807814457e-17,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_true_normalization",
+      "value": 2.220446049250313e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_approx_normalization",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_true_negative_mass",
+      "value": 9.992007221626409e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_approx_negative_mass",
+      "value": 7.105427357601002e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_structural_kl_identity",
+      "value": 6.661338147750939e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_structural_cmi_identity",
+      "value": 1.1102230246251565e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_structural_pinsker",
+      "value": 0.13968316036907188,
+      "relation": "<=",
+      "threshold": 0.25501553806341354,
+      "passed": true
+    },
+    {
+      "name": "L3_tt_svd_tail_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_rank_lower_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_weighted_conditional_fit_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_factorized_fit_kl_identity",
+      "value": 3.191891195797325e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_joint_fit_pinsker",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_frobenius_to_tv",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_observed_contraction_ratio",
+      "value": 0.5070876489932863,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L3_quantitative_one_step_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L3_quantitative_cumulative_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_true_cdf_lower_range",
+      "value": -6.095284753373584e-09,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_true_cdf_upper_range",
+      "value": 1.0000000000000002,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L4_true_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_approx_cdf_monotonicity",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_marginal_consistency",
+      "value": 1.887379141862766e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_pair_consistency",
+      "value": 1.887379141862766e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_output_permutation",
+      "value": 6.938893903907228e-18,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_true_normalization",
+      "value": 2.220446049250313e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_approx_normalization",
+      "value": 2.220446049250313e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_true_negative_mass",
+      "value": 3.3306690738754696e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_approx_negative_mass",
+      "value": 5.88418203051333e-15,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_structural_kl_identity",
+      "value": 6.661338147750939e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_structural_cmi_identity",
+      "value": 8.881784197001252e-16,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_structural_pinsker",
+      "value": 0.11970436019551851,
+      "relation": "<=",
+      "threshold": 0.2339171188416753,
+      "passed": true
+    },
+    {
+      "name": "L4_tt_svd_tail_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_rank_lower_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_weighted_conditional_fit_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_factorized_fit_kl_identity",
+      "value": 2.7755575615628914e-17,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_joint_fit_pinsker",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_frobenius_to_tv",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_observed_contraction_ratio",
+      "value": 0.5202513828969745,
+      "relation": "<=",
+      "threshold": 1.00000000005,
+      "passed": true
+    },
+    {
+      "name": "L4_quantitative_one_step_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    },
+    {
+      "name": "L4_quantitative_cumulative_bound",
+      "value": 0.0,
+      "relation": "<=",
+      "threshold": 5e-11,
+      "passed": true
+    }
+  ],
+  "summary": {
+    "passed_checks": 116,
+    "total_checks": 116,
+    "all_checks_passed": true,
+    "figures": [
+      "simple_ttns_l2/reports/multilayer_error_decomposition.png",
+      "simple_ttns_l2/reports/multilayer_error_bound.png",
+      "simple_ttns_l2/reports/multilayer_quantitative_diagnostics.png"
+    ],
+    "runtime_seconds": 2.9659740830000008
+  }
+}
