@@ -9,9 +9,15 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 
-\setCJKmainfont{PingFang SC}
-\setCJKsansfont{PingFang SC}
-\setCJKmonofont{PingFang SC}
+\IfFontExistsTF{PingFang SC}{%
+  \setCJKmainfont{PingFang SC}
+  \setCJKsansfont{PingFang SC}
+  \setCJKmonofont{PingFang SC}
+}{%
+  \setCJKmainfont{FandolSong-Regular}
+  \setCJKsansfont{FandolHei-Regular}
+  \setCJKmonofont{FandolFang-Regular}
+}
 \renewcommand{\abstractname}{摘要}
 \renewcommand{\contentsname}{目录}
 \renewcommand{\proofname}{证明}
@@ -326,9 +332,10 @@ w_k(x;y,t)=\prod_{a\in H_k}F_{ka}(y_a-t_a-x),
 \begin{remark}[外层期望的可测性与良定义性]
 \label{rem:measurable}
 对每个 $(k,i)$，被积函数 $(x,t)\mapsto b_{k,i}(x)\prod_{a\in H_k}
-F_{ka}(y_a-t_a-x)$ 关于 $x$ 可测，关于 $t$ 逐点连续于每个 $F_{ka}$ 的连续
-点集；由于 $F_{ka}$ 单调，其不连续点至多可数，故该函数在
-$\R\times\R^K$ 上联合可测。又因为所有 CDF 取值于 $[0,1]$，被积函数被
+F_{ka}(y_a-t_a-x)$ 在 $\R\times\R^K$ 上联合 Borel 可测：仿射映射
+$(x,t)\mapsto y_a-t_a-x$ 连续（从而 Borel），单调函数 $F_{ka}$ Borel
+可测，二者复合仍 Borel；与 Borel 可测的 $b_{k,i}$ 作有限乘积后依旧联合
+Borel 可测。又因为所有 CDF 取值于 $[0,1]$，被积函数被
 $|b_{k,i}|\in L^1(\R)$ 控制，由控制收敛定理，
 $t\mapsto M_{k,i}(y,t)$ 有界可测，且
 $|M_{k,i}(y,t)|\le\int_\R|b_{k,i}|$。由于 $\mathcal C_T$ 是有限多线性
@@ -1519,10 +1526,19 @@ F_Y-\widetilde F_Y
 _{\text{(III)}} .
 \]
 
-(I) 由引理 \ref{lem:nonexp}，$\mathcal A$ 是若干非扩张算子之复合，故
-$\|\mathcal A(F_M-\widehat F_M)\|_\infty\le\|F_M-\widehat F_M\|_\infty$。而
-$F_M-\widehat F_M$ 在每个求值点上正是推论 \ref{cor:local2joint} 中 $t$
-固定时的被积量，故被 $\varepsilon^{\mathrm{loc}}(y)$ 控制。
+(I) 该项即 $\mathcal A(F_M-\widehat F_M)=F_Y-\widehat F_Y$，正是推论
+\ref{cor:local2joint} 所界定的对象（外层 node-delay 期望精确、仅含局部投影
+误差）。由 $\mathcal A=\bigotimes_a\mathcal K_{\mu_a}^{(a)}$ 的外层期望表示
+$(\mathcal A g)(y)=\E_D[g(y-D)]$ 与 Jensen 不等式，
+\[
+\bigl|(\mathrm{I})(y)\bigr|
+\le\E_D\bigl|(F_M-\widehat F_M)(y-D)\bigr|
+\le\E_D\Bigl[\sum_{k=1}^{d}\Eerr_k(y,D)\,\|S_k(u_{-k}^{\mathrm{hyb}}(y,D))\|_\infty\Bigr]
+\le\varepsilon^{\mathrm{loc}}(y).
+\]
+（这是 $y$-局部化的紧界；引理 \ref{lem:nonexp} 的非扩张性只给出与 $y$
+无关的全局上界 $\|F_M-\widehat F_M\|_\infty\ge\varepsilon^{\mathrm{loc}}(y)$，
+故此处采用上述更紧的路线。）
 
 (II) 沿坐标轴做算子 telescoping，
 \[
